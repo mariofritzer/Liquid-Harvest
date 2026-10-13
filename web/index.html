@@ -213,12 +213,12 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
   <div class="sh-head"><h2 style="font-size:18px">Video ausrichten</h2></div>
   <div class="seg" id="va_pos" style="margin:8px 0"></div>
   <p class="help" id="va_hint" style="margin:4px 0 8px"></p>
-  <div class="f"><label>Gläser platzieren</label><button class="sbtn gold" id="va_auto">Automatisch</button></div>
-  <div class="f"><label>Abstand unter Auslauf</label><input type="range" id="va_gdy" min="-40" max="120" step="1" style="width:55%"></div>
+  <div class="f"><label>Automatisch ausrichten<small>Drehpunkt → Scheibenmitte, Gläser unter die Rohrspitzen</small></label><button class="sbtn gold" id="va_auto">Automatisch</button></div>
+  <div class="f"><label>Abstand Auslauf ↔ Glas</label><input type="range" id="va_gdy" min="0" max="120" step="1" style="width:55%"></div>
   <div class="f"><label>Glasgröße</label><input type="range" id="va_gs" min="0.3" max="2.5" step="0.01" style="width:55%"></div>
-  <div class="f"><label>Video Größe</label><input type="range" id="va_w" min="200" max="1600" step="2" style="width:55%"></div>
-  <div class="f"><label>Video links / rechts</label><input type="range" id="va_x" min="-900" max="300" step="1" style="width:55%"></div>
-  <div class="f"><label>Video oben / unten</label><input type="range" id="va_y" min="-700" max="200" step="1" style="width:55%"></div>
+  <div class="f"><label>Video Größe</label><input type="range" id="va_w" min="200" max="2600" step="2" style="width:55%"></div>
+  <div class="f"><label>Video links / rechts</label><input type="range" id="va_x" min="-1600" max="600" step="1" style="width:55%"></div>
+  <div class="f"><label>Video oben / unten</label><input type="range" id="va_y" min="-1400" max="400" step="1" style="width:55%"></div>
   <div class="row2" style="margin-top:8px"><button class="btn" id="va_cancel">Abbrechen</button><button class="btn primary" id="va_ok">Speichern</button></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -418,11 +418,30 @@ function glassBase(i){
   if(v.tips&&v.tips[i]) return {u:v.tips[i].u, v:v.tips[i].v, tip:true};
   return null;
 }
+// Schwenkkreis aus den Rohrspitzen: achsparallele Ellipse a·x²+c·y²+d·x+e·y=1 (kleinste Quadrate)
+// -> Mittelpunkt = Drehpunkt. Video so skalieren/verschieben, dass der Drehpunkt in der Scheibenmitte
+// liegt und die Gläser auf dem Ring der Holzscheibe stehen.
+function autoAlign(v){
+  const S=100, pts=(v.tips||[]).filter(Boolean).map(t=>[t.u*v.fw/S,t.v*v.fh/S]); if(pts.length<4) return false;   // skaliert -> stabil
+  const A=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]], b=[0,0,0,0];
+  for(const [x,y] of pts){ const r=[x*x,y*y,x,y]; for(let i=0;i<4;i++){ b[i]+=r[i]; for(let j=0;j<4;j++) A[i][j]+=r[i]*r[j]; } }
+  for(let i=0;i<4;i++){ let m=i; for(let k=i+1;k<4;k++) if(Math.abs(A[k][i])>Math.abs(A[m][i])) m=k; [A[i],A[m]]=[A[m],A[i]]; [b[i],b[m]]=[b[m],b[i]];
+    for(let k=i+1;k<4;k++){ const f=A[k][i]/A[i][i]; for(let j=i;j<4;j++) A[k][j]-=f*A[i][j]; b[k]-=f*b[i]; } }
+  const c=[0,0,0,0]; for(let i=3;i>=0;i--){ let t=b[i]; for(let j=i+1;j<4;j++) t-=A[i][j]*c[j]; c[i]=t/A[i][i]; }
+  const [a,cc,d,e]=c; if(!(a*cc>0)) return false;                                  // Ellipse: a und c gleiches Vorzeichen
+  const x0=-d/(2*a)*S, y0=-e/(2*cc)*S, F=1+a*(x0/S)**2+cc*(y0/S)**2, rx=Math.sqrt(F/a)*S;
+  if(!isFinite(rx)||rx<=0) return false;
+  v.w=Math.round(1.2247*R*v.fw/rx);                 // Glaskreis = Ring der Scheibe
+  const sc=v.w/v.fw, k=(+v.gs||.7)*(v.w/644), drop=(GH+(+(v.gap??30)))*k;
+  v.x=Math.round(-x0*sc); v.y=Math.round(-(y0*sc+drop));
+  v.gp=[null,null,null,null,null,null];
+  return true;
+}
 function vidToScene(b){ const v=V(); return [v.x+b.u*v.w, v.y+b.v*v.w*v.fh/v.fw]; }
 function glassK(){ const v=V(); return (+v.gs||.7)*(v.w/644); }
 function glassXY(i){
   const b=vidMode()?glassBase(i):null;
-  if(b){ let [sx,sy]=vidToScene(b); if(b.tip) sy+=(GH+(+V().gap||12))*glassK(); const u=sx/C, w=2*sy; return [(u+w)/2,(w-u)/2]; }
+  if(b){ let [sx,sy]=vidToScene(b); if(b.tip) sy+=(GH+(+(V().gap??30)))*glassK(); const u=sx/C, w=2*sy; return [(u+w)/2,(w-u)/2]; }
   const a=CFG?CFG.ang[i]:[18.3,36.7,55,73.3,91.7,110][i],[dx,dy]=dir(a); return [dx*R,dy*R];
 }
 function glassTf(x,y){ const k=vidMode()&&glassBase(0)?glassK():1; if(k===1) return ""; const b=P(x,y,0); return `transform="translate(${f1(b[0])} ${f1(b[1])}) scale(${k}) translate(${f1(-b[0])} ${f1(-b[1])})"`; }
@@ -498,7 +517,7 @@ function drawAuger(){
   const a=dispAng??(CFG?CFG.angPark:0), [dx,dy]=dir(a), ex=dx*R, ey=dy*R;
   if(vidMode()){
     vidFrame(previewAng??a); $("#auger").innerHTML="";
-    let st=""; if(ST&&ST.pump>0&&ST.pp>0){const p=ST.pl[ST.pp-1],[gx,gy]=glassXY(ST.pp-1),tz=4+Math.min(GH-8,Math.max(p.ml,ST.got)*1.15),T=P(gx,gy,tz),S1=P(gx,gy,GH+(+(V().gap??12)));
+    let st=""; if(ST&&ST.pump>0&&ST.pp>0){const p=ST.pl[ST.pp-1],[gx,gy]=glassXY(ST.pp-1),tz=4+Math.min(GH-8,Math.max(p.ml,ST.got)*1.15),T=P(gx,gy,tz),S1=P(gx,gy,GH+(+(V().gap??30)));
       st=`<g ${glassTf(gx,gy)}><line class="stream" x1="${f1(S1[0])}" y1="${f1(S1[1])}" x2="${f1(T[0])}" y2="${f1(T[1])}" stroke="#f7c95a" stroke-width="${2+ST.pump/40}" stroke-linecap="round"/></g>`}
     $("#ringStream").innerHTML=st; requestAnimationFrame(drawAuger); return;
   }
@@ -982,12 +1001,19 @@ function detectTips(F,FW,FH){
   for(let p=0;p<n;p++){const q=p*4; if(f0[q+3]>30&&Math.abs(f0[q]-bg[0])+Math.abs(f0[q+1]-bg[1])+Math.abs(f0[q+2]-bg[2])>60){sx+=p%FW;sy+=(p/FW)|0;c++}}
   const cx=c?sx/c:FW/2, cy=c?sy/c:FH/2, tips=[];
   for(let k=1;k<7;k++){
-    const pts=[];
-    for(let p=0;p<n;p++){ if(!D[k][p]) continue; let common=true; for(let j=1;j<7;j++){ if(j!==k&&!D[j][p]){common=false;break} } if(common) continue;
-      const x=p%FW, y=(p/FW)|0; pts.push([(x-cx)**2+(y-cy)**2,x,y]); }
-    if(pts.length<20){ tips.push(null); continue; }
-    pts.sort((a,b)=>a[0]-b[0]);
-    const top=pts.slice(Math.floor(pts.length*.985));
+    // Maske: nur in diesem Standbild geändert
+    const m=new Uint8Array(n);
+    for(let p=0;p<n;p++){ if(!D[k][p]) continue; let common=true; for(let j=1;j<7;j++){ if(j!==k&&!D[j][p]){common=false;break} } if(!common) m[p]=1; }
+    // größte zusammenhängende Fläche = Abtankrohr (Rauschen fällt weg)
+    const lab=new Int32Array(n); let best=[], cur=0;
+    for(let p=0;p<n;p++){ if(!m[p]||lab[p]) continue; cur++; const comp=[], st=[p]; lab[p]=cur;
+      while(st.length){ const q=st.pop(); comp.push(q); const x=q%FW;
+        for(const r of [x>0?q-1:-1, x<FW-1?q+1:-1, q-FW, q+FW]) if(r>=0&&r<n&&m[r]&&!lab[r]){ lab[r]=cur; st.push(r); } }
+      if(comp.length>best.length) best=comp; }
+    if(best.length<20){ tips.push(null); continue; }
+    const pts=best.map(p=>{const x=p%FW,y=(p/FW)|0;return [Math.sqrt((x-cx)**2+(y-cy)**2),x,y]});
+    // Auslauf-Ende: äußerster Bereich des Rohrs, davon die Mitte (x) und die Unterkante (y)
+    const md=Math.max(...pts.map(p=>p[0])), top=pts.filter(p=>p[0]>=md-Math.max(6,md*.08));
     tips.push({u:top.reduce((a,p)=>a+p[1],0)/top.length/FW, v:Math.max(...top.map(p=>p[2]))/FH});
   }
   return tips;
@@ -1075,7 +1101,8 @@ async function processVideo(){
       if(!r||!r.ok){ info("Fehler: "+(r?await r.text():"keine Verbindung")); return; }
     }
     const old=V()||{};
-    uiSave({vid:Object.assign({x:-322,y:-205,w:644,gs:.7,sh:12,gap:12},old,meta)});
+    const nv=Object.assign({x:-322,y:-205,w:644,gs:.7,sh:12,gap:30},old,meta); autoAlign(nv);
+    uiSave({vid:nv});
     info(`Fertig: ${N} Bilder, ${Math.round(out.blob.size/1024)} kB`);
     renderTab(); startVidAdjust();
   }catch(e){ info("Fehler: "+e.message); }
@@ -1094,8 +1121,8 @@ function startVidAdjust(){
   if(!Array.isArray(v.gp)||v.gp.some(g=>g&&g.u===undefined)) v.gp=[null,null,null,null,null,null];
   if(!v.tips) v.tips=[...Array(N)].map((_,i)=>{const a=CFG.ang[i],[dx,dy]=dir(a),b=P(dx*R,dy*R,GH+12);return {u:(b[0]-v.x)/v.w, v:(b[1]-v.y)/(v.w*v.fh/v.fw)}});
   applyVid();
-  [["va_w","w"],["va_x","x"],["va_y","y"],["va_gs","gs"],["va_gdy","gap"]].forEach(([id,k])=>{const e=$("#"+id); e.value=v[k]??({gs:.7,sh:45,gap:12}[k]??0); e.oninput=()=>{v[k]=+e.value; applyVid();};});
-  $("#va_auto").onclick=()=>{ v.gp=[null,null,null,null,null,null]; applyVid(); selectAlign(alignSel); toast("Gläser stehen wieder unter den erkannten Rohrspitzen"); };
+  [["va_w","w"],["va_x","x"],["va_y","y"],["va_gs","gs"],["va_gdy","gap"]].forEach(([id,k])=>{const e=$("#"+id); e.value=v[k]??({gs:.7,sh:45,gap:30}[k]??0); e.oninput=()=>{v[k]=+e.value; applyVid();};});
+  $("#va_auto").onclick=()=>{ v.gp=[null,null,null,null,null,null]; const ok=autoAlign(v); ["w","x","y"].forEach(k=>$("#va_"+k).value=v[k]); applyVid(); selectAlign(alignSel); toast(ok?"Drehpunkt in der Scheibenmitte, Gläser unter den Rohrspitzen":"Gläser stehen wieder unter den erkannten Rohrspitzen"); };
   $("#va_pos").innerHTML=["Park","1","2","3","4","5","6"].map((l,i)=>`<button data-p="${i}">${l}</button>`).join("");
   $("#va_pos").querySelectorAll("button").forEach(b=>b.onclick=()=>selectAlign(+b.dataset.p));
   selectAlign(1);
