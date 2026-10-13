@@ -29,7 +29,7 @@ Ohne Hardware ausprobieren: `web/index.html?demo` im Browser öffnen, dann läuf
 | **Offline** | Encoder schwenkt das Rohr, Taster schenkt ein, Auto-Fill aus der Parkposition |
 | **Online** | isometrische 3D-Ansicht am Handy, Gläser poppen live auf, Klick → Menge wählen → einschenken |
 | **WLAN** | Heimnetz mit `http://liquidharvest.local`, Hotspot als Rückfall bzw. Party-Modus, Captive Portal |
-| **Eigenes Drescher-Bild** | eigenes Foto/Bild hochladen, Hintergrund automatisch freistellen, Position einstellen – das Abtankrohr schwenkt live darüber |
+| **Eigenes Drescher-Bild** | eigenes Foto oder **STL-3D-Modell** hochladen (wird im Browser isometrisch gerendert), Hintergrund automatisch freistellen, Position einstellen – das Abtankrohr schwenkt live darüber |
 | **Updates** | Web-Installer per USB oder OTA über die Weboberfläche |
 | **API** | REST für Home Assistant & Co. |
 

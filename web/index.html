@@ -627,9 +627,18 @@ function renderTab(){
   if(curTab==="img"){
     h+=`<div class="card"><h3>Eigenes Bild</h3>
       <div class="f"><label>Eigenes Bild statt Zeichnung<small>${CFG.imgVer||demoImg?"Bild ist gespeichert":"Noch kein Bild hochgeladen"}</small></label><input type="checkbox" class="sw" id="im_on" ${CFG.imgOn?"checked":""} ${CFG.imgVer||demoImg?"":"disabled"} onchange="send({c:'setCfg',cfg:{imgOn:this.checked}})"></div>
-      <div class="f"><label>Bild wählen<small>Foto oder PNG, schräg von oben</small></label><input type="file" id="im_file" accept="image/*" style="width:150px;font-size:12px"></div>
+      <div class="f"><label>Foto / Bild wählen<small>schräg von oben, einfarbiger Hintergrund</small></label><input type="file" id="im_file" accept="image/*" style="width:150px;font-size:12px"></div>
       <div class="f"><label>Hintergrund entfernen<small>Einfarbiger Hintergrund wird transparent</small></label><input type="checkbox" class="sw" id="im_bg" checked></div>
       <div class="f"><label>Toleranz</label><input type="range" id="im_tol" min="5" max="120" value="40" style="width:45%"></div>
+      </div>
+      <div class="card"><h3>…oder 3D-Modell (STL)</h3>
+      <div class="f"><label>STL-Datei<small>Binär oder ASCII, wird im Browser gerendert</small></label><input type="file" id="st_file" accept=".stl" style="width:150px;font-size:12px"></div>
+      <div class="f"><label>Hochachse</label><select id="st_up" style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px"><option value="z">Z oben</option><option value="y">Y oben</option></select></div>
+      <div class="f"><label>Drehung</label><input type="range" id="st_rot" min="0" max="360" step="5" value="0" style="width:55%"></div>
+      <div class="f"><label>Spiegeln</label><input type="checkbox" class="sw" id="st_mir"></div>
+      <div class="f"><label>Farbe</label><input type="color" id="st_c1" value="#2f8f4e" style="width:56px;height:34px;border:0;background:none"></div>
+      <div class="f"><label>Farbe oben<small>ab Höhe (Dach, Kabine …)</small></label><input type="range" id="st_h" min="50" max="101" value="101" style="width:35%"><input type="color" id="st_c2" value="#e9ece6" style="width:56px;height:34px;border:0;background:none"></div>
+      <div class="f"><label>Farbe unten<small>bis Höhe (Fahrwerk, Reifen …)</small></label><input type="range" id="st_l" min="0" max="50" value="0" style="width:35%"><input type="color" id="st_c3" value="#222428" style="width:56px;height:34px;border:0;background:none"></div>
       <div style="padding:12px 0;text-align:center"><canvas id="im_prev" style="max-width:100%;max-height:220px;background:repeating-conic-gradient(#2a372d 0 25%,#1b251e 0 50%) 0 0/16px 16px;border-radius:10px;display:none"></canvas><div class="help" id="im_info"></div></div>
       </div>
       <button class="btn primary save" id="im_up" disabled>Hochladen & verwenden</button>
@@ -645,7 +654,7 @@ function renderTab(){
       <div class="row2"><button class="btn" onclick="send({c:'reboot'})">Neustart</button><button class="btn" style="color:#ff8a8a" onclick="if(confirm('Wirklich alles zurücksetzen (inkl. WLAN & Kalibrierung)?'))send({c:'factory'})">Werkseinstellungen</button></div>`;
   }
   b.innerHTML=h;
-  if(curTab==="img") bindImgTab();
+  if(curTab==="img"){ bindImgTab(); bindStl(); if(stlTris) stlUpdate(); }
   if(curTab==="scales") updateScales();
   const ota=$("#ota"); if(ota) ota.onchange=uploadOta;
 }
@@ -668,6 +677,71 @@ function uploadOta(e){
   x.send(fd);
 }
 
+
+
+/* ---------------- STL -> isometrisches Bild ---------------- */
+let stlTris=null;
+function parseSTL(buf){
+  const dv=new DataView(buf);
+  if(buf.byteLength>84){const n=dv.getUint32(80,true); if(84+n*50===buf.byteLength){
+    const t=new Float32Array(n*9); for(let i=0;i<n;i++){const o=84+i*50+12; for(let k=0;k<9;k++) t[i*9+k]=dv.getFloat32(o+k*4,true)} return t;}}
+  const txt=new TextDecoder().decode(buf), re=/vertex\s+(\S+)\s+(\S+)\s+(\S+)/g, v=[]; let m;
+  while((m=re.exec(txt))) v.push(+m[1],+m[2],+m[3]);
+  return new Float32Array(v.length-(v.length%9) ? v.slice(0,v.length-v.length%9) : v);
+}
+const hex2rgb=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16));
+function renderSTL(){
+  const T=stlTris; if(!T||!T.length) return null;
+  const up=$("#st_up").value, rot=+$("#st_rot").value*Math.PI/180, mir=$("#st_mir").checked?-1:1;
+  const cr=Math.cos(rot), sr=Math.sin(rot), n=T.length/9, V=new Float32Array(T.length);
+  let mn=[1e9,1e9,1e9], mx=[-1e9,-1e9,-1e9];
+  for(let i=0;i<T.length;i+=3){
+    let x=T[i]*mir, y=T[i+1], z=T[i+2]; if(up==="y"){const t=y;y=-z;z=t}
+    const X=x*cr-y*sr, Y=x*sr+y*cr; V[i]=X;V[i+1]=Y;V[i+2]=z;
+    mn=[Math.min(mn[0],X),Math.min(mn[1],Y),Math.min(mn[2],z)]; mx=[Math.max(mx[0],X),Math.max(mx[1],Y),Math.max(mx[2],z)];
+  }
+  const hz=mx[2]-mn[2]||1, hi=mn[2]+hz*(+$("#st_h").value/100), lo=mn[2]+hz*(+$("#st_l").value/100);
+  const c1=hex2rgb($("#st_c1").value), c2=hex2rgb($("#st_c2").value), c3=hex2rgb($("#st_c3").value);
+  const L=[-.35,.45,.82], ln=Math.hypot(...L); L.forEach((v,i)=>L[i]=v/ln);
+  const faces=[]; let sx0=1e9,sy0=1e9,sx1=-1e9,sy1=-1e9;
+  for(let f=0;f<n;f++){
+    const o=f*9, a=[V[o],V[o+1],V[o+2]], b=[V[o+3],V[o+4],V[o+5]], c=[V[o+6],V[o+7],V[o+8]];
+    const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]], w=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+    let nx=u[1]*w[2]-u[2]*w[1], ny=u[2]*w[0]-u[0]*w[2], nz=u[0]*w[1]-u[1]*w[0]; const nl=Math.hypot(nx,ny,nz)||1; nx/=nl;ny/=nl;nz/=nl;
+    if(mir<0){nx=-nx;ny=-ny;nz=-nz}
+    if(nx+ny+nz<=0) continue;                       // Rückseite
+    const pa=P(...a),pb=P(...b),pc=P(...c), cz=(a[2]+b[2]+c[2])/3;
+    const base=cz>=hi?c2:cz<=lo?c3:c1, sh=.38+.62*Math.max(0,nx*L[0]+ny*L[1]+nz*L[2]);
+    faces.push([a[0]+a[1]+a[2]+b[0]+b[1]+b[2]+c[0]+c[1]+c[2],pa,pb,pc,`rgb(${base.map(x=>Math.min(255,Math.round(x*sh))).join(",")})`]);
+    for(const p of [pa,pb,pc]){sx0=Math.min(sx0,p[0]);sx1=Math.max(sx1,p[0]);sy0=Math.min(sy0,p[1]);sy1=Math.max(sy1,p[1])}
+  }
+  faces.sort((p,q)=>p[0]-q[0]);
+  const W=900, k=W/(sx1-sx0||1), H=Math.ceil((sy1-sy0)*k)+4;
+  const cv=document.createElement("canvas"); cv.width=W+4; cv.height=H; const g=cv.getContext("2d"); g.lineJoin="round"; g.lineWidth=.6;
+  for(const [,a,b,c,col] of faces){
+    g.beginPath(); g.moveTo((a[0]-sx0)*k+2,(a[1]-sy0)*k+2); g.lineTo((b[0]-sx0)*k+2,(b[1]-sy0)*k+2); g.lineTo((c[0]-sx0)*k+2,(c[1]-sy0)*k+2); g.closePath();
+    g.fillStyle=col; g.strokeStyle=col; g.fill(); g.stroke();
+  }
+  return {canvas:cv, tris:n, vis:faces.length};
+}
+let stlTimer=0;
+function stlUpdate(){
+  clearTimeout(stlTimer);
+  stlTimer=setTimeout(async()=>{
+    const r=renderSTL(); if(!r) return;
+    const pv=$("#im_prev"); pv.width=r.canvas.width; pv.height=r.canvas.height; pv.getContext("2d").drawImage(r.canvas,0,0); pv.style.display="inline-block";
+    $("#im_info").textContent="Rendere & komprimiere…";
+    const out=await compressCanvas(r.canvas); imgBlob=out.blob;
+    $("#im_info").textContent=`${r.tris.toLocaleString("de")} Dreiecke · ${Math.round(imgBlob.size/1024)} kB`+(imgBlob.size>100*1024?" – zu groß!":"");
+    $("#im_up").disabled=imgBlob.size>100*1024;
+  },150);
+}
+function bindStl(){
+  const f=$("#st_file"); if(!f) return;
+  f.onchange=async()=>{ if(!f.files[0]) return; $("#im_info").textContent="Lade Modell…"; stlTris=parseSTL(await f.files[0].arrayBuffer());
+    if(!stlTris.length){ $("#im_info").textContent="Keine Dreiecke gefunden – ist das eine STL-Datei?"; return } stlUpdate(); };
+  ["st_up","st_rot","st_mir","st_c1","st_c2","st_c3","st_h","st_l"].forEach(id=>{$("#"+id).oninput=()=>stlTris&&stlUpdate()});
+}
 
 /* ---------------- Eigenes Mähdrescher-Bild ---------------- */
 let demoImg=null, imgBlob=null, imgAspect=0.6, imgLoadedSrc="";
@@ -701,7 +775,9 @@ async function processImg(file,removeBg,tol){
   const d=x.getImageData(0,0,w,h).data; let x0=w,y0=h,x1=0,y1=0;
   for(let Y=0;Y<h;Y++)for(let X=0;X<w;X++)if(d[(Y*w+X)*4+3]>12){if(X<x0)x0=X;if(X>x1)x1=X;if(Y<y0)y0=Y;if(Y>y1)y1=Y}
   if(x1>x0&&y1>y0){const cc=document.createElement("canvas");cc.width=x1-x0+1;cc.height=y1-y0+1;cc.getContext("2d").drawImage(c,-x0,-y0);c=cc}
-  // auf <= 95 kB komprimieren
+  return compressCanvas(c);
+}
+async function compressCanvas(c){
   let scale=1, blob=null;
   for(let round=0;round<6;round++){
     const cc=document.createElement("canvas");cc.width=Math.round(c.width*scale);cc.height=Math.round(c.height*scale);cc.getContext("2d").drawImage(c,0,0,cc.width,cc.height);
