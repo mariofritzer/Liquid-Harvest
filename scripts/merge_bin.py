@@ -19,13 +19,12 @@ env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", merge_bin)  # noqa: F821
 # Nach "pio run -t buildfs": Dateisystem (Standard-Einrichtung) an seine Partitionsadresse ins Gesamt-Image legen
 def merge_fs(source, target, env):
     merged = env.subst("$BUILD_DIR/${PROGNAME}-merged.bin")
-    full = env.subst("$BUILD_DIR/${PROGNAME}-full.bin")
-    fs_start = env.get("FS_START", 0x310000)
-    cmd = [env.subst("$PYTHONEXE"), env.subst("$OBJCOPY"), "--chip", env.get("BOARD_MCU"), "merge_bin", "-o", full,
-           "0x0", merged, hex(fs_start), target[0].get_abspath()]
-    print("Merge FS:", " ".join(cmd))
-    subprocess.check_call(cmd)
-    import os
-    os.replace(full, merged)
+    fs_start = int(env.get("FS_START", 0x310000))
+    img = open(merged, "rb").read()
+    if len(img) > fs_start:
+        raise SystemExit("Firmware-Image überlappt das Dateisystem")
+    fs = open(target[0].get_abspath(), "rb").read()
+    open(merged, "wb").write(img + b"\xff" * (fs_start - len(img)) + fs)   # Lücke wie gelöschter Flash
+    print(f"Merge FS: Dateisystem ({len(fs)//1024} kB) bei {hex(fs_start)} angehängt")
 
 env.AddPostAction("$BUILD_DIR/littlefs.bin", merge_fs)  # noqa: F821
