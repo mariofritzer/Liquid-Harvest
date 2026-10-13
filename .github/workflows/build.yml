@@ -34,18 +34,18 @@ jobs:
       - name: PlatformIO installieren
         run: pip install --upgrade platformio
 
-      - name: Firmware bauen
-        run: |
-          pio run -e esp32 > build.log 2>&1 || { tail -9 build.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
-          tail -5 build.log
-
       - name: Standard-Einrichtung ins Dateisystem (falls setup/default-setup.json vorhanden)
         run: |
           if [ -f setup/default-setup.json ]; then
             pio run -e esp32 -t buildfs > fs.log 2>&1 || { tail -9 fs.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
-            tail -5 fs.log
-            ls -la .pio/build/esp32/*.bin
+            tail -3 fs.log
           fi
+
+      - name: Firmware bauen
+        run: |
+          pio run -e esp32 > build.log 2>&1 || { tail -9 build.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+          tail -5 build.log
+          if [ -f .pio/build/esp32/littlefs.bin ]; then python scripts/append_fs.py; fi
 
       - name: Web-Installer zusammenstellen
         run: |
