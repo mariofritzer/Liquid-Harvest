@@ -14,3 +14,18 @@ def merge_bin(source, target, env):
     subprocess.check_call(cmd)
 
 env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", merge_bin)  # noqa: F821
+
+
+# Nach "pio run -t buildfs": Dateisystem (Standard-Einrichtung) an seine Partitionsadresse ins Gesamt-Image legen
+def merge_fs(source, target, env):
+    merged = env.subst("$BUILD_DIR/${PROGNAME}-merged.bin")
+    full = env.subst("$BUILD_DIR/${PROGNAME}-full.bin")
+    fs_start = env.get("FS_START", 0x310000)
+    cmd = [env.subst("$PYTHONEXE"), env.subst("$OBJCOPY"), "--chip", env.get("BOARD_MCU"), "merge_bin", "-o", full,
+           "0x0", merged, hex(fs_start), target[0].get_abspath()]
+    print("Merge FS:", " ".join(cmd))
+    subprocess.check_call(cmd)
+    import os
+    os.replace(full, merged)
+
+env.AddPostAction("$BUILD_DIR/littlefs.bin", merge_fs)  # noqa: F821
