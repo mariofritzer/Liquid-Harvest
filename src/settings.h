@@ -25,7 +25,7 @@ struct Settings {
 
   // --- Servo ---
   float    angPark     = 0.0f;
-  float    ang[NUM_PLACES] = {15, 45, 75, 105, 135, 165};
+  float    ang[NUM_PLACES] = {18.3f, 36.7f, 55.0f, 73.3f, 91.7f, 110.0f};  // Park 0°, ausgefahren 110°
   float    servoSpeed  = 120.0f;  // °/s
   uint16_t servoMinUs  = 500;     // Impuls bei 0°
   uint16_t servoMaxUs  = 2400;    // Impuls bei 180°

@@ -61,6 +61,7 @@ h1 small{display:block;font-size:11px;color:var(--mute);font-weight:500;letter-s
 .seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:4px;gap:4px;grid-column:1/-1}
 .seg button{flex:1;padding:10px 0;border-radius:10px;background:transparent;color:var(--mute);font-weight:650;font-size:14px}
 .seg button.on{background:var(--gold);color:#000000}
+#vidAdj .seg button{padding:8px 0;font-size:13px}
 .btn{padding:15px 18px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:15px}
 .btn.primary{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#000000;border:0;box-shadow:0 6px 20px #b4c61840}
 .btn.stop{background:var(--red);color:#fff;border:0;grid-column:1/-1;font-size:17px;letter-spacing:.06em;box-shadow:0 6px 24px #fe000055}
@@ -207,21 +208,19 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
   <div class="f"><label>Drehturm zeichnen</label><input type="checkbox" class="sw" id="aa_r"></div>
   <div class="row2" style="margin-top:10px"><button class="btn" id="aa_cancel">Abbrechen</button><button class="btn primary" id="aa_ok">Speichern</button></div>
 </div>
-<div class="sheet compact" id="vidAdj" style="max-height:62vh;overflow:auto">
+<div class="sheet compact" id="vidAdj" style="max-height:60vh;overflow:auto">
   <div class="grab"></div>
   <div class="sh-head"><h2 style="font-size:18px">Video ausrichten</h2></div>
-  <div class="f"><label>Vorschau-Winkel<small>nur Anzeige</small></label><input type="range" id="va_pv" min="0" max="180" step="1" style="width:55%"></div>
-  <div class="f"><label>Winkel erstes Bild</label><input type="range" id="va_a0" min="0" max="180" step="1" style="width:55%"></div>
-  <div class="f"><label>Winkel letztes Bild</label><input type="range" id="va_a1" min="0" max="180" step="1" style="width:55%"></div>
+  <div class="seg" id="va_pos" style="margin:8px 0"></div>
+  <p class="help" id="va_hint" style="margin:4px 0 8px"></p>
+  <div class="f"><label>Gläser platzieren</label><button class="sbtn gold" id="va_auto">Automatisch</button></div>
+  <div class="f"><label>Abstand unter Auslauf</label><input type="range" id="va_gdy" min="-0.1" max="0.4" step="0.005" style="width:55%"></div>
+  <div class="f"><label>Glasgröße</label><input type="range" id="va_gs" min="0.3" max="2.5" step="0.01" style="width:55%"></div>
+  <div class="f"><label>Strahl-Länge</label><input type="range" id="va_sh" min="0" max="200" step="1" style="width:55%"></div>
   <div class="f"><label>Video Größe</label><input type="range" id="va_w" min="200" max="1600" step="2" style="width:55%"></div>
   <div class="f"><label>Video links / rechts</label><input type="range" id="va_x" min="-900" max="300" step="1" style="width:55%"></div>
   <div class="f"><label>Video oben / unten</label><input type="range" id="va_y" min="-700" max="200" step="1" style="width:55%"></div>
-  <div class="f"><label>Gläser links / rechts</label><input type="range" id="va_rx" min="-300" max="300" step="1" style="width:55%"></div>
-  <div class="f"><label>Gläser oben / unten</label><input type="range" id="va_ry" min="-300" max="300" step="1" style="width:55%"></div>
-  <div class="f"><label>Gläser Abstand</label><input type="range" id="va_rs" min="0.3" max="2.5" step="0.01" style="width:55%"></div>
-  <div class="f"><label>Gläser Neigung</label><input type="range" id="va_rsy" min="0.4" max="1.8" step="0.01" style="width:55%"></div>
-  <p class="help" style="margin:6px 0 10px">Vorschau-Winkel auf die Glas-Winkel stellen und Gläser so verschieben, dass sie unter dem Auslauf im Video stehen.</p>
-  <div class="row2"><button class="btn" id="va_cancel">Abbrechen</button><button class="btn primary" id="va_ok">Speichern</button></div>
+  <div class="row2" style="margin-top:8px"><button class="btn" id="va_cancel">Abbrechen</button><button class="btn primary" id="va_ok">Speichern</button></div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -400,11 +399,12 @@ function staticScene(){
   const RD=258, TH=18; let top=[],side=[],sideB=[];
   for(let k=0;k<72;k++){const t=k/72*2*Math.PI;top.push([RD*Math.cos(t),RD*Math.sin(t),0])}
   for(let k=0;k<=36;k++){const t=(-45+k*5)*Math.PI/180;side.push([RD*Math.cos(t),RD*Math.sin(t),0]);sideB.unshift([RD*Math.cos(t),RD*Math.sin(t),-TH])}
-  s+=`<g mask="url(#vfade)"><svg id="vidWrap" style="display:none" preserveAspectRatio="none"><image id="vidImg"/></svg></g><g id="board">`;
+  s+=`<g id="board">`;
   s+=`<ellipse cx="0" cy="${TH+30}" rx="330" ry="150" fill="#000" opacity=".35" filter="url(#glow)"/>`;
   s+=poly(side.concat(sideB),"url(#wood)")+poly(top,"url(#woodTop)");
   // Ringe auf der Platte
   s+=ell(0,0,0,R+38,'fill="none" stroke="#00000022" stroke-width="2"')+ell(0,0,0,R-38,'fill="none" stroke="#00000018" stroke-width="2"')+`</g>`;
+  s+=`<g id="vidMaskG" mask="url(#vfade)"><svg id="vidWrap" style="display:none" preserveAspectRatio="none"><image id="vidImg"/></svg></g>`;
   s+=`<g id="combineDraw">${combine()}</g><image id="combineImg" style="display:none" preserveAspectRatio="xMidYMid meet"/>`;
   // Untersetzer + Gläser
   s+=`<g id="ring"><g id="coasters"></g><g id="glasses"></g><g id="ringStream"></g></g><g id="auger"></g>`;
@@ -412,16 +412,32 @@ function staticScene(){
   buildPlaces();
 }
 
+// Glasposition in Welt-Koordinaten: Halbkreis um den Drehpunkt – oder im Video-Modus frei platziert
+function glassBase(i){
+  const v=V(); if(!v) return null;
+  if(v.gp&&v.gp[i]&&v.gp[i].u!==undefined) return v.gp[i];
+  if(v.tips&&v.tips[i]) return {u:v.tips[i].u, v:v.tips[i].v+(v.gdy??.08)};
+  return null;
+}
+function vidToScene(b){ const v=V(); return [v.x+b.u*v.w, v.y+b.v*v.w*v.fh/v.fw]; }
+function glassK(){ const v=V(); return (+v.gs||1)*(v.w/644); }
+function glassXY(i){
+  const b=vidMode()?glassBase(i):null;
+  if(b){ const [sx,sy]=vidToScene(b), u=sx/C, w=2*sy; return [(u+w)/2,(w-u)/2]; }
+  const a=CFG?CFG.ang[i]:[18.3,36.7,55,73.3,91.7,110][i],[dx,dy]=dir(a); return [dx*R,dy*R];
+}
+function glassTf(x,y){ const k=vidMode()&&glassBase(0)?glassK():1; if(k===1) return ""; const b=P(x,y,0); return `transform="translate(${f1(b[0])} ${f1(b[1])}) scale(${k}) translate(${f1(-b[0])} ${f1(-b[1])})"`; }
 function buildPlaces(){
   let co="",gl="";
+  const free=vidMode()&&glassBase(0);
   for(let i=0;i<N;i++){
-    const a=CFG?CFG.ang[i]:15+30*i, [dx,dy]=dir(a), x=dx*R, y=dy*R, L=P(dx*(R+44),dy*(R+44),0);
-    co+=`<g class="coaster" data-i="${i}">
+    const [x,y]=glassXY(i), B=P(x,y,0), L=free?[B[0],B[1]+44*glassK()]:P(x*(R+44)/R,y*(R+44)/R,0), tf=glassTf(x,y);
+    co+=`<g class="coaster" data-i="${i}" ${tf}>
       ${ell(x,y,0,34,`id="cg${i}" class="coaster-glow" fill="#ff2a2a" opacity=".35" filter="url(#glow)"`)}
       ${ell(x,y,1,28,'fill="#202622" stroke="#000" stroke-opacity=".4"')}
       ${ell(x,y,2,24,`id="cr${i}" fill="none" stroke="#ff2a2a" stroke-width="2.5" opacity=".6"`)}
-      <text class="gnum" x="${f1(L[0])}" y="${f1(L[1]+5)}">${i+1}</text></g>`;
-    gl+=`<g class="glass off" id="g${i}" data-i="${i}" data-d="${x+y}">
+      </g><text class="gnum" x="${f1(L[0])}" y="${f1(L[1]+5)}">${i+1}</text>`;
+    gl+=`<g class="glass off" id="g${i}" data-i="${i}" data-d="${x+y}" ${tf}>
       <rect x="${f1(P(x,y,0)[0]-40)}" y="${f1(P(x,y,GH)[1]-30)}" width="80" height="${GH+60}" fill="transparent"/>
       <g class="gbody">
         <path d="${cylPath(x,y,3,GH,GR)}" fill="url(#glassG)" stroke="#ffffff70" stroke-width="1.2"/>
@@ -436,7 +452,7 @@ function buildPlaces(){
   // Gläser nach Tiefe sortieren (hinten zuerst)
   const tmp=document.createElementNS("http://www.w3.org/2000/svg","g");tmp.innerHTML=gl;
   [...tmp.children].sort((a,b)=>a.dataset.d-b.dataset.d).forEach(n=>$("#glasses").appendChild(n));
-  document.querySelectorAll(".coaster,.glass").forEach(n=>n.addEventListener("click",()=>openSheet(+n.dataset.i)));
+  document.querySelectorAll(".coaster,.glass").forEach(n=>n.addEventListener("click",()=>{ if(!aligning) openSheet(+n.dataset.i); }));
   if(ST) render();
 }
 function rebuildPlaces(){$("#glasses").innerHTML="";buildPlaces()}
@@ -463,7 +479,7 @@ function render(){
     cg.setAttribute("opacity",mode==="dim"?".18":mode===0?"0":".8");
     cr.setAttribute("opacity",mode==="dim"?".35":".95");
     // Füllstand
-    const a=CFG?CFG.ang[i]:15+30*i,[dx,dy]=dir(a),x=dx*R,y=dy*R;
+    const [x,y]=glassXY(i);
     let ml=p.ml; if(ST.busy&&ST.pp===i+1&&ST.ph!=="idle") ml=Math.max(ml,ST.got);
     const lvl=Math.min(GH-8,ml*1.15);
     const lq=$("#lq"+i), ls=$("#ls"+i);
@@ -483,8 +499,8 @@ function drawAuger(){
   const a=dispAng??(CFG?CFG.angPark:0), [dx,dy]=dir(a), ex=dx*R, ey=dy*R;
   if(vidMode()){
     vidFrame(previewAng??a); $("#auger").innerHTML="";
-    let st=""; if(ST&&ST.pump>0&&ST.pp>0){const p=ST.pl[ST.pp-1],tz=4+Math.min(GH-8,Math.max(p.ml,ST.got)*1.15),T=P(ex,ey,tz),S1=P(ex,ey,tz+70);
-      st=`<line class="stream" x1="${f1(S1[0])}" y1="${f1(S1[1])}" x2="${f1(T[0])}" y2="${f1(T[1])}" stroke="#f7c95a" stroke-width="${2+ST.pump/40}" stroke-linecap="round"/>`}
+    let st=""; if(ST&&ST.pump>0&&ST.pp>0){const p=ST.pl[ST.pp-1],[gx,gy]=glassXY(ST.pp-1),tz=4+Math.min(GH-8,Math.max(p.ml,ST.got)*1.15),T=P(gx,gy,tz),S1=P(gx,gy,GH+(+V().sh||45));
+      st=`<g ${glassTf(gx,gy)}><line class="stream" x1="${f1(S1[0])}" y1="${f1(S1[1])}" x2="${f1(T[0])}" y2="${f1(T[1])}" stroke="#f7c95a" stroke-width="${2+ST.pump/40}" stroke-linecap="round"/></g>`}
     $("#ringStream").innerHTML=st; requestAnimationFrame(drawAuger); return;
   }
   $("#ringStream").innerHTML="";
@@ -696,9 +712,13 @@ function renderTab(){
       <div class="row2"><button class="btn" onclick="startAdjust()" ${CFG.imgVer||demoImg?"":"disabled"}>Position anpassen</button><button class="btn" style="color:#ff8a8a" onclick="deleteImg()" ${CFG.imgVer||demoImg?"":"disabled"}>Bild löschen</button></div>
       <div class="card" style="margin-top:14px"><h3>Rohr-Video als Hintergrund</h3>
       <div class="f"><label>Video-Modus<small>${V()?"Video ist gespeichert":"Noch kein Video hochgeladen"}</small></label><input type="checkbox" class="sw" id="vid_on" ${V()&&V().on?"checked":""} ${V()?"":"disabled"} onchange="uiSave({vid:Object.assign({},V(),{on:this.checked})})"></div>
-      <div class="f"><label>Video wählen<small>Rohr am Anfang eingeklappt, am Ende ausgeschwenkt</small></label><input type="file" id="vid_file" accept="video/*" style="width:150px;font-size:12px"></div>
-      <div class="f"><label>Einzelbilder</label><input type="range" id="vid_n" min="12" max="64" step="4" value="32" style="width:40%"><span class="u" id="vid_nv" style="width:34px">32</span></div>
-      <div class="f"><label>Bildbreite</label><input type="range" id="vid_fw" min="320" max="800" step="20" value="560" style="width:40%"><span class="u" id="vid_fwv" style="width:34px">560</span></div>
+      <div class="f"><label>Video wählen<small>Rohr fährt Park → Glas 1 … 6 an und hält jeweils kurz</small></label><input type="file" id="vid_file" accept="video/*" style="width:150px;font-size:12px"></div>
+      <div class="f" style="display:block"><label>Haltepunkte im Video (Sekunden)<small>Park, Glas 1 … Glas 6 – werden automatisch erkannt</small></label>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px">${["P","1","2","3","4","5","6"].map((l,i)=>`<div style="text-align:center;font-size:11px;color:var(--mute)">${l}<input type="number" step="0.1" id="vt${i}" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 2px;text-align:center;font-size:12px"></div>`).join("")}</div></div>
+      <div class="f"><label>Hintergrund entfernen<small>einfarbiger Hintergrund wird transparent – Drescher steht auf der Holzscheibe</small></label><input type="checkbox" class="sw" id="vid_bg" checked></div>
+      <div class="f"><label>Toleranz</label><input type="range" id="vid_tol" min="5" max="120" value="28" style="width:45%"></div>
+      <div class="f"><label>Bilder je Fahrt<small>mehr = flüssiger, braucht mehr Speicher</small></label><input type="range" id="vid_n" min="4" max="16" step="1" value="10" style="width:40%"><span class="u" id="vid_nv" style="width:34px">10</span></div>
+      <div class="f"><label>Bildbreite</label><input type="range" id="vid_fw" min="320" max="800" step="20" value="480" style="width:40%"><span class="u" id="vid_fwv" style="width:34px">480</span></div>
       <div class="help" id="vid_info"></div>
       <button class="btn primary save" id="vid_up" disabled>Video verarbeiten & hochladen</button>
       <div class="row2" style="margin-bottom:14px"><button class="btn" onclick="startVidAdjust()" ${V()?"":"disabled"}>Ausrichten</button><button class="btn" style="color:#ff6060" onclick="deleteVid()" ${V()?"":"disabled"}>Video löschen</button></div></div>
@@ -823,20 +843,22 @@ function applyImg(){
 function placeImg(){ const el=$("#combineImg"); el.setAttribute("x",CFG.imgX); el.setAttribute("y",CFG.imgY); el.setAttribute("width",CFG.imgW); el.setAttribute("height",CFG.imgW*imgAspect); }
 const loadImage=src=>new Promise((ok,err)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=err;i.src=src});
 const toBlob=(c,type,q)=>new Promise(ok=>c.toBlob(ok,type,q));
+// Einfarbigen Hintergrund ab den Rändern transparent machen (Flood-Fill)
+function cutBg(x,ox,oy,w,h,tol){
+  const d=x.getImageData(ox,oy,w,h), p=d.data, seen=new Uint8Array(w*h), st=[];
+  const cs=[0,w-1,(h-1)*w,(h-1)*w+w-1].map(i=>[p[i*4],p[i*4+1],p[i*4+2]]);
+  const bg=[0,1,2].map(j=>cs.reduce((a,c)=>a+c[j],0)/4), t2=tol*tol*3;
+  const near=i=>{const dr=p[i*4]-bg[0],dg=p[i*4+1]-bg[1],db=p[i*4+2]-bg[2];return dr*dr+dg*dg+db*db<t2};
+  for(let X=0;X<w;X++){st.push(X,(h-1)*w+X)} for(let Y=0;Y<h;Y++){st.push(Y*w,Y*w+w-1)}
+  while(st.length){const i=st.pop(); if(seen[i]||!near(i)) continue; seen[i]=1; p[i*4+3]=0;
+    const X=i%w; if(X>0)st.push(i-1); if(X<w-1)st.push(i+1); if(i>=w)st.push(i-w); if(i<w*(h-1))st.push(i+w);}
+  x.putImageData(d,ox,oy);
+}
 async function processImg(file,removeBg,tol){
   const img=await loadImage(URL.createObjectURL(file));
   let w=img.naturalWidth,h=img.naturalHeight; const k=Math.min(1,900/w,900/h); w=Math.round(w*k); h=Math.round(h*k);
   let c=document.createElement("canvas"); c.width=w; c.height=h; let x=c.getContext("2d"); x.drawImage(img,0,0,w,h);
-  if(removeBg){
-    const d=x.getImageData(0,0,w,h), p=d.data, seen=new Uint8Array(w*h), st=[];
-    const cs=[0,w-1,(h-1)*w,(h-1)*w+w-1].map(i=>[p[i*4],p[i*4+1],p[i*4+2]]);
-    const bg=[0,1,2].map(j=>cs.reduce((a,c)=>a+c[j],0)/4), t2=tol*tol*3;
-    const near=i=>{const dr=p[i*4]-bg[0],dg=p[i*4+1]-bg[1],db=p[i*4+2]-bg[2];return dr*dr+dg*dg+db*db<t2};
-    for(let X=0;X<w;X++){st.push(X,(h-1)*w+X)} for(let Y=0;Y<h;Y++){st.push(Y*w,Y*w+w-1)}
-    while(st.length){const i=st.pop(); if(seen[i]||!near(i)) continue; seen[i]=1; p[i*4+3]=0;
-      const X=i%w; if(X>0)st.push(i-1); if(X<w-1)st.push(i+1); if(i>=w)st.push(i-w); if(i<w*(h-1))st.push(i+w);}
-    x.putImageData(d,0,0);
-  }
+  if(removeBg) cutBg(x,0,0,w,h,tol);
   // auf sichtbaren Inhalt zuschneiden
   const d=x.getImageData(0,0,w,h).data; let x0=w,y0=h,x1=0,y1=0;
   for(let Y=0;Y<h;Y++)for(let X=0;X<w;X++)if(d[(Y*w+X)*4+3]>12){if(X<x0)x0=X;if(X>x1)x1=X;if(Y<y0)y0=Y;if(Y>y1)y1=Y}
@@ -847,7 +869,7 @@ async function compressCanvas(c,maxBytes=95000){
   let scale=1, blob=null, cw=c.width, ch=c.height;
   for(let round=0;round<8;round++){
     const cc=document.createElement("canvas");cc.width=cw=Math.round(c.width*scale);cc.height=ch=Math.round(c.height*scale);cc.getContext("2d").drawImage(c,0,0,cc.width,cc.height);
-    for(let q=.9;q>=.45;q-=.1){blob=await toBlob(cc,"image/webp",q); if(blob.type!=="image/webp"){blob=await toBlob(cc,"image/jpeg",q);} if(blob.size<maxBytes)break}
+    for(let q=.9;q>=.45;q-=.1){blob=await toBlob(cc,"image/webp",q); if(blob.type!=="image/webp"){blob=await toBlob(cc,"image/png");break} if(blob.size<maxBytes)break}
     if(blob.size<maxBytes) return {blob,canvas:c,scale,w:cw,h:ch}; scale*=.85;
   }
   return {blob,canvas:c,scale,w:cw,h:ch};
@@ -908,54 +930,133 @@ function uiSave(patch){ uiGet(); Object.assign(UI,patch); CFG.ui=JSON.stringify(
 function V(){ return UI.vid||null }
 function vidSrc(){ const v=V(); if(!v) return null; return demo?demoVid:`/video.img?v=${v.ver}` }
 function vidMode(){ const v=V(); return !!(v&&v.on&&vidSrc()) }
+let placesKey="";
 function applyVid(){
   const on=vidMode(), v=V(), ring=$("#ring");
-  $("#vidWrap").style.display=on?"":"none"; $("#board").style.display=on?"none":"";
-  if(!on){ ring.removeAttribute("transform"); return; }
+  ring.removeAttribute("transform");
+  $("#vidWrap").style.display=on?"":"none"; $("#board").style.display="";
+  if(on&&v.alpha) $("#vidMaskG").removeAttribute("mask"); else $("#vidMaskG").setAttribute("mask","url(#vfade)");
+  const key=JSON.stringify([on,on&&[v.gp,v.gs,v.tips,v.gdy,v.x,v.y,v.w],CFG&&CFG.ang]);
+  if(key!==placesKey&&document.querySelector(".glass")){ placesKey=key; rebuildPlaces(); }
+  if(!on) return;
   $("#combineDraw").style.display="none"; $("#combineImg").style.display="none";
   const w=$("#vidWrap"), im=$("#vidImg"), src=vidSrc();
   if(src!==vidLoaded){ vidLoaded=src; im.setAttribute("href",src); }
   im.setAttribute("width",v.cols*v.fw); im.setAttribute("height",Math.ceil(v.n/v.cols)*v.fh);
   w.setAttribute("x",v.x); w.setAttribute("y",v.y); w.setAttribute("width",v.w); w.setAttribute("height",v.w*v.fh/v.fw);
-  ring.setAttribute("transform",`translate(${v.rx} ${v.ry}) scale(${v.rs} ${v.rs*v.rsy})`);
 }
-function vidFrame(angle){
-  const v=V(), t=Math.max(0,Math.min(1,(angle-v.a0)/((v.a1-v.a0)||1))), i=Math.round(t*(v.n-1));
+// Winkel -> Bild: zwischen zwei Haltepunkten (Park, Glas 1..6) linear durch die gespeicherte Fahrt
+function vidFrameIndex(angle){
+  const v=V();
+  if(!v.M){ const t=Math.max(0,Math.min(1,(angle-v.a0)/((v.a1-v.a0)||1))); return Math.round(t*(v.n-1)); }
+  const A=[CFG.angPark,...CFG.ang], segs=v.segs||6;
+  if(angle<=A[0]) return 0;
+  for(let k=0;k<segs&&k<A.length-1;k++){
+    const a0=A[k],a1=A[k+1];
+    if((angle-a0)*(angle-a1)<=0){ const f=(angle-a0)/((a1-a0)||1); return Math.round(k*v.M+f*v.M); }
+  }
+  return v.n-1;
+}
+function showFrame(i){
+  const v=V(); i=Math.max(0,Math.min(v.n-1,i));
   $("#vidWrap").setAttribute("viewBox",`${f1((i%v.cols)*v.fw)} ${f1(Math.floor(i/v.cols)*v.fh)} ${f1(v.fw)} ${f1(v.fh)}`);
 }
+function vidFrame(angle){ showFrame(alignFrame??vidFrameIndex(angle)); }
 const seek=(v,t)=>new Promise(ok=>{v.onseeked=()=>ok();v.currentTime=t});
+let vidProfile=null;   // Bewegungsprofil des gewählten Videos
+// Findet in den 7 Standbildern die Spitze des Abtankrohrs: Pixel, die sich nur in diesem Standbild
+// gegenüber der Parkposition ändern = Rohr an dieser Position; Spitze = am weitesten vom Drescher entfernt
+function detectTips(g,cols,FW,FH,M){
+  const n=FW*FH, F=[...Array(7)].map((_,k)=>{const i=k*M;return g.getImageData((i%cols)*FW,Math.floor(i/cols)*FH,FW,FH).data});
+  const df=(a,b,p)=>Math.abs(a[p]-b[p])+Math.abs(a[p+1]-b[p+1])+Math.abs(a[p+2]-b[p+2])+Math.abs(a[p+3]-b[p+3]);
+  const D=[null]; for(let k=1;k<7;k++){const m=new Uint8Array(n); for(let p=0;p<n;p++) m[p]=df(F[k],F[0],p*4)>70?1:0; D.push(m)}
+  const f0=F[0], bg=[f0[0],f0[1],f0[2]]; let sx=0,sy=0,c=0;
+  for(let p=0;p<n;p++){const q=p*4; if(f0[q+3]>30&&Math.abs(f0[q]-bg[0])+Math.abs(f0[q+1]-bg[1])+Math.abs(f0[q+2]-bg[2])>60){sx+=p%FW;sy+=(p/FW)|0;c++}}
+  const cx=c?sx/c:FW/2, cy=c?sy/c:FH/2, tips=[];
+  for(let k=1;k<7;k++){
+    const pts=[];
+    for(let p=0;p<n;p++){ if(!D[k][p]) continue; let common=true; for(let j=1;j<7;j++){ if(j!==k&&!D[j][p]){common=false;break} } if(common) continue;
+      const x=p%FW, y=(p/FW)|0; pts.push([(x-cx)**2+(y-cy)**2,x,y]); }
+    if(pts.length<20){ tips.push(null); continue; }
+    pts.sort((a,b)=>a[0]-b[0]);
+    const top=pts.slice(Math.floor(pts.length*.985));
+    tips.push({u:top.reduce((a,p)=>a+p[1],0)/top.length/FW, v:Math.max(...top.map(p=>p[2]))/FH});
+  }
+  return tips;
+}
+function openVideo(file){
+  const v=document.createElement("video"); v.muted=true; v.playsInline=true; v.preload="auto"; v.src=URL.createObjectURL(file);
+  return new Promise((ok,er)=>{v.onloadeddata=()=>ok(v); v.onerror=()=>er(new Error("Video kann in diesem Browser nicht gelesen werden"))});
+}
+// Bewegungsprofil mit 10 Bildern/s: mittlere Helligkeitsänderung je Bild
+async function analyzeVideo(v,info){
+  const fps=10, n=Math.floor(v.duration*fps), c=document.createElement("canvas"); c.width=64; c.height=36; const g=c.getContext("2d",{willReadFrequently:true});
+  const diff=[0]; let prev=null;
+  for(let i=0;i<n;i++){
+    await seek(v,i/fps); g.drawImage(v,0,0,64,36); const d=g.getImageData(0,0,64,36).data;
+    if(prev){ let s=0; for(let j=0;j<d.length;j+=4) s+=Math.abs(d[j]+d[j+1]+d[j+2]-prev[j]-prev[j+1]-prev[j+2]); diff.push(s/(64*36*3)); }
+    prev=d; if(i%10===0) info(`Analysiere Video… ${Math.round(i/n*100)} %`);
+  }
+  const mx=Math.max(...diff), thr=Math.max(.15,mx*.12), stills=[]; let st=-1;
+  for(let i=0;i<=diff.length;i++){ const still=i<diff.length&&diff[i]<thr;
+    if(still&&st<0) st=i; if(!still&&st>=0){ if(i-st>=3) stills.push([st/fps,(i-1)/fps]); st=-1; } }
+  return {fps,diff,stills};
+}
 function bindVid(){
   const f=$("#vid_file"); if(!f) return;
+  const info=t=>$("#vid_info").textContent=t;
   $("#vid_n").oninput=e=>$("#vid_nv").textContent=e.target.value;
   $("#vid_fw").oninput=e=>$("#vid_fwv").textContent=e.target.value;
-  f.onchange=()=>{ $("#vid_up").disabled=!f.files[0]; $("#vid_info").textContent=f.files[0]?f.files[0].name:""; };
+  f.onchange=async()=>{
+    const file=f.files[0]; $("#vid_up").disabled=true; if(!file) return;
+    try{
+      const v=await openVideo(file); vidProfile=await analyzeVideo(v,info);
+      const S=vidProfile.stills, mids=S.map(([a,b])=>a===0?0:Math.min(b,(a+b)/2));
+      const T=mids.length>=7?mids.slice(0,7):[...Array(7)].map((_,i)=>i/6*v.duration);
+      T.forEach((t,i)=>$("#vt"+i).value=t.toFixed(1));
+      info(S.length===7?`7 Haltepunkte erkannt (${v.duration.toFixed(1)} s) – passt.`:`${S.length} Haltepunkte erkannt, erwartet 7 (Park + 6 Gläser). Bitte Zeiten prüfen.`);
+      $("#vid_up").disabled=false;
+    }catch(e){ info("Fehler: "+e.message); }
+  };
   $("#vid_up").onclick=processVideo;
 }
 async function processVideo(){
   const f=$("#vid_file").files[0]; if(!f) return;
-  const info=t=>$("#vid_info").textContent=t, N=+$("#vid_n").value, FW=+$("#vid_fw").value;
+  const info=t=>$("#vid_info").textContent=t, M=+$("#vid_n").value, FW=+$("#vid_fw").value;
+  const T=[...Array(7)].map((_,i)=>+$("#vt"+i).value);
+  for(let i=1;i<7;i++) if(!(T[i]>T[i-1])){ info("Die Haltepunkte müssen aufsteigend sein."); return; }
   $("#vid_up").disabled=true;
   try{
-    let maxBytes=600*1024;
+    let maxBytes=700*1024;
     if(!demo){
       const fs=await fetch("/fs").then(r=>r.json()).catch(()=>null);
       if(!fs||fs.total<400*1024){ info("Zu wenig Speicher auf dem ESP32 – bitte die Firmware einmal per USB über den Web-Installer neu installieren (größere Speicheraufteilung)."); return; }
-      maxBytes=Math.min(650*1024,fs.total-140*1024);
+      maxBytes=Math.min(720*1024,fs.total-130*1024);
     }
-    info("Lese Video…");
-    const v=document.createElement("video"); v.muted=true; v.playsInline=true; v.preload="auto"; v.src=URL.createObjectURL(f);
-    await new Promise((ok,er)=>{v.onloadeddata=ok; v.onerror=()=>er(new Error("Video kann in diesem Browser nicht gelesen werden"))});
-    const FH=Math.round(FW*v.videoHeight/v.videoWidth), cols=8, rows=Math.ceil(N/cols);
-    const c=document.createElement("canvas"); c.width=cols*FW; c.height=rows*FH; const g=c.getContext("2d");
-    for(let i=0;i<N;i++){
-      await seek(v,Math.min(v.duration-0.02,i/(N-1)*v.duration));
-      g.drawImage(v,(i%cols)*FW,Math.floor(i/cols)*FH,FW,FH);
-      info(`Zerlege Video… ${i+1}/${N}`);
+    const v=await openVideo(f);
+    // Zeitpunkte: je Fahrt Standbild + (M-1) Bilder der eigentlichen Bewegung; letztes Standbild am Ende
+    const times=[];
+    for(let k=0;k<6;k++){
+      let ms=T[k], me=T[k+1];
+      if(vidProfile){ const fps=vidProfile.fps, d=vidProfile.diff, thr=Math.max(.15,Math.max(...d)*.12);
+        let a=Math.ceil(T[k]*fps), b=Math.floor(T[k+1]*fps);
+        while(a<b&&d[a]<thr) a++; while(b>a&&d[b]<thr) b--;
+        if(b>a){ ms=Math.max(T[k],(a-1)/fps); me=Math.min(T[k+1],b/fps); } }
+      times.push(T[k]);
+      for(let j=1;j<M;j++) times.push(ms+(me-ms)*j/M);
     }
+    times.push(T[6]);
+    const N=times.length, FH=Math.round(FW*v.videoHeight/v.videoWidth), cols=8, rows=Math.ceil(N/cols);
+    const c=document.createElement("canvas"); c.width=cols*FW; c.height=rows*FH; const g=c.getContext("2d",{willReadFrequently:true});
+    const bgOff=$("#vid_bg").checked, tol=+$("#vid_tol").value;
+    for(let i=0;i<N;i++){ await seek(v,Math.min(v.duration-0.02,times[i])); const cx=(i%cols)*FW, cy=Math.floor(i/cols)*FH;
+      g.drawImage(v,cx,cy,FW,FH); if(bgOff) cutBg(g,cx,cy,FW,FH,tol); info(`Zerlege Video… ${i+1}/${N}`); }
+    info("Suche Rohrspitzen…");
+    const tips=detectTips(g,cols,FW,FH,M);
     info("Komprimiere…");
     const out=await compressCanvas(c,maxBytes);
-    if(out.blob.size>maxBytes){ info("Zu groß – weniger Einzelbilder oder kleinere Bildbreite wählen."); return; }
-    const meta={n:N,cols,fw:out.w/cols,fh:out.h/rows,ver:Date.now(),on:true};
+    if(out.blob.size>maxBytes){ info("Zu groß – weniger Bilder je Fahrt oder kleinere Bildbreite wählen."); return; }
+    const meta={n:N,M,segs:6,cols,fw:out.w/cols,fh:out.h/rows,ver:Date.now(),on:true,times:T,alpha:bgOff,tips,gp:[null,null,null,null,null,null]};
     if(demo){ demoVid=URL.createObjectURL(out.blob); await demoStore("lh_demo_vid",out.blob); }
     else{
       info(`Lade hoch… (${Math.round(out.blob.size/1024)} kB)`);
@@ -964,7 +1065,7 @@ async function processVideo(){
       if(!r||!r.ok){ info("Fehler: "+(r?await r.text():"keine Verbindung")); return; }
     }
     const old=V()||{};
-    uiSave({vid:Object.assign({a0:CFG.angPark,a1:180,x:-322,y:-200,w:644,rx:0,ry:0,rs:1,rsy:1},old,meta)});
+    uiSave({vid:Object.assign({x:-322,y:-205,w:644,gs:1,sh:45,gdy:.08},old,meta)});
     info(`Fertig: ${N} Bilder, ${Math.round(out.blob.size/1024)} kB`);
     renderTab(); startVidAdjust();
   }catch(e){ info("Fehler: "+e.message); }
@@ -974,19 +1075,36 @@ async function deleteVid(){
   if(!demo) await fetch("/upload/delete?f=vid",{method:"POST"}).catch(()=>null);
   demoVid=null; demoStore("lh_demo_vid",null); uiSave({vid:null}); renderTab(); toast("Video gelöscht");
 }
-const VADJ=[["va_pv",null],["va_a0","a0"],["va_a1","a1"],["va_w","w"],["va_x","x"],["va_y","y"],["va_rx","rx"],["va_ry","ry"],["va_rs","rs"],["va_rsy","rsy"]];
-let vidBackup=null;
+let vidBackup=null, aligning=false, alignFrame=null, alignSel=0, dragging=false;
 function startVidAdjust(){
   uiGet(); if(!V()) return;
   $("#drawer").classList.remove("show"); $("#vidAdj").classList.add("show");
-  vidBackup=JSON.stringify(V());
-  previewAng=dispAng??CFG.angPark;
-  VADJ.forEach(([id,k])=>{const e=$("#"+id); e.value=k?V()[k]:previewAng;
-    e.oninput=()=>{ if(k){V()[k]=+e.value; applyVid();} else previewAng=+e.value; };});
+  vidBackup=JSON.stringify(V()); aligning=true;
+  const v=V();
+  if(!Array.isArray(v.gp)||v.gp.some(g=>g&&g.u===undefined)) v.gp=[null,null,null,null,null,null];
+  if(!v.tips) v.tips=[...Array(N)].map((_,i)=>{const a=CFG.ang[i],[dx,dy]=dir(a),b=P(dx*R,dy*R,0);return {u:(b[0]-v.x)/v.w, v:(b[1]-v.y)/(v.w*v.fh/v.fw)-(v.gdy??.08)}});
+  applyVid();
+  [["va_w","w"],["va_x","x"],["va_y","y"],["va_gs","gs"],["va_sh","sh"],["va_gdy","gdy"]].forEach(([id,k])=>{const e=$("#"+id); e.value=v[k]??({gs:1,sh:45,gdy:.08}[k]??0); e.oninput=()=>{v[k]=+e.value; applyVid();};});
+  $("#va_auto").onclick=()=>{ v.gp=[null,null,null,null,null,null]; applyVid(); selectAlign(alignSel); toast("Gläser stehen wieder unter den erkannten Rohrspitzen"); };
+  $("#va_pos").innerHTML=["Park","1","2","3","4","5","6"].map((l,i)=>`<button data-p="${i}">${l}</button>`).join("");
+  $("#va_pos").querySelectorAll("button").forEach(b=>b.onclick=()=>selectAlign(+b.dataset.p));
+  selectAlign(1);
 }
-$("#va_ok").onclick=()=>{ $("#vidAdj").classList.remove("show"); previewAng=null; uiSave({vid:V()}); };
-$("#va_cancel").onclick=()=>{ $("#vidAdj").classList.remove("show"); previewAng=null; UI.vid=JSON.parse(vidBackup); applyVid(); };
-
+function selectAlign(p){
+  alignSel=p; const v=V();
+  alignFrame=v.M?p*v.M:Math.round(p/6*(v.n-1));
+  $("#va_pos").querySelectorAll("button").forEach(b=>b.classList.toggle("on",+b.dataset.p===p));
+  $("#va_hint").textContent=p===0?"Parkposition – nur zur Kontrolle.":`Tippe oder ziehe im Bild dorthin, wo Glas ${p} unter dem Auslauf stehen soll (Glasboden).`;
+  document.querySelectorAll(".glass").forEach(g=>g.style.opacity=(p===0||+g.dataset.i===p-1)?"":".35");
+}
+function endAlign(){ aligning=false; alignFrame=null; $("#vidAdj").classList.remove("show"); document.querySelectorAll(".glass").forEach(g=>g.style.opacity=""); }
+function svgPoint(e){ const sv=$("#svg"), pt=sv.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; return pt.matrixTransform(sv.getScreenCTM().inverse()); }
+function placeAt(e){ if(!aligning||alignSel<1) return; const q=svgPoint(e), v=V(); v.gp[alignSel-1]={u:+((q.x-v.x)/v.w).toFixed(4), v:+((q.y-v.y)/(v.w*v.fh/v.fw)).toFixed(4)}; applyVid(); selectAlign(alignSel); }
+$("#svg").addEventListener("pointerdown",e=>{ if(!aligning) return; dragging=true; $("#svg").setPointerCapture(e.pointerId); placeAt(e); e.preventDefault(); });
+$("#svg").addEventListener("pointermove",e=>{ if(aligning&&dragging) placeAt(e); });
+$("#svg").addEventListener("pointerup",()=>dragging=false);
+$("#va_ok").onclick=()=>{ endAlign(); uiSave({vid:V()}); };
+$("#va_cancel").onclick=()=>{ endAlign(); UI.vid=JSON.parse(vidBackup); applyVid(); };
 
 /* ---------------- Einrichtung exportieren / importieren ---------------- */
 const blobToDataURL=b=>new Promise(ok=>{const r=new FileReader();r.onload=()=>ok(r.result);r.readAsDataURL(b)});
@@ -1034,7 +1152,7 @@ window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAug
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[15,45,75,105,135,165],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
