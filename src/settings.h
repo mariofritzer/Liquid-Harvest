@@ -35,6 +35,13 @@ struct Settings {
   uint8_t  encDiv      = 4;       // Flanken pro Raste (KY-040: meist 4, manche 2)
   bool     encReverse  = false;
 
+  // --- Eigenes Mähdrescher-Bild (liegt im LittleFS) ---
+  bool     imgOn       = false;
+  float    imgW        = 380;     // Breite in Szenen-Einheiten
+  float    imgX        = -240;    // linke obere Ecke
+  float    imgY        = -215;
+  uint32_t imgVer      = 0;       // ändert sich bei jedem Upload (Cache)
+
   // --- Waagen ---
   int32_t  offset[NUM_PLACES] = {0, 0, 0, 0, 0, 0};
   float    factor[NUM_PLACES] = {420, 420, 420, 420, 420, 420};  // Rohwert pro Gramm

@@ -185,6 +185,15 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
   <div class="dbody" id="dbody"></div>
 </div>
 
+<div class="sheet" id="imgAdj">
+  <div class="grab"></div>
+  <div class="sh-head"><h2 style="font-size:18px">Bild ausrichten</h2></div>
+  <div class="f"><label>Größe</label><input type="range" id="ia_w" min="60" max="900" step="2" style="width:60%"></div>
+  <div class="f"><label>Links / rechts</label><input type="range" id="ia_x" min="-600" max="400" step="1" style="width:60%"></div>
+  <div class="f"><label>Oben / unten</label><input type="range" id="ia_y" min="-500" max="300" step="1" style="width:60%"></div>
+  <p class="help" style="margin:6px 0 12px">Tipp: Das Abtankrohr dreht sich um die Mitte des Glas-Halbkreises – Bild so schieben, dass das Rohr am Drescher ansetzt.</p>
+  <div class="row2"><button class="btn" id="ia_cancel">Abbrechen</button><button class="btn primary" id="ia_ok">Speichern</button></div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -208,7 +217,7 @@ function setConn(on){ $("#dot").classList.toggle("on",on); $("#conn").textConten
 
 function onMsg(m){
   if(m.t==="st"){ST=m;render()}
-  else if(m.t==="cfg"){CFG=m.cfg;VER=m.ver;buildAmount();if($("#drawer").classList.contains("show"))renderTab()}
+  else if(m.t==="cfg"){CFG=m.cfg;VER=m.ver;buildAmount();applyImg();if($("#drawer").classList.contains("show")&&curTab!=="img")renderTab()}
   else if(m.t==="ev"){
     if(m.e==="glass_on") pop(m.p);
     if(m.e==="pour_done") toast(`Glas ${m.p}: ${m.ml.toFixed(1)} ml – Prost! 🥃`);
@@ -363,7 +372,7 @@ function staticScene(){
   s+=poly(side.concat(sideB),"url(#wood)")+poly(top,"url(#woodTop)");
   // Ringe auf der Platte
   s+=ell(0,0,0,R+38,'fill="none" stroke="#00000022" stroke-width="2"')+ell(0,0,0,R-38,'fill="none" stroke="#00000018" stroke-width="2"');
-  s+=combine();
+  s+=`<g id="combineDraw">${combine()}</g><image id="combineImg" style="display:none" preserveAspectRatio="xMidYMid meet"/>`;
   // Untersetzer + Gläser
   s+=`<g id="coasters"></g><g id="glasses"></g><g id="auger"></g>`;
   $("#svg").innerHTML=s;
@@ -524,7 +533,7 @@ function updateSheet(){
 }
 
 /* ---------------- Einstellungen ---------------- */
-const TABS=[["dose","Dosierung"],["scales","Waagen"],["servo","Servo"],["wifi","WLAN"],["sys","System"]];
+const TABS=[["dose","Dosierung"],["scales","Waagen"],["servo","Servo"],["img","Drescher-Bild"],["wifi","WLAN"],["sys","System"]];
 let curTab="dose";
 const FIELDS={
   dose:[["Ausschank",[
@@ -615,6 +624,18 @@ function renderTab(){
       <button class="btn primary save" onclick="saveWifi()">Speichern & Neustart</button>
       <p class="help">Findet der Drescher das Heimnetz nicht, öffnet er nach 20 s den Hotspot <b>LiquidHarvest-XXXX</b> (Passwort Standard: <code>prost1234</code>). Hotspot jederzeit erzwingen: Drehencoder-Knopf 3 s drücken.</p>`;
   }
+  if(curTab==="img"){
+    h+=`<div class="card"><h3>Eigenes Bild</h3>
+      <div class="f"><label>Eigenes Bild statt Zeichnung<small>${CFG.imgVer||demoImg?"Bild ist gespeichert":"Noch kein Bild hochgeladen"}</small></label><input type="checkbox" class="sw" id="im_on" ${CFG.imgOn?"checked":""} ${CFG.imgVer||demoImg?"":"disabled"} onchange="send({c:'setCfg',cfg:{imgOn:this.checked}})"></div>
+      <div class="f"><label>Bild wählen<small>Foto oder PNG, schräg von oben</small></label><input type="file" id="im_file" accept="image/*" style="width:150px;font-size:12px"></div>
+      <div class="f"><label>Hintergrund entfernen<small>Einfarbiger Hintergrund wird transparent</small></label><input type="checkbox" class="sw" id="im_bg" checked></div>
+      <div class="f"><label>Toleranz</label><input type="range" id="im_tol" min="5" max="120" value="40" style="width:45%"></div>
+      <div style="padding:12px 0;text-align:center"><canvas id="im_prev" style="max-width:100%;max-height:220px;background:repeating-conic-gradient(#2a372d 0 25%,#1b251e 0 50%) 0 0/16px 16px;border-radius:10px;display:none"></canvas><div class="help" id="im_info"></div></div>
+      </div>
+      <button class="btn primary save" id="im_up" disabled>Hochladen & verwenden</button>
+      <div class="row2"><button class="btn" onclick="startAdjust()" ${CFG.imgVer||demoImg?"":"disabled"}>Position anpassen</button><button class="btn" style="color:#ff8a8a" onclick="deleteImg()" ${CFG.imgVer||demoImg?"":"disabled"}>Bild löschen</button></div>
+      <p class="help">Das Bild wird im Browser verkleinert, auf max. 100 kB komprimiert und auf dem ESP32 gespeichert – es landet nicht im GitHub-Repo. Das Abtankrohr wird weiterhin live darübergezeichnet; der Drehpunkt liegt in der Mitte des Glas-Halbkreises.</p>`;
+  }
   if(curTab==="sys"){
     h+=`<div class="card"><h3>Pumpe</h3><div class="f"><label>Schlauch füllen / entlüften<small>Rohr fährt in Parkposition – Auffangbecher hinstellen!</small></label><input type="number" id="pr_s" value="3" style="width:64px"><span class="u">s</span><button class="sbtn gold" onclick="send({c:'prime',s:+$('#pr_s').value})">Start</button></div></div>
       <div class="card"><h3>Firmware</h3><div class="f"><label>Version</label><span>${VER}</span></div>
@@ -624,6 +645,7 @@ function renderTab(){
       <div class="row2"><button class="btn" onclick="send({c:'reboot'})">Neustart</button><button class="btn" style="color:#ff8a8a" onclick="if(confirm('Wirklich alles zurücksetzen (inkl. WLAN & Kalibrierung)?'))send({c:'factory'})">Werkseinstellungen</button></div>`;
   }
   b.innerHTML=h;
+  if(curTab==="img") bindImgTab();
   if(curTab==="scales") updateScales();
   const ota=$("#ota"); if(ota) ota.onchange=uploadOta;
 }
@@ -646,6 +668,82 @@ function uploadOta(e){
   x.send(fd);
 }
 
+
+/* ---------------- Eigenes Mähdrescher-Bild ---------------- */
+let demoImg=null, imgBlob=null, imgAspect=0.6, imgLoadedSrc="";
+function imgSrc(){ if(demo) return demoImg; return CFG&&CFG.imgVer?`/combine.img?v=${CFG.imgVer}`:null; }
+function applyImg(){
+  const el=$("#combineImg"), dr=$("#combineDraw"); if(!el||!CFG) return;
+  const src=imgSrc(), on=CFG.imgOn&&src;
+  el.style.display=on?"":"none"; dr.style.display=on?"none":"";
+  if(!on) return;
+  if(src!==imgLoadedSrc){ imgLoadedSrc=src; const i=new Image(); i.onload=()=>{imgAspect=i.naturalHeight/i.naturalWidth;placeImg()}; i.src=src; el.setAttribute("href",src); }
+  placeImg();
+}
+function placeImg(){ const el=$("#combineImg"); el.setAttribute("x",CFG.imgX); el.setAttribute("y",CFG.imgY); el.setAttribute("width",CFG.imgW); el.setAttribute("height",CFG.imgW*imgAspect); }
+const loadImage=src=>new Promise((ok,err)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=err;i.src=src});
+const toBlob=(c,type,q)=>new Promise(ok=>c.toBlob(ok,type,q));
+async function processImg(file,removeBg,tol){
+  const img=await loadImage(URL.createObjectURL(file));
+  let w=img.naturalWidth,h=img.naturalHeight; const k=Math.min(1,900/w,900/h); w=Math.round(w*k); h=Math.round(h*k);
+  let c=document.createElement("canvas"); c.width=w; c.height=h; let x=c.getContext("2d"); x.drawImage(img,0,0,w,h);
+  if(removeBg){
+    const d=x.getImageData(0,0,w,h), p=d.data, seen=new Uint8Array(w*h), st=[];
+    const cs=[0,w-1,(h-1)*w,(h-1)*w+w-1].map(i=>[p[i*4],p[i*4+1],p[i*4+2]]);
+    const bg=[0,1,2].map(j=>cs.reduce((a,c)=>a+c[j],0)/4), t2=tol*tol*3;
+    const near=i=>{const dr=p[i*4]-bg[0],dg=p[i*4+1]-bg[1],db=p[i*4+2]-bg[2];return dr*dr+dg*dg+db*db<t2};
+    for(let X=0;X<w;X++){st.push(X,(h-1)*w+X)} for(let Y=0;Y<h;Y++){st.push(Y*w,Y*w+w-1)}
+    while(st.length){const i=st.pop(); if(seen[i]||!near(i)) continue; seen[i]=1; p[i*4+3]=0;
+      const X=i%w; if(X>0)st.push(i-1); if(X<w-1)st.push(i+1); if(i>=w)st.push(i-w); if(i<w*(h-1))st.push(i+w);}
+    x.putImageData(d,0,0);
+  }
+  // auf sichtbaren Inhalt zuschneiden
+  const d=x.getImageData(0,0,w,h).data; let x0=w,y0=h,x1=0,y1=0;
+  for(let Y=0;Y<h;Y++)for(let X=0;X<w;X++)if(d[(Y*w+X)*4+3]>12){if(X<x0)x0=X;if(X>x1)x1=X;if(Y<y0)y0=Y;if(Y>y1)y1=Y}
+  if(x1>x0&&y1>y0){const cc=document.createElement("canvas");cc.width=x1-x0+1;cc.height=y1-y0+1;cc.getContext("2d").drawImage(c,-x0,-y0);c=cc}
+  // auf <= 95 kB komprimieren
+  let scale=1, blob=null;
+  for(let round=0;round<6;round++){
+    const cc=document.createElement("canvas");cc.width=Math.round(c.width*scale);cc.height=Math.round(c.height*scale);cc.getContext("2d").drawImage(c,0,0,cc.width,cc.height);
+    for(let q=.9;q>=.5;q-=.1){blob=await toBlob(cc,"image/webp",q); if(blob.type!=="image/webp"){blob=await toBlob(cc,"image/png");break} if(blob.size<95000)break}
+    if(blob.size<95000) return {blob,canvas:c}; scale*=.8;
+  }
+  return {blob,canvas:c};
+}
+function bindImgTab(){
+  const f=$("#im_file"), run=async()=>{
+    if(!f.files[0]) return;
+    $("#im_info").textContent="Verarbeite…";
+    const r=await processImg(f.files[0],$("#im_bg").checked,+$("#im_tol").value);
+    imgBlob=r.blob; const pv=$("#im_prev"); pv.width=r.canvas.width; pv.height=r.canvas.height; pv.getContext("2d").drawImage(r.canvas,0,0); pv.style.display="inline-block";
+    $("#im_info").textContent=`${Math.round(imgBlob.size/1024)} kB · ${imgBlob.type.replace("image/","").toUpperCase()}`+(imgBlob.size>100*1024?" – zu groß!":"");
+    $("#im_up").disabled=imgBlob.size>100*1024;
+  };
+  f.onchange=run; $("#im_bg").onchange=run; $("#im_tol").onchange=run;
+  $("#im_up").onclick=uploadImg;
+}
+async function uploadImg(){
+  if(!imgBlob) return;
+  if(demo){ demoImg=URL.createObjectURL(imgBlob); demoCmd({c:"setCfg",cfg:{imgOn:true,imgVer:Date.now()}}); renderTab(); startAdjust(); return; }
+  const fd=new FormData(); fd.append("file",imgBlob,imgBlob.type==="image/png"?"combine.png":"combine.webp");
+  $("#im_info").textContent="Lade hoch…";
+  const r=await fetch("/combine",{method:"POST",body:fd}).catch(()=>null);
+  if(!r||!r.ok){ $("#im_info").textContent="Fehler: "+(r?await r.text():"keine Verbindung"); return; }
+  send({c:"setCfg",cfg:{imgOn:true}}); toast("Bild gespeichert"); setTimeout(()=>{renderTab();startAdjust()},600);
+}
+async function deleteImg(){
+  if(demo){ demoImg=null; demoCmd({c:"setCfg",cfg:{imgOn:false,imgVer:0}}); renderTab(); return; }
+  await fetch("/combine/delete",{method:"POST"}).catch(()=>null); toast("Bild gelöscht");
+}
+// Position live über der Szene anpassen
+function startAdjust(){
+  $("#drawer").classList.remove("show");
+  const a=$("#imgAdj"); a.classList.add("show");
+  [["ia_w","imgW"],["ia_x","imgX"],["ia_y","imgY"]].forEach(([id,k])=>{const e=$("#"+id); e.value=CFG[k]; e.oninput=()=>{CFG[k]=+e.value; placeImg()}});
+}
+$("#ia_ok").onclick=()=>{ $("#imgAdj").classList.remove("show"); send({c:"setCfg",cfg:{imgW:CFG.imgW,imgX:CFG.imgX,imgY:CFG.imgY}}); };
+$("#ia_cancel").onclick=()=>{ $("#imgAdj").classList.remove("show"); send({c:"getCfg"}); };
+
 /* ---------------- Toast ---------------- */
 let tt;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2600)}
 window.toast=toast;window.send=send;window.$=$;
@@ -654,7 +752,7 @@ window.toast=toast;window.send=send;window.$=$;
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[15,45,75,105,135,165],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,encDiv:4,encReverse:false,offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[15,45,75,105,135,165],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   onMsg({t:"cfg",cfg:SIM.cfg,ver:"1.0.0-demo"});

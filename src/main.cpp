@@ -8,6 +8,7 @@
 #include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
 #include <Update.h>
+#include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <Adafruit_NeoPixel.h>
 #include <vector>
@@ -59,6 +60,11 @@ static uint8_t pumpPct = 0;
 static uint32_t btnErrUntil = 0;
 static volatile bool otaRunning = false;
 static uint32_t rebootAt = 0;
+static bool fsOk = false;
+static volatile bool imgChanged = false;     // Upload/Löschen fertig -> Hauptschleife meldet es
+static File imgFile;
+static bool imgTooBig = false;
+static constexpr size_t IMG_MAX = 100 * 1024;
 
 Adafruit_NeoPixel strip(NUM_PLACES, PIN_LEDS, NEO_GRB + NEO_KHZ800);
 
@@ -786,6 +792,46 @@ static void webBegin() {
 
   server.on("/", HTTP_GET, sendIndex);
 
+  // Eigenes Mähdrescher-Bild (LittleFS)
+  server.on("/combine.img", HTTP_GET, [](AsyncWebServerRequest* r) {
+    if (!fsOk || !LittleFS.exists("/combine.img")) { r->send(404, "text/plain", "kein Bild"); return; }
+    String type = "image/webp";
+    File t = LittleFS.open("/combine.type", "r");
+    if (t) { type = t.readString(); t.close(); }
+    AsyncWebServerResponse* res = r->beginResponse(LittleFS, "/combine.img", type);
+    res->addHeader("Cache-Control", "max-age=31536000");   // URL enthält ?v=Version
+    r->send(res);
+  });
+  server.on("/combine", HTTP_POST,
+    [](AsyncWebServerRequest* r) {
+      if (!fsOk) { r->send(500, "text/plain", "Dateisystem nicht verfügbar"); return; }
+      if (imgTooBig) { r->send(413, "text/plain", "Bild zu groß (max. 100 kB)"); return; }
+      r->send(200, "text/plain", "OK");
+    },
+    [](AsyncWebServerRequest*, const String& filename, size_t index, uint8_t* data, size_t len, bool final) {
+      if (!fsOk) return;
+      if (!index) {
+        imgTooBig = false;
+        imgFile = LittleFS.open("/combine.tmp", "w");
+      }
+      if (index + len > IMG_MAX) imgTooBig = true;
+      if (imgFile && !imgTooBig) imgFile.write(data, len);
+      if (final && imgFile) {
+        imgFile.close();
+        if (imgTooBig) { LittleFS.remove("/combine.tmp"); return; }
+        LittleFS.remove("/combine.img");
+        LittleFS.rename("/combine.tmp", "/combine.img");
+        File t = LittleFS.open("/combine.type", "w");
+        if (t) { t.print(filename.endsWith(".png") ? "image/png" : filename.endsWith(".jpg") ? "image/jpeg" : "image/webp"); t.close(); }
+        imgChanged = true;
+      }
+    });
+  server.on("/combine/delete", HTTP_POST, [](AsyncWebServerRequest* r) {
+    if (fsOk) { LittleFS.remove("/combine.img"); LittleFS.remove("/combine.type"); }
+    imgChanged = true;
+    r->send(200, "text/plain", "OK");
+  });
+
   // REST-API (z. B. für Home Assistant)
   server.on("/api/state", HTTP_GET, [](AsyncWebServerRequest* r) {
     xSemaphoreTake(stateMutex, portMAX_DELAY);
@@ -862,6 +908,8 @@ void setup() {
   stateMutex = xSemaphoreCreateMutex();
 
   settingsLoad();
+  fsOk = LittleFS.begin(true);   // Partition "spiffs" (128 kB) für das eigene Mähdrescher-Bild
+  Serial.printf("[FS] LittleFS %s\n", fsOk ? "bereit" : "FEHLER");
 
   ledcSetup(CH_PUMP, 1000, 8);
   ledcAttachPin(PIN_PUMP, CH_PUMP);
@@ -907,6 +955,15 @@ void loop() {
   stateLoop();
   Improv::loop();
   ws.cleanupClients();
+
+  if (imgChanged) {
+    imgChanged = false;
+    bool has = fsOk && LittleFS.exists("/combine.img");
+    cfg.imgVer = has ? esp_random() : 0;
+    if (!has) cfg.imgOn = false;
+    settingsSave();
+    sendCfg();
+  }
 
   if (rebootAt && millis() > rebootAt) {
     pumpSet(0);

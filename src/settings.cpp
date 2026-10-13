@@ -34,6 +34,9 @@ static void clampAll() {
   cfg.ledBright  = constrain(cfg.ledBright, (uint8_t)1, (uint8_t)100);
   cfg.encDiv     = constrain(cfg.encDiv, (uint8_t)1, (uint8_t)8);
   cfg.enabledMask &= 0x3F;
+  cfg.imgW = constrain(cfg.imgW, 40.0f, 900.0f);
+  cfg.imgX = constrain(cfg.imgX, -700.0f, 700.0f);
+  cfg.imgY = constrain(cfg.imgY, -700.0f, 700.0f);
   if (cfg.host.length() == 0) cfg.host = "liquidharvest";
   if (cfg.apPass.length() > 0 && cfg.apPass.length() < 8) cfg.apPass = "prost1234";
 }
@@ -53,6 +56,7 @@ void settingsToJson(JsonObject o) {
   o["servoMinUs"] = cfg.servoMinUs; o["servoMaxUs"] = cfg.servoMaxUs;
   o["ledBright"] = cfg.ledBright; o["encDiv"] = cfg.encDiv;
   o["encReverse"] = cfg.encReverse;
+  o["imgOn"] = cfg.imgOn; o["imgW"] = cfg.imgW; o["imgX"] = cfg.imgX; o["imgY"] = cfg.imgY; o["imgVer"] = cfg.imgVer;
   JsonArray off = o["offset"].to<JsonArray>();
   JsonArray fac = o["factor"].to<JsonArray>();
   for (int i = 0; i < NUM_PLACES; i++) { off.add(cfg.offset[i]); fac.add(cfg.factor[i]); }
@@ -78,6 +82,7 @@ void settingsFromJson(JsonObjectConst o) {
   rd(o, "servoMinUs", cfg.servoMinUs); rd(o, "servoMaxUs", cfg.servoMaxUs);
   rd(o, "ledBright", cfg.ledBright);   rd(o, "encDiv", cfg.encDiv);
   rd(o, "encReverse", cfg.encReverse);
+  rd(o, "imgOn", cfg.imgOn); rd(o, "imgW", cfg.imgW); rd(o, "imgX", cfg.imgX); rd(o, "imgY", cfg.imgY); rd(o, "imgVer", cfg.imgVer);
   JsonArrayConst off = o["offset"];
   if (!off.isNull()) for (int i = 0; i < NUM_PLACES && i < (int)off.size(); i++) cfg.offset[i] = off[i].as<int32_t>();
   JsonArrayConst fac = o["factor"];
