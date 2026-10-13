@@ -140,7 +140,7 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
     <svg class="logo" viewBox="0 0 40 40"><rect width="40" height="40" rx="11" fill="#b4c618"/><path d="M20 31V12M20 16c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7zm0 6c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7zm0 6c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7z" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <h1>Liquid Harvest<small>Schnaps-Drescher</small></h1>
     <div class="sp"></div>
-    <span id="demoTag" class="demo hide">DEMO</span>
+    <span id="demoTag" class="demo hide">VORSCHAU</span>
     <div class="pill"><span id="dot" class="dot"></span><span id="conn">Verbinde…</span></div>
     <button class="iconbtn" id="gear" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   </header>
@@ -234,7 +234,7 @@ let ST=null, CFG=null, VER="", amount=20, sheetIdx=-1, shAmount=20, dispAng=null
 /* ---------------- Verbindung ---------------- */
 let ws=null, demo=false;
 function connect(){
-  if(location.protocol==="file:"||new URLSearchParams(location.search).has("demo")){startDemo();return}
+  if(location.protocol==="file:"||location.hostname.endsWith("github.io")||new URLSearchParams(location.search).has("demo")){startDemo();return}
   ws=new WebSocket(`ws://${location.host}/ws`);
   ws.onopen=()=>{setConn(true)};
   ws.onclose=()=>{setConn(false);setTimeout(connect,1500)};
@@ -702,6 +702,10 @@ function renderTab(){
       <div class="help" id="vid_info"></div>
       <button class="btn primary save" id="vid_up" disabled>Video verarbeiten & hochladen</button>
       <div class="row2" style="margin-bottom:14px"><button class="btn" onclick="startVidAdjust()" ${V()?"":"disabled"}>Ausrichten</button><button class="btn" style="color:#ff6060" onclick="deleteVid()" ${V()?"":"disabled"}>Video löschen</button></div></div>
+      <div class="card" style="margin-top:14px"><h3>Einrichtung sichern & übertragen</h3>
+      <div class="f"><label>Exportieren<small>Bild, Video, Ausrichtung, Rohr & Winkel in eine Datei</small></label><button class="sbtn gold" onclick="exportSetup()">Exportieren</button></div>
+      <div class="f"><label>Importieren<small>${demo?"in diese Vorschau laden":"auf den Drescher übertragen"}</small></label><input type="file" id="setup_file" accept=".json,application/json" style="width:150px;font-size:12px"></div>
+      <div class="help" id="setup_info">${demo?"Vorschau-Modus: alles hier einrichten, exportieren und nach dem Flashen am Drescher importieren.":""}</div></div>
       <div class="card" style="margin-top:14px"><h3>Abtankrohr</h3>
       <div class="f"><label>Aussehen & Ansatzpunkt<small>Farbe, Dicke, Höhe – und wo das Rohr am Drescher ansetzt</small></label><button class="sbtn gold" onclick="startAugAdjust()">Anpassen</button></div></div>
       <p class="help">Das Bild wird im Browser verkleinert, auf max. 100 kB komprimiert und auf dem ESP32 gespeichert – es landet nicht im GitHub-Repo. Das Abtankrohr wird weiterhin live darübergezeichnet; der Drehpunkt liegt in der Mitte des Glas-Halbkreises.</p>`;
@@ -715,7 +719,7 @@ function renderTab(){
       <div class="row2"><button class="btn" onclick="send({c:'reboot'})">Neustart</button><button class="btn" style="color:#ff8a8a" onclick="if(confirm('Wirklich alles zurücksetzen (inkl. WLAN & Kalibrierung)?'))send({c:'factory'})">Werkseinstellungen</button></div>`;
   }
   b.innerHTML=h;
-  if(curTab==="img"){ bindImgTab(); bindStl(); bindVid(); if(stlTris) stlUpdate(); }
+  if(curTab==="img"){ bindImgTab(); bindStl(); bindVid(); $("#setup_file").onchange=e=>importSetup(e.target.files[0]); if(stlTris) stlUpdate(); }
   if(curTab==="scales") updateScales();
   const ota=$("#ota"); if(ota) ota.onchange=uploadOta;
 }
@@ -862,7 +866,7 @@ function bindImgTab(){
 }
 async function uploadImg(){
   if(!imgBlob) return;
-  if(demo){ demoImg=URL.createObjectURL(imgBlob); demoCmd({c:"setCfg",cfg:{imgOn:true,imgVer:Date.now()}}); renderTab(); startAdjust(); return; }
+  if(demo){ demoImg=URL.createObjectURL(imgBlob); await demoStore("lh_demo_img",imgBlob); demoCmd({c:"setCfg",cfg:{imgOn:true,imgVer:Date.now()}}); renderTab(); startAdjust(); return; }
   const fd=new FormData(); fd.append("file",imgBlob,imgBlob.type==="image/png"?"combine.png":imgBlob.type==="image/jpeg"?"combine.jpg":"combine.webp");
   $("#im_info").textContent="Lade hoch…";
   const r=await fetch("/upload?f=img",{method:"POST",body:fd}).catch(()=>null);
@@ -870,7 +874,7 @@ async function uploadImg(){
   send({c:"setCfg",cfg:{imgOn:true}}); toast("Bild gespeichert"); setTimeout(()=>{renderTab();startAdjust()},600);
 }
 async function deleteImg(){
-  if(demo){ demoImg=null; demoCmd({c:"setCfg",cfg:{imgOn:false,imgVer:0}}); renderTab(); return; }
+  if(demo){ demoImg=null; demoStore("lh_demo_img",null); demoCmd({c:"setCfg",cfg:{imgOn:false,imgVer:0}}); renderTab(); return; }
   await fetch("/upload/delete?f=img",{method:"POST"}).catch(()=>null); toast("Bild gelöscht");
 }
 // Position live über der Szene anpassen
@@ -952,7 +956,7 @@ async function processVideo(){
     const out=await compressCanvas(c,maxBytes);
     if(out.blob.size>maxBytes){ info("Zu groß – weniger Einzelbilder oder kleinere Bildbreite wählen."); return; }
     const meta={n:N,cols,fw:out.w/cols,fh:out.h/rows,ver:Date.now(),on:true};
-    if(demo){ demoVid=URL.createObjectURL(out.blob); }
+    if(demo){ demoVid=URL.createObjectURL(out.blob); await demoStore("lh_demo_vid",out.blob); }
     else{
       info(`Lade hoch… (${Math.round(out.blob.size/1024)} kB)`);
       const fd=new FormData(); fd.append("file",out.blob,out.blob.type==="image/jpeg"?"video.jpg":"video.webp");
@@ -968,7 +972,7 @@ async function processVideo(){
 }
 async function deleteVid(){
   if(!demo) await fetch("/upload/delete?f=vid",{method:"POST"}).catch(()=>null);
-  demoVid=null; uiSave({vid:null}); renderTab(); toast("Video gelöscht");
+  demoVid=null; demoStore("lh_demo_vid",null); uiSave({vid:null}); renderTab(); toast("Video gelöscht");
 }
 const VADJ=[["va_pv",null],["va_a0","a0"],["va_a1","a1"],["va_w","w"],["va_x","x"],["va_y","y"],["va_rx","rx"],["va_ry","ry"],["va_rs","rs"],["va_rsy","rsy"]];
 let vidBackup=null;
@@ -983,9 +987,48 @@ function startVidAdjust(){
 $("#va_ok").onclick=()=>{ $("#vidAdj").classList.remove("show"); previewAng=null; uiSave({vid:V()}); };
 $("#va_cancel").onclick=()=>{ $("#vidAdj").classList.remove("show"); previewAng=null; UI.vid=JSON.parse(vidBackup); applyVid(); };
 
+
+/* ---------------- Einrichtung exportieren / importieren ---------------- */
+const blobToDataURL=b=>new Promise(ok=>{const r=new FileReader();r.onload=()=>ok(r.result);r.readAsDataURL(b)});
+function dataURLToBlob(u){const [h,d]=u.split(","),m=h.match(/data:([^;]+)/)[1],bin=atob(d),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:m})}
+async function demoStore(key,blob){ try{ if(blob) localStorage.setItem(key,await blobToDataURL(blob)); else localStorage.removeItem(key); }catch(e){ toast("Browser-Speicher voll – Einrichtung bitte exportieren"); } }
+const SETUP_KEYS=["imgOn","imgW","imgX","imgY","augCol","augW","augPX","augPY","augPZ","augEZ","augRiser","ui","angPark","ang"];
+async function exportSetup(){
+  const out={app:"liquid-harvest-setup",v:1,cfg:{}};
+  SETUP_KEYS.forEach(k=>out.cfg[k]=CFG[k]);
+  const get=async src=>{ if(!src) return null; const r=await fetch(src).catch(()=>null); return r&&r.ok?await blobToDataURL(await r.blob()):null; };
+  toast("Exportiere…");
+  out.img=await get(imgSrc()); out.vid=await get(vidSrc());
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:"application/json"}));
+  a.download="liquid-harvest-einrichtung.json"; a.click();
+}
+async function importSetup(file){
+  if(!file) return; const info=t=>{const e=$("#setup_info"); if(e) e.textContent=t};
+  let d; try{ d=JSON.parse(await file.text()); }catch(e){ info("Datei ist keine gültige Einrichtung."); return; }
+  if(d.app!=="liquid-harvest-setup"){ info("Datei ist keine Liquid-Harvest-Einrichtung."); return; }
+  try{
+    if(demo){
+      demoImg=d.img?URL.createObjectURL(dataURLToBlob(d.img)):null; await demoStore("lh_demo_img",d.img?dataURLToBlob(d.img):null);
+      demoVid=d.vid?URL.createObjectURL(dataURLToBlob(d.vid)):null; await demoStore("lh_demo_vid",d.vid?dataURLToBlob(d.vid):null);
+      demoCmd({c:"setCfg",cfg:Object.assign({},d.cfg,{imgVer:d.img?Date.now():0})});
+    } else {
+      const fs=await fetch("/fs").then(r=>r.json()).catch(()=>null);
+      if(d.vid&&(!fs||fs.total<400*1024)){ info("Für das Video bitte die Firmware einmal per USB neu installieren (größerer Speicher)."); return; }
+      const up=async(f,du,name)=>{ const b=dataURLToBlob(du), fd=new FormData(); fd.append("file",b,name+(b.type==="image/png"?".png":b.type==="image/jpeg"?".jpg":".webp"));
+        const r=await fetch("/upload?f="+f,{method:"POST",body:fd}); if(!r.ok) throw new Error(await r.text()); };
+      if(d.img){ info("Übertrage Bild…"); await up("img",d.img,"combine"); } else await fetch("/upload/delete?f=img",{method:"POST"});
+      if(d.vid){ info("Übertrage Video…"); await up("vid",d.vid,"video"); } else await fetch("/upload/delete?f=vid",{method:"POST"});
+      await new Promise(r=>setTimeout(r,600));
+      send({c:"setCfg",cfg:d.cfg});
+    }
+    info("Einrichtung übernommen ✔"); toast("Einrichtung übernommen");
+    setTimeout(()=>{applyImg(); if($("#drawer").classList.contains("show")) renderTab();},800);
+  }catch(e){ info("Fehler: "+e.message); }
+}
+
 /* ---------------- Toast ---------------- */
 let tt;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2600)}
-window.toast=toast;window.startAugAdjust=startAugAdjust;window.startVidAdjust=startVidAdjust;window.deleteVid=deleteVid;window.uiSave=uiSave;window.V=V;window.send=send;window.$=$;
+window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAugAdjust;window.startVidAdjust=startVidAdjust;window.deleteVid=deleteVid;window.uiSave=uiSave;window.V=V;window.send=send;window.$=$;
 
 /* ---------------- Demo / Simulation (Vorschau ohne Hardware) ---------------- */
 let SIM;
@@ -994,6 +1037,9 @@ function startDemo(){
   SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[15,45,75,105,135,165],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
+  try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
+       const im=localStorage.getItem("lh_demo_img"); if(im){ demoImg=URL.createObjectURL(dataURLToBlob(im)); }
+       const vd=localStorage.getItem("lh_demo_vid"); if(vd){ demoVid=URL.createObjectURL(dataURLToBlob(vd)); } }catch(e){}
   onMsg({t:"cfg",cfg:SIM.cfg,ver:"1.0.0-demo"});
   setInterval(simTick,150);
 }
@@ -1004,7 +1050,7 @@ function demoCmd(o){
   if(o.c==="stop"){S.jobs=[];S.cur=null;S.pump=0;S.ph="idle";toast("Gestoppt")}
   if(o.c==="aim"&&!S.cur){S.aim=o.p;S.tgt=o.p?S.cfg.ang[o.p-1]:S.cfg.angPark}
   if(o.c==="servo")S.tgt=o.a;
-  if(o.c==="setCfg"){Object.assign(S.cfg,o.cfg);onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});toast("Gespeichert")}
+  if(o.c==="setCfg"){Object.assign(S.cfg,o.cfg);try{localStorage.setItem("lh_demo_cfg",JSON.stringify(S.cfg))}catch(e){};onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});toast("Gespeichert")}
   if(o.c==="getCfg")onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});
   if(o.c==="scan")setTimeout(()=>onMsg({t:"scan",list:[{ssid:"Heimnetz",rssi:-52,lock:true},{ssid:"Gast",rssi:-70,lock:false}]}),800);
   if(["tare","calib","wifi","reboot","factory","prime"].includes(o.c))toast("Demo: "+o.c);

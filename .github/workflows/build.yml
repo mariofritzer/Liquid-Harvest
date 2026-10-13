@@ -43,6 +43,7 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           mkdir -p site/firmware
           cp -r flasher/* site/
+          mkdir -p site/app && cp web/index.html site/app/index.html
           cp .pio/build/esp32/firmware-merged.bin site/firmware/liquid-harvest-esp32.bin
           cp .pio/build/esp32/firmware.bin        site/firmware/liquid-harvest-ota.bin
           sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" site/manifest.json

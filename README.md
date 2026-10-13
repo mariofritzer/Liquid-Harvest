@@ -17,7 +17,7 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | <img src="docs/images/app-start.png" width="200"> | <img src="docs/images/app-pour.png" width="200"> | <img src="docs/images/app-glass.png" width="200"> | <img src="docs/images/app-scales.png" width="200"> |
 | Gläser poppen auf, sobald sie auf der Waage stehen | Fortschritt, Warteschlange, Notstopp | Menge wählen und starten | Tara + Kalibrierung pro Platz |
 
-Ohne Hardware ausprobieren: `web/index.html?demo` im Browser öffnen, dann läuft eine Simulation.
+**Online-Vorschau:** [mariofritzer.github.io/Liquid-Harvest/app/](https://mariofritzer.github.io/Liquid-Harvest/app/) – die komplette App als Simulation, ohne Hardware. Dort kannst du Bild, STL-Modell, Rohr-Video, Ausrichtung und Farben vorab einrichten, unter ⚙️ → Darstellung **exportieren** und nach dem Flashen am Drescher **importieren**.
 
 ## Funktionen
 
