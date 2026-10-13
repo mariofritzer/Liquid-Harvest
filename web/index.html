@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e1410">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Liquid Harvest</title>
+<style>
+:root{
+  --bg:#0e1410; --bg2:#151d17; --panel:#1b251e; --line:#2a372d; --txt:#eef2e6; --mute:#93a296;
+  --gold:#3fbf72; --gold2:#7fe0a3; --green:#3ecf6a; --blue:#3b82ff; --red:#ff4d4d; --orange:#ff9a1f;
+  --r:16px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--txt);min-height:100%}
+body{background:radial-gradient(120% 80% at 50% 0%,#1d2b20 0%,var(--bg) 60%) fixed;overscroll-behavior:none}
+button{font:inherit;color:inherit;border:0;cursor:pointer}
+input,select{font:inherit;color:var(--txt)}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px calc(24px + env(safe-area-inset-bottom))}
+
+header{display:flex;align-items:center;gap:12px;padding:calc(14px + env(safe-area-inset-top)) 0 6px}
+.logo{width:34px;height:34px;flex:none}
+h1{font-size:19px;margin:0;letter-spacing:.02em;font-weight:750;white-space:nowrap}
+h1 small{display:block;font-size:11px;color:var(--mute);font-weight:500;letter-spacing:.12em;text-transform:uppercase;margin-top:1px}
+.sp{flex:1}
+.pill{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);background:var(--bg2);border:1px solid var(--line);padding:6px 10px;border-radius:99px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red)}
+.dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.iconbtn{width:40px;height:40px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);display:grid;place-items:center}
+.iconbtn svg{width:20px;height:20px}
+
+.scene{position:relative;margin:4px -16px 0}
+.scene svg{display:block;width:100%;height:auto;touch-action:manipulation}
+.glass{cursor:pointer}
+.glass .gbody{transform-box:fill-box;transform-origin:50% 100%;transition:transform .35s cubic-bezier(.3,1.6,.5,1),opacity .25s}
+.glass.off .gbody{transform:scale(.2);opacity:0}
+.coaster-glow{transition:fill .3s}
+.pulse{animation:pulse 1.4s ease-in-out infinite}
+.pulse.fast{animation-duration:.45s}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+.blink{animation:blink .3s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.lamp{filter:drop-shadow(0 0 4px #fff3b0)}
+.beacon{opacity:.75}
+#svg.busy .beacon{animation:pulse .5s ease-in-out infinite}
+.stream{stroke-dasharray:6 7;animation:flow .35s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-13}}
+.gnum{font-size:13px;font-weight:700;fill:var(--mute);text-anchor:middle;pointer-events:none}
+.gml{font-size:12px;font-weight:700;fill:#fff;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#0008;stroke-width:3px}
+
+.status{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-top:-6px}
+.status .t{font-weight:650;font-size:15px}
+.status .s{font-size:12.5px;color:var(--mute);margin-top:2px}
+.prog{height:6px;background:var(--bg);border-radius:9px;overflow:hidden;margin-top:8px;display:none}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width .2s}
+.busy .prog{display:block}
+
+.actions{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:12px}
+.seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:4px;gap:4px;grid-column:1/-1}
+.seg button{flex:1;padding:10px 0;border-radius:10px;background:transparent;color:var(--mute);font-weight:650;font-size:14px}
+.seg button.on{background:var(--gold);color:#03240f}
+.btn{padding:15px 18px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:15px}
+.btn.primary{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#03240f;border:0;box-shadow:0 6px 20px #3fbf7240}
+.btn.stop{background:var(--red);color:#fff;border:0;grid-column:1/-1;font-size:17px;letter-spacing:.06em;box-shadow:0 6px 24px #ff4d4d55}
+.btn:disabled{opacity:.45}
+.hide{display:none!important}
+
+/* Bottom sheet */
+.veil{position:fixed;inset:0;background:#0009;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+.veil.show{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--panel);border-radius:22px 22px 0 0;border-top:1px solid var(--line);padding:10px 20px calc(20px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.9,.3,1);max-width:760px;margin:0 auto}
+.sheet.show{transform:none}
+.grab{width:40px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 12px}
+.sh-head{display:flex;align-items:center;gap:10px}
+.sh-head h2{margin:0;font-size:22px}
+.chip{font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;background:var(--bg);color:var(--mute)}
+.chip.c1{color:#9fc0ff;background:#3b82ff22}.chip.c2{color:#8ff0ad;background:#3ecf6a22}.chip.c0{color:#ff9a9a;background:#ff4d4d1c}
+.big{font-size:44px;font-weight:800;text-align:center;margin:18px 0 4px;font-variant-numeric:tabular-nums}
+.big small{font-size:18px;color:var(--mute);font-weight:600}
+.presets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
+.presets button{padding:12px 0;border-radius:12px;background:var(--bg2);border:1px solid var(--line);font-weight:700}
+.presets button.on{border-color:var(--gold);color:var(--gold2)}
+input[type=range]{width:100%;accent-color:var(--gold);height:28px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.meta{font-size:13px;color:var(--mute);text-align:center}
+
+/* Settings */
+.drawer{position:fixed;inset:0;z-index:30;background:var(--bg);transform:translateX(100%);transition:transform .25s ease;overflow:auto;-webkit-overflow-scrolling:touch}
+.drawer.show{transform:none}
+.dhead{position:sticky;top:0;background:var(--bg);z-index:2;padding:calc(12px + env(safe-area-inset-top)) 16px 0;border-bottom:1px solid var(--line)}
+.dhead .top{display:flex;align-items:center;gap:12px;max-width:760px;margin:0 auto}
+.dhead h2{margin:0;font-size:19px;flex:1}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:12px 0;max-width:760px;margin:0 auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{padding:8px 14px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);color:var(--mute);font-weight:650;white-space:nowrap;font-size:14px}
+.tabs button.on{background:var(--txt);color:var(--bg);border-color:var(--txt)}
+.dbody{max-width:760px;margin:0 auto;padding:16px 16px calc(40px + env(safe-area-inset-bottom))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:4px 16px;margin-bottom:14px}
+.card h3{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:14px 0 4px}
+.f{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.f:last-child{border-bottom:0}
+.f label{flex:1;font-size:14.5px}
+.f label small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+.f input[type=number],.f input[type=text],.f input[type=password]{width:92px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;text-align:right}
+.f input.wide{width:100%;text-align:left}
+.f .u{color:var(--mute);font-size:13px;width:28px}
+.sw{appearance:none;width:46px;height:28px;border-radius:99px;background:var(--line);position:relative;transition:.2s;flex:none;margin:0}
+.sw:checked{background:var(--green)}
+.sw::after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s}
+.sw:checked::after{left:21px}
+.sbtn{padding:9px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);font-weight:650;font-size:13px;white-space:nowrap}
+.sbtn.gold{background:var(--gold);color:#03240f;border:0}
+.sbtn.red{background:#ff4d4d22;color:#ff8a8a;border-color:#ff4d4d55}
+.save{width:100%;margin:6px 0 14px}
+.scale-row{padding:12px 0;border-bottom:1px solid var(--line)}
+.scale-row:last-child{border:0}
+.scale-row .h{display:flex;align-items:center;gap:10px}
+.scale-row .h b{flex:1}
+.scale-row .v{font-variant-numeric:tabular-nums;font-size:22px;font-weight:750;margin:6px 0}
+.scale-row .v small{font-size:12px;color:var(--mute);font-weight:500;margin-left:8px}
+.scale-row .acts{display:flex;gap:8px;flex-wrap:wrap}
+.scale-row input{width:80px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:right}
+.netlist button{display:flex;width:100%;justify-content:space-between;padding:10px 0;background:none;border-bottom:1px solid var(--line);font-size:14px}
+.help{font-size:13px;color:var(--mute);line-height:1.5;margin:10px 0}
+code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#f3f5ee;color:#121712;padding:11px 16px;border-radius:12px;font-weight:650;font-size:14px;opacity:0;transition:.25s;z-index:50;max-width:calc(100% - 32px);text-align:center;box-shadow:0 10px 30px #0008}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:480px){#conn{display:none}.pill{padding:10px}.demo{display:none}}
+.demo{font-size:11px;color:#03240f;background:var(--gold);padding:3px 8px;border-radius:6px;font-weight:800;letter-spacing:.08em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="logo" viewBox="0 0 40 40"><rect width="40" height="40" rx="11" fill="#3fbf72"/><path d="M20 31V12M20 16c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7zm0 6c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7zm0 6c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7z" stroke="#03240f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h1>Liquid Harvest<small>Schnaps-Drescher</small></h1>
+    <div class="sp"></div>
+    <span id="demoTag" class="demo hide">DEMO</span>
+    <div class="pill"><span id="dot" class="dot"></span><span id="conn">Verbinde…</span></div>
+    <button class="iconbtn" id="gear" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </header>
+
+  <div class="scene"><svg id="svg" viewBox="-322 -200 644 416"></svg></div>
+
+  <div class="status" id="status">
+    <div style="flex:1;min-width:0">
+      <div class="t" id="stT">–</div>
+      <div class="s" id="stS">–</div>
+      <div class="prog"><i id="stP"></i></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <div class="seg" id="amount"></div>
+    <button class="btn primary" id="fillAll">Alle leeren Gläser füllen</button>
+    <button class="btn" id="park">Parken</button>
+    <button class="btn stop hide" id="stop">STOPP</button>
+  </div>
+</div>
+
+<!-- Glas-Dialog -->
+<div class="veil" id="veil"></div>
+<div class="sheet" id="sheet">
+  <div class="grab"></div>
+  <div class="sh-head"><h2 id="shTitle">Glas 1</h2><span class="chip" id="shChip">–</span><div class="sp"></div><button class="iconbtn" id="shClose" aria-label="Schließen">✕</button></div>
+  <div class="big" id="shMl">20 <small>ml</small></div>
+  <div class="meta" id="shMeta">–</div>
+  <div class="presets" id="shPresets"></div>
+  <input type="range" id="shRange" min="5" max="80" step="1" value="20">
+  <div class="row2">
+    <button class="btn" id="shAim">Hinzielen</button>
+    <button class="btn primary" id="shGo">Einschenken</button>
+  </div>
+</div>
+
+<!-- Einstellungen -->
+<div class="drawer" id="drawer">
+  <div class="dhead">
+    <div class="top"><button class="iconbtn" id="dClose" aria-label="Zurück">←</button><h2>Einstellungen</h2></div>
+    <div class="tabs" id="tabs"></div>
+  </div>
+  <div class="dbody" id="dbody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const N=6;
+let ST=null, CFG=null, VER="", amount=20, sheetIdx=-1, shAmount=20, dispAng=null, netList=[];
+
+/* ---------------- Verbindung ---------------- */
+let ws=null, demo=false;
+function connect(){
+  if(location.protocol==="file:"||new URLSearchParams(location.search).has("demo")){startDemo();return}
+  ws=new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen=()=>{setConn(true)};
+  ws.onclose=()=>{setConn(false);setTimeout(connect,1500)};
+  ws.onerror=()=>ws.close();
+  ws.onmessage=e=>{try{onMsg(JSON.parse(e.data))}catch(x){console.warn(x)}};
+}
+function send(o){ if(demo){demoCmd(o);return} if(ws&&ws.readyState===1) ws.send(JSON.stringify(o)); else toast("Keine Verbindung"); }
+function setConn(on){ $("#dot").classList.toggle("on",on); $("#conn").textContent=on?(demo?"Simulation":"Live"):"Getrennt"; }
+
+function onMsg(m){
+  if(m.t==="st"){ST=m;render()}
+  else if(m.t==="cfg"){CFG=m.cfg;VER=m.ver;buildAmount();if($("#drawer").classList.contains("show"))renderTab()}
+  else if(m.t==="ev"){
+    if(m.e==="glass_on") pop(m.p);
+    if(m.e==="pour_done") toast(`Glas ${m.p}: ${m.ml.toFixed(1)} ml – Prost! 🥃`);
+    if(m.e==="pour_error") toast(`Glas ${m.p}: `+({no_flow:"Kein Durchfluss – Flasche leer?",glass_removed:"Glas entfernt",timeout:"Zeitlimit erreicht",button_stop:"Am Taster gestoppt",web_stop:"Gestoppt",scale_error:"Waagenfehler"}[m.r]||m.r));
+  }
+  else if(m.t==="toast") toast(m.m);
+  else if(m.t==="scan"){netList=m.list;renderTab()}
+}
+
+/* ---------------- Isometrische Szene ---------------- */
+const C=0.8660254, S=0.5, R=190, HZ=134, GH=55, GR=19;
+const P=(x,y,z)=>[(x-y)*C,(x+y)*S-z];
+const f1=n=>n.toFixed(1);
+const pts=a=>a.map(p=>P(...p).map(f1).join(",")).join(" ");
+const dir=a=>{const r=a*Math.PI/180,c=Math.cos(r),s=Math.sin(r);return[.7071*c+.7071*s,-.7071*c+.7071*s]};
+const poly=(a,fill,extra="")=>`<polygon points="${pts(a)}" fill="${fill}" ${extra}/>`;
+function box(x0,y0,z0,x1,y1,z1,c){
+  return poly([[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]],c[0])+
+         poly([[x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[x1,y0,z1]],c[1])+
+         poly([[x0,y1,z0],[x1,y1,z0],[x1,y1,z1],[x0,y1,z1]],c[2]);
+}
+function cylPath(cx,cy,z0,z1,r){
+  const T=P(cx,cy,z1),B=P(cx,cy,z0),rx=r*1.2247,ry=r*.7071;
+  return `M${f1(T[0]-rx)},${f1(T[1])}L${f1(B[0]-rx)},${f1(B[1])}A${f1(rx)},${f1(ry)} 0 0 0 ${f1(B[0]+rx)},${f1(B[1])}L${f1(T[0]+rx)},${f1(T[1])}A${f1(rx)},${f1(ry)} 0 0 1 ${f1(T[0]-rx)},${f1(T[1])}Z`;
+}
+function ell(cx,cy,z,r,attrs){const c=P(cx,cy,z);return `<ellipse cx="${f1(c[0])}" cy="${f1(c[1])}" rx="${f1(r*1.2247)}" ry="${f1(r*.7071)}" ${attrs}/>`}
+/* ---------------- Mähdrescher (eigenes Design, lokale Koordinaten) ----------------
+   u = Fahrtrichtung, v = linke Seite (zum Betrachter), z = oben.
+   Der Drehpunkt des Abtankrohrs (Servo) liegt im Ursprung an der linken Korntankseite. */
+const HEAD=20, CU=dir(HEAD), CV=dir(HEAD+90), CUS=CU[0]+CU[1];
+const CK=.8;  // Maßstab Mähdrescher
+const Wd=(u,v,z)=>[CK*(u*CU[0]+v*CV[0]),CK*(u*CU[1]+v*CV[1]),CK*z];
+const LP=(u,v,z)=>P(...Wd(u,v,z));
+const lpts=a=>a.map(p=>LP(...p).map(f1).join(",")).join(" ");
+const lpoly=(a,fill,extra="")=>`<polygon points="${lpts(a)}" fill="${fill}" ${extra}/>`;
+const lline=(a,b,col,w,extra="")=>{const A=LP(...a),B=LP(...b);return `<line x1="${f1(A[0])}" y1="${f1(A[1])}" x2="${f1(B[0])}" y2="${f1(B[1])}" stroke="${col}" stroke-width="${w}" stroke-linecap="round" ${extra}/>`};
+function shade(hex,k){const n=parseInt(hex.slice(1),16);return "#"+[n>>16,n>>8&255,n&255].map(x=>Math.max(0,Math.min(255,Math.round(x*k))).toString(16).padStart(2,"0")).join("")}
+// Quader: sichtbar sind oben, vorne (+u) und links (+v)
+function lbox(u0,u1,v0,v1,z0,z1,col,o={}){
+  const st=o.st||"";
+  return lpoly([[u0,v0,z1],[u1,v0,z1],[u1,v1,z1],[u0,v1,z1]],o.top||col,st)+
+         lpoly([[u1,v0,z0],[u1,v1,z0],[u1,v1,z1],[u1,v0,z1]],o.front||shade(col,.82),st)+
+         lpoly([[u0,v1,z0],[u1,v1,z0],[u1,v1,z1],[u0,v1,z1]],o.left||shade(col,.66),st);
+}
+// Prisma entlang v mit konvexem Profil (u,z) gegen den Uhrzeigersinn
+function lprism(prof,v0,v1,band,cap){
+  let s="";
+  for(let i=0;i<prof.length;i++){
+    const a=prof[i],b=prof[(i+1)%prof.length],nu=b[1]-a[1],nz=a[0]-b[0];
+    if(nu*CUS+nz<=0) continue;
+    s+=lpoly([[a[0],v0,a[1]],[b[0],v0,b[1]],[b[0],v1,b[1]],[a[0],v1,a[1]]],shade(band,.8+.35*Math.max(0,nz/Math.hypot(nu,nz))));
+  }
+  return s+lpoly(prof.map(p=>[p[0],v1,p[1]]),cap);
+}
+const circ=(cu,cz,r,n=28)=>[...Array(n)].map((_,k)=>{const t=k/n*2*Math.PI;return[cu+r*Math.cos(t),cz+r*Math.sin(t)]});
+const stadium=(u0,u1,cz,r,n=12)=>{const p=[];for(let k=0;k<=n;k++){const t=-Math.PI/2+k/n*Math.PI;p.push([u1+r*Math.cos(t),cz+r*Math.sin(t)])}for(let k=0;k<=n;k++){const t=Math.PI/2+k/n*Math.PI;p.push([u0+r*Math.cos(t),cz+r*Math.sin(t)])}return p};
+const face=(v,prof,fill,extra="")=>lpoly(prof.map(p=>[p[0],v,p[1]]),fill,extra);
+
+const GOLD="#2f8f4e", ANTH="#2e3237", CREAM="#3b4248", BLK="#18191b", RIM="#c3cbc5";  // Karosserie smaragdgrün, Dach graphit
+function combine(){
+  let s="";
+  s+=lpoly([[-175,-150,0],[175,-150,0],[175,60,0],[-175,60,0]],"#000",'opacity=".38" filter="url(#glow)"');
+  // Heck: Häcksler, Fahrgestell, Aufbau
+  s+=lbox(-168,-150,-70,-22,26,62,ANTH);
+  s+=lbox(-150,72,-76,-14,22,48,ANTH);
+  s+=lbox(-150,72,-80,-12,48,104,GOLD);
+  s+=lpoly([[-150,-11.9,48],[72,-11.9,48],[72,-11.9,53],[-150,-11.9,53]],ANTH);                      // Zierstreifen
+  s+=lpoly([[-140,-11.8,62],[-96,-11.8,62],[-96,-11.8,96],[-140,-11.8,96]],shade(ANTH,1.2));          // Kühlergitter
+  for(let z=66;z<=92;z+=5) s+=lline([-138,-11.7,z],[-98,-11.7,z],"#15181b",1.6);
+  s+=lpoly([[-84,-11.8,60],[-20,-11.8,60],[-20,-11.8,96],[-84,-11.8,96]],shade(GOLD,.6),'opacity=".55"'); // Wartungsklappe
+  s+=lpoly([[-14,-11.8,60],[40,-11.8,60],[40,-11.8,96],[-14,-11.8,96]],shade(GOLD,.6),'opacity=".55"');
+  // Motorhaube + Auspuff
+  s+=lbox(-150,-80,-76,-16,104,118,GOLD);
+  for(let u=-144;u<=-88;u+=8) s+=lline([u,-70,118.2],[u,-22,118.2],shade(GOLD,.55),1.5);
+  s+=lbox(-110,-100,-36,-26,118,152,ANTH,{top:"#111"});
+  // Korntank mit Geländer
+  s+=lbox(-74,46,-84,-8,104,132,GOLD);
+  s+=lbox(-70,42,-80,-12,132,136,ANTH);
+  const rail=[[-74,-84],[46,-84],[46,-8],[-74,-8]];
+  rail.forEach(([u,v])=>s+=lline([u,v,132],[u,v,146],"#c8ccd0",1.6));
+  for(let i=0;i<4;i++){const a=rail[i],b=rail[(i+1)%4];s+=lline([a[0],a[1],146],[b[0],b[1],146],"#c8ccd0",1.8)+lline([a[0],a[1],139],[b[0],b[1],139],"#9aa0a6",1.2)}
+  // Einzugskanal
+  s+=lbox(70,124,-62,-30,18,60,shade(GOLD,.92));
+  // Kabine
+  s+=lbox(48,108,-70,-20,94,100,ANTH);
+  s+=lbox(52,104,-68,-22,100,138,"#6fa9c8",{top:"#9cc9df",front:"#86c0dc",left:"#5f97b5",st:'opacity=".93"'});
+  s+=lpoly([[104.1,-60,104],[104.1,-46,104],[104.1,-30,134],[104.1,-44,134]],"#ffffff",'opacity=".22"');   // Spiegelung
+  s+=lpoly([[60,-21.9,104],[72,-21.9,104],[86,-21.9,134],[74,-21.9,134]],"#ffffff",'opacity=".18"');
+  [[104,-68],[104,-22],[52,-22]].forEach(([u,v])=>s+=lline([u,v,100],[u,v,138],"#22262a",2.4));
+  s+=lline([78,-22,100],[78,-22,138],"#22262a",2);
+  s+=lbox(46,112,-74,-16,138,147,CREAM);
+  for(let k=0;k<4;k++){const v0=-68+k*13.5;s+=lpoly([[112.2,v0,140.5],[112.2,v0+8,140.5],[112.2,v0+8,145],[112.2,v0,145]],"#fffbe0",'class="lamp"')}
+  [[52,-22],[52,-68]].forEach(([u,v])=>{const c=Wd(u,v,147),t=Wd(u,v,154)[2];s+=`<path class="beacon" d="${cylPath(c[0],c[1],c[2],t,3)}" fill="#ff8a00"/>`+ell(c[0],c[1],t,3,'class="beacon" fill="#ffc266"')});
+  s+=lline([106,-18,128],[116,-6,126],"#22262a",1.6)+lpoly([[115,-8,118],[118,-3,118],[118,-3,128],[115,-8,128]],ANTH);   // Spiegel
+  s+=lpoly([[124.2,-60,44],[124.2,-50,44],[124.2,-50,49],[124.2,-60,49]],"#fffbe0",'class="lamp"')+lpoly([[124.2,-42,44],[124.2,-32,44],[124.2,-32,49],[124.2,-42,49]],"#fffbe0",'class="lamp"');
+  // Schneidwerk
+  s+=lbox(118,130,-140,50,10,44,GOLD);
+  s+=lprism(circ(140,24,7,16),-136,46,"#7d838a","#9aa0a6");                                           // Einzugsschnecke
+  s+=lbox(130,158,-140,50,6,14,GOLD);
+  s+=lpoly([[158.1,-140,6],[158.1,50,6],[158.1,50,10],[158.1,-140,10]],ANTH);                        // Messerbalken
+  for(let v=-136;v<=46;v+=7) s+=lpoly([[158,v,6],[164,v+1.5,7],[158,v+3,8]],"#b9bec4");
+  s+=lline([124,-140,44],[146,-140,54],GOLD,5)+`<g id="reel"></g>`+lline([124,50,44],[146,50,54],GOLD,5);
+  s+=face(50.1,[[118,10],[158,6],[170,8],[150,28],[130,44],[118,44]],shade(GOLD,.7));                // Seitenblech
+  s+=lpoly([[158,50,6],[176,49,8],[158,50,18]],ANTH);                                                 // Halmteiler
+  // Raupenlaufwerk + Lenkachse
+  const tr=stadium(26,70,22,22);
+  s+=lprism(tr,-12,14,BLK,"#222428");
+  for(let u=28;u<=68;u+=5) s+=lline([u,-12,44.2],[u,14,44.2],"#3a3d42",1.4);
+  [[26,22,15],[70,22,15]].forEach(([u,z,r])=>s+=face(14.2,circ(u,z,r),RIM)+face(14.4,circ(u,z,r*.45),ANTH));
+  [37,48,59].forEach(u=>s+=face(14.2,circ(u,8,5.5,14),"#55595e"));
+  s+=lprism(circ(-112,24,24,30),-14,6,BLK,"#202124");
+  s+=face(6.2,circ(-112,24,13,22),RIM)+face(6.4,circ(-112,24,5,12),ANTH);
+  // Plattform, Geländer, Leiter
+  s+=lbox(56,100,-20,18,90,94,ANTH);
+  s+=lline([56,18,94],[100,18,94],"#c8ccd0",1)+lline([56,18,112],[100,18,112],"#c8ccd0",1.8);
+  [56,78,100].forEach(u=>s+=lline([u,18,94],[u,18,112],"#c8ccd0",1.6));
+  s+=lline([100,6,90],[114,6,10],"#9aa0a6",2)+lline([100,16,90],[114,16,10],"#c8ccd0",2);
+  for(let k=1;k<8;k++){const t=k/8;s+=lline([100+14*t,6,90-80*t],[100+14*t,16,90-80*t],"#c8ccd0",1.6)}
+  return s;
+}
+let reelPh=0, lastT=0;
+function reel(){
+  const cu=146, cz=54, r=20, v0=-136, v1=46;
+  let back="",front="",spokes="";
+  const ring=v=>lpts(circ(cu,cz,r,24).map(p=>[p[0],v,p[1]]));
+  back+=`<polygon points="${ring(v0)}" fill="none" stroke="#1f6136" stroke-width="2"/>`;
+  for(let k=0;k<8;k++){
+    const t=reelPh+k*Math.PI/4, u=cu+r*Math.cos(t), z=cz+r*Math.sin(t), vis=Math.cos(t)*CUS+Math.sin(t)>0;
+    let L=lline([u,v0,z],[u,v1,z],vis?"#3d434a":"#24282c",vis?3.4:2.4);
+    if(vis) for(let v=v0+6;v<v1;v+=9) L+=lline([u,v,z],[u-2,v,z-7],"#9aa0a6",1);
+    vis?front+=L:back+=L;
+    spokes+=lline([cu,v1,cz],[u,v1,z],GOLD,2);
+  }
+  spokes+=`<polygon points="${ring(v1)}" fill="none" stroke="${GOLD}" stroke-width="2.6"/>`;
+  return back+lline([cu,v0,cz],[cu,v1,cz],"#7d838a",5)+spokes+front;
+}
+
+function staticScene(){
+  let s=`<defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
+    <linearGradient id="wood" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7a5532"/><stop offset="1" stop-color="#4b321c"/></linearGradient>
+    <radialGradient id="woodTop" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#a87a4c"/><stop offset="1" stop-color="#7d5631"/></radialGradient>
+    <linearGradient id="glassG" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".35" stop-color="#fff" stop-opacity=".08"/><stop offset=".8" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#fff" stop-opacity=".32"/></linearGradient>
+    <linearGradient id="tubeShade" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".25"/><stop offset=".4" stop-color="#fff" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient>
+    <linearGradient id="liq" x1="0" x2="1"><stop offset="0" stop-color="#f7c95a"/><stop offset=".5" stop-color="#f0b43a"/><stop offset="1" stop-color="#c98a1e"/></linearGradient>
+  </defs>`;
+  // Holzplatte
+  const RD=258, TH=18; let top=[],side=[],sideB=[];
+  for(let k=0;k<72;k++){const t=k/72*2*Math.PI;top.push([RD*Math.cos(t),RD*Math.sin(t),0])}
+  for(let k=0;k<=36;k++){const t=(-45+k*5)*Math.PI/180;side.push([RD*Math.cos(t),RD*Math.sin(t),0]);sideB.unshift([RD*Math.cos(t),RD*Math.sin(t),-TH])}
+  s+=`<ellipse cx="0" cy="${TH+30}" rx="330" ry="150" fill="#000" opacity=".35" filter="url(#glow)"/>`;
+  s+=poly(side.concat(sideB),"url(#wood)")+poly(top,"url(#woodTop)");
+  // Ringe auf der Platte
+  s+=ell(0,0,0,R+38,'fill="none" stroke="#00000022" stroke-width="2"')+ell(0,0,0,R-38,'fill="none" stroke="#00000018" stroke-width="2"');
+  s+=combine();
+  // Untersetzer + Gläser
+  s+=`<g id="coasters"></g><g id="glasses"></g><g id="auger"></g>`;
+  $("#svg").innerHTML=s;
+  buildPlaces();
+}
+
+function buildPlaces(){
+  let co="",gl="";
+  for(let i=0;i<N;i++){
+    const a=CFG?CFG.ang[i]:15+30*i, [dx,dy]=dir(a), x=dx*R, y=dy*R, L=P(dx*(R+44),dy*(R+44),0);
+    co+=`<g class="coaster" data-i="${i}">
+      ${ell(x,y,0,34,`id="cg${i}" class="coaster-glow" fill="#ff2a2a" opacity=".35" filter="url(#glow)"`)}
+      ${ell(x,y,1,28,'fill="#202622" stroke="#000" stroke-opacity=".4"')}
+      ${ell(x,y,2,24,`id="cr${i}" fill="none" stroke="#ff2a2a" stroke-width="2.5" opacity=".6"`)}
+      <text class="gnum" x="${f1(L[0])}" y="${f1(L[1]+5)}">${i+1}</text></g>`;
+    gl+=`<g class="glass off" id="g${i}" data-i="${i}" data-d="${x+y}">
+      <rect x="${f1(P(x,y,0)[0]-40)}" y="${f1(P(x,y,GH)[1]-30)}" width="80" height="${GH+60}" fill="transparent"/>
+      <g class="gbody">
+        <path d="${cylPath(x,y,3,GH,GR)}" fill="url(#glassG)" stroke="#ffffff70" stroke-width="1.2"/>
+        <path id="lq${i}" fill="url(#liq)" opacity=".92"/>
+        <ellipse id="ls${i}" fill="#ffe08a" opacity="0"/>
+        ${ell(x,y,GH,GR,'fill="#ffffff10" stroke="#ffffffb0" stroke-width="1.5"')}
+        ${ell(x,y,3,GR,'fill="none" stroke="#ffffff40" stroke-width="2"')}
+        <text class="gml" id="gm${i}" x="${f1(P(x,y,GH)[0])}" y="${f1(P(x,y,GH)[1]-14)}"></text>
+      </g></g>`;
+  }
+  $("#coasters").innerHTML=co;
+  // Gläser nach Tiefe sortieren (hinten zuerst)
+  const tmp=document.createElementNS("http://www.w3.org/2000/svg","g");tmp.innerHTML=gl;
+  [...tmp.children].sort((a,b)=>a.dataset.d-b.dataset.d).forEach(n=>$("#glasses").appendChild(n));
+  document.querySelectorAll(".coaster,.glass").forEach(n=>n.addEventListener("click",()=>openSheet(+n.dataset.i)));
+  if(ST) render();
+}
+function rebuildPlaces(){$("#glasses").innerHTML="";buildPlaces()}
+
+const LEDC={0:"#ff2a2a",1:"#2f7bff",2:"#2ee86a"};
+function placeColor(i){
+  const p=ST.pl[i];
+  if(!p.en) return ["#000",0];
+  if(p.err) return ["#ff2a2a","blink"];
+  if(!p.ok) return ["#b030b0","blink"];
+  if(ST.busy&&ST.pp===i+1&&ST.ph!=="idle") return ["#ff8a00","pulse fast"];
+  if(ST.aim===i+1&&!ST.busy) return ["#ffb000","pulse"];
+  return [LEDC[p.s],p.s===0?"dim":""];
+}
+
+function render(){
+  if(!ST) return;
+  for(let i=0;i<N;i++){
+    const p=ST.pl[i], g=$("#g"+i); if(!g) continue;
+    g.classList.toggle("off",p.s===0);
+    const [col,mode]=placeColor(i), cg=$("#cg"+i), cr=$("#cr"+i);
+    cg.setAttribute("fill",col); cr.setAttribute("stroke",col);
+    cg.setAttribute("class","coaster-glow "+(mode==="dim"?"":mode));
+    cg.setAttribute("opacity",mode==="dim"?".18":mode===0?"0":".8");
+    cr.setAttribute("opacity",mode==="dim"?".35":".95");
+    // Füllstand
+    const a=CFG?CFG.ang[i]:15+30*i,[dx,dy]=dir(a),x=dx*R,y=dy*R;
+    let ml=p.ml; if(ST.busy&&ST.pp===i+1&&ST.ph!=="idle") ml=Math.max(ml,ST.got);
+    const lvl=Math.min(GH-8,ml*1.15);
+    const lq=$("#lq"+i), ls=$("#ls"+i);
+    if(lvl>0.5){
+      lq.setAttribute("d",cylPath(x,y,4,4+lvl,GR-2.5));
+      const c=P(x,y,4+lvl); ls.setAttribute("cx",f1(c[0]));ls.setAttribute("cy",f1(c[1]));ls.setAttribute("rx",f1((GR-2.5)*1.2247));ls.setAttribute("ry",f1((GR-2.5)*.7071));ls.setAttribute("opacity",".85");
+    } else {lq.setAttribute("d","");ls.setAttribute("opacity","0")}
+    $("#gm"+i).textContent=p.s!==0&&ml>=0.5?ml.toFixed(ml<10?1:0)+" ml":"";
+  }
+  renderStatus();
+  if(sheetIdx>=0) updateSheet();
+  if($("#drawer").classList.contains("show")&&curTab==="scales") updateScales();
+}
+
+function drawAuger(){
+  if(ST){ if(dispAng===null) dispAng=ST.ang; dispAng+=(ST.ang-dispAng)*.25; }
+  const a=dispAng??(CFG?CFG.angPark:0), [dx,dy]=dir(a), ex=dx*R, ey=dy*R;
+  const E=P(ex,ey,HZ), B=P(-dx*14,-dy*14,HZ), SP=P(ex,ey,HZ-40);
+  let s=`<path d="${cylPath(0,0,44,HZ+2,8)}" fill="#26743f"/><path d="${cylPath(0,0,44,HZ+2,8)}" fill="url(#tubeShade)"/>`;
+  s+=`<line x1="${f1(B[0])}" y1="${f1(B[1])}" x2="${f1(E[0])}" y2="${f1(E[1])}" stroke="#163d23" stroke-width="16" stroke-linecap="round"/>`;
+  s+=`<line x1="${f1(B[0])}" y1="${f1(B[1])}" x2="${f1(E[0])}" y2="${f1(E[1])}" stroke="#2f8f4e" stroke-width="11" stroke-linecap="round"/>`;
+  s+=`<line x1="${f1(B[0])}" y1="${f1(B[1]-3)}" x2="${f1(E[0])}" y2="${f1(E[1]-3)}" stroke="#8fe0a8" stroke-width="2.5" stroke-linecap="round" opacity=".75"/>`;
+  for(let k=1;k<4;k++){const M=P(ex*k/4,ey*k/4,HZ);s+=`<ellipse cx="${f1(M[0])}" cy="${f1(M[1])}" rx="3" ry="6.5" fill="#163d23" opacity=".6"/>`}
+  s+=`<line x1="${f1(E[0])}" y1="${f1(E[1])}" x2="${f1(SP[0])}" y2="${f1(SP[1])}" stroke="#1d2024" stroke-width="14" stroke-linecap="round"/>`;
+  s+=`<line x1="${f1(E[0])}" y1="${f1(E[1])}" x2="${f1(SP[0])}" y2="${f1(SP[1])}" stroke="#3a3f45" stroke-width="9" stroke-linecap="round"/>`;
+  s+=`<path d="${cylPath(0,0,HZ-6,HZ+8,10)}" fill="#1f6136"/>${ell(0,0,HZ+8,10,'fill="#5dbb7c"')}`;
+  const now=performance.now(); if(ST&&ST.busy) reelPh-=(now-lastT)/1000*2.2; lastT=now;
+  const rg=$("#reel"); if(rg) rg.innerHTML=reel();
+  if(ST&&ST.pump>0){
+    let tz=12; if(ST.pp>0){const p=ST.pl[ST.pp-1];tz=4+Math.min(GH-8,Math.max(p.ml,ST.got)*1.15)}
+    const T=P(ex,ey,ST.pp>0?tz:0);
+    s+=`<line class="stream" x1="${f1(SP[0])}" y1="${f1(SP[1]+4)}" x2="${f1(T[0])}" y2="${f1(T[1])}" stroke="#f7c95a" stroke-width="${2+ST.pump/40}" stroke-linecap="round"/>`;
+  }
+  $("#auger").innerHTML=s;
+  requestAnimationFrame(drawAuger);
+}
+
+function pop(n){const g=$("#g"+(n-1)); if(!g) return; g.classList.add("off"); requestAnimationFrame(()=>requestAnimationFrame(()=>g.classList.remove("off")))}
+
+/* ---------------- Status / Aktionen ---------------- */
+function renderStatus(){
+  const st=$("#status"), n=ST.pl.filter(p=>p.s===1).length, f=ST.pl.filter(p=>p.s===2).length;
+  st.classList.toggle("busy",ST.busy);
+  $("#svg").classList.toggle("busy",ST.busy);
+  $("#stop").classList.toggle("hide",!ST.busy);
+  $("#fillAll").disabled=ST.busy||n===0; $("#park").disabled=ST.busy;
+  let t,s;
+  if(ST.ph==="prime"){t="Entlüften…";s="Pumpe läuft in Parkposition"}
+  else if(ST.busy&&ST.pp>0){
+    const ph={move:"Schwenke zu",settle:"Ziele auf",fast:"Schenke ein:",slow:"Feindosierung:",drip:"Nachtropfen:"}[ST.ph]||"Glas";
+    t=`${ph} Glas ${ST.pp}`; s=`${ST.got.toFixed(1)} / ${ST.tgt} ml`+(ST.q?` · noch ${ST.q} in der Warteschlange`:"");
+    $("#stP").style.width=Math.min(100,ST.got/ST.tgt*100)+"%";
+  } else if(ST.busy){t="Warteschlange";s=`${ST.q} Gläser`}
+  else{
+    t=n?`${n} ${n===1?"Glas":"Gläser"} bereit`:(f?"Alles eingeschenkt – Prost!":"Stell Gläser ab");
+    s=(ST.aim===0?"Rohr in Parkposition":`Rohr zielt auf Glas ${ST.aim}`)+(f?` · ${f} gefüllt`:"");
+  }
+  $("#stT").textContent=t; $("#stS").textContent=s;
+  const w=ST.wifi; if(!demo) $("#conn").textContent=w.sta?(w.host+".local"):(w.ap?"Hotspot":"Live");
+}
+
+function buildAmount(){
+  const opts=[[CFG.shotMl,"Einfach"],[CFG.doubleMl,"Doppelt"]];
+  if(![CFG.shotMl,CFG.doubleMl].includes(amount)) amount=CFG.shotMl;
+  $("#amount").innerHTML=opts.map(([v,l])=>`<button data-v="${v}" class="${v===amount?"on":""}">${l} · ${v/10} cl</button>`).join("");
+  $("#amount").querySelectorAll("button").forEach(b=>b.onclick=()=>{amount=+b.dataset.v;buildAmount()});
+  const k=JSON.stringify(CFG.ang);
+  if(k!==angKey){angKey=k;if(document.querySelector(".glass"))rebuildPlaces()}
+}
+let angKey="";
+$("#fillAll").onclick=()=>send({c:"autofill",ml:amount});
+$("#park").onclick=()=>send({c:"aim",p:0});
+$("#stop").onclick=()=>send({c:"stop"});
+
+/* ---------------- Glas-Dialog ---------------- */
+function openSheet(i){
+  sheetIdx=i; shAmount=amount;
+  const pr=[10,20,40,CFG?CFG.doubleMl===40?60:CFG.doubleMl:60];
+  $("#shPresets").innerHTML=[...new Set(pr)].map(v=>`<button data-v="${v}">${v/10} cl</button>`).join("");
+  $("#shPresets").querySelectorAll("button").forEach(b=>b.onclick=()=>{shAmount=+b.dataset.v;updateSheet()});
+  $("#veil").classList.add("show");$("#sheet").classList.add("show");updateSheet();
+}
+function closeSheet(){sheetIdx=-1;$("#veil").classList.remove("show");$("#sheet").classList.remove("show")}
+$("#veil").onclick=closeSheet;$("#shClose").onclick=closeSheet;
+$("#shRange").oninput=e=>{shAmount=+e.target.value;updateSheet()};
+$("#shAim").onclick=()=>send({c:"aim",p:sheetIdx+1});
+$("#shGo").onclick=()=>{send({c:"pour",p:sheetIdx+1,ml:shAmount});closeSheet()};
+function updateSheet(){
+  if(!ST) return;
+  const p=ST.pl[sheetIdx];
+  $("#shTitle").textContent="Glas "+(sheetIdx+1);
+  const chip=$("#shChip"); chip.className="chip c"+p.s; chip.textContent=["Kein Glas","Bereit","Eingeschenkt"][p.s];
+  $("#shMl").innerHTML=`${shAmount} <small>ml</small>`;
+  $("#shRange").value=shAmount;
+  $("#shPresets").querySelectorAll("button").forEach(b=>b.classList.toggle("on",+b.dataset.v===shAmount));
+  $("#shMeta").textContent=p.s?`Waage: ${p.g.toFixed(1)} g · Inhalt ca. ${p.ml.toFixed(1)} ml`:(p.ok?"Stell ein Glas auf Platz "+(sheetIdx+1):"Waage meldet keine Daten");
+  $("#shGo").disabled=!p.s||ST.busy;
+  $("#shGo").textContent=p.s===2?"Nachschenken":"Einschenken";
+  $("#shAim").disabled=ST.busy;
+}
+
+/* ---------------- Einstellungen ---------------- */
+const TABS=[["dose","Dosierung"],["scales","Waagen"],["servo","Servo"],["wifi","WLAN"],["sys","System"]];
+let curTab="dose";
+const FIELDS={
+  dose:[["Ausschank",[
+      ["shotMl","Einfach-Shot","Taster: 1× klicken","ml",1,100,1],
+      ["doubleMl","Doppel-Shot","Taster: 2× klicken","ml",1,100,1],
+      ["density","Dichte","40 % Schnaps ≈ 0,95","g/ml",.5,1.5,.01]]],
+    ["Pumpe",[
+      ["pwmFast","Leistung schnell","Hauptphase","%",10,100,1],
+      ["pwmSlow","Leistung langsam","Letzte Gramm tröpfchenweise","%",5,100,1],
+      ["slowBefore","Langsam ab","…Gramm vor dem Ziel","g",0,30,.1],
+      ["stopBefore","Stopp vorher","Nachlauf im Schlauch","g",0,10,.1]]],
+    ["Sicherheit",[
+      ["noFlowMs","Abbruch ohne Durchfluss","Gewicht steigt nicht (Flasche leer?)","s",.5,30,.5,1000],
+      ["maxPourMs","Max. Dauer pro Glas","","s",2,120,1,1000],
+      ["settleMs","Pause nach Schwenken","Rohr beruhigen","ms",0,3000,50],
+      ["parkAfter","Nach Web-Befehl parken","","bool"]]],
+    ["Glaserkennung",[
+      ["glassMin","Glas erkannt ab","Plastikstamperl: 1–2 g","g",.5,200,.1],
+      ["stableMs","Gewicht ruhig seit","","ms",100,5000,50]]],
+    ["LEDs & Bedienung",[
+      ["ledBright","LED-Helligkeit","","%",1,100,1],
+      ["encDiv","Encoder-Schritte pro Raste","KY-040 meist 4, manche 2","",1,8,1],
+      ["encReverse","Drehrichtung umkehren","","bool"]]]],
+  servo:[["Bewegung",[
+      ["servoSpeed","Geschwindigkeit","","°/s",10,720,5],
+      ["servoMinUs","Impuls bei 0°","","µs",300,1500,10],
+      ["servoMaxUs","Impuls bei 180°","","µs",1500,2800,10]]]]
+};
+function fieldHtml([k,l,h,u,min,max,step,mul]){
+  const v=CFG[k];
+  if(u==="bool") return `<div class="f"><label for="f_${k}">${l}${h?`<small>${h}</small>`:""}</label><input type="checkbox" class="sw" id="f_${k}" ${v?"checked":""}></div>`;
+  return `<div class="f"><label for="f_${k}">${l}${h?`<small>${h}</small>`:""}</label><input type="number" id="f_${k}" min="${min}" max="${max}" step="${step}" value="${mul?v/mul:v}" data-mul="${mul||1}" inputmode="decimal"><span class="u">${u}</span></div>`;
+}
+function collect(tab){
+  const o={};
+  (FIELDS[tab]||[]).forEach(([_,fs])=>fs.forEach(([k,,, u])=>{const e=$("#f_"+k);if(!e)return;o[k]=u==="bool"?e.checked:+e.value*(+e.dataset.mul)}));
+  return o;
+}
+function openDrawer(){ $("#drawer").classList.add("show"); send({c:"getCfg"}); renderTabs(); renderTab(); }
+$("#gear").onclick=openDrawer; $("#dClose").onclick=()=>$("#drawer").classList.remove("show");
+function renderTabs(){
+  $("#tabs").innerHTML=TABS.map(([k,l])=>`<button data-k="${k}" class="${k===curTab?"on":""}">${l}</button>`).join("");
+  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{curTab=b.dataset.k;renderTabs();renderTab()});
+}
+function saveBtn(tab){return `<button class="btn primary save" onclick="saveTab('${tab}')">Speichern</button>`}
+window.saveTab=tab=>{
+  const o=collect(tab);
+  if(tab==="servo"){o.angPark=+$("#a_p").value;o.ang=[...Array(N)].map((_,i)=>+$("#a_"+i).value)}
+  send({c:"setCfg",cfg:o});
+};
+function renderTab(){
+  if(!CFG){$("#dbody").innerHTML='<p class="help">Lade Einstellungen…</p>';return}
+  const b=$("#dbody"); let h="";
+  if(curTab==="dose"){
+    FIELDS.dose.forEach(([t,fs])=>h+=`<div class="card"><h3>${t}</h3>${fs.map(fieldHtml).join("")}</div>`);
+    h+=saveBtn("dose");
+    h+=`<p class="help">Ablauf: Pumpe läuft mit <b>schnell</b>, schaltet „Langsam ab“ Gramm vor dem Ziel auf <b>langsam</b> und stoppt „Stopp vorher“ Gramm vor dem Ziel – der Rest läuft aus dem Schlauch nach. Zu viel im Glas → „Stopp vorher“ erhöhen.</p>`;
+  }
+  if(curTab==="scales"){
+    h+=`<div class="card"><h3>Waagen</h3>`;
+    for(let i=0;i<N;i++) h+=`<div class="scale-row"><div class="h"><b>Glas ${i+1}</b><span class="chip" id="sc_s${i}">–</span><input type="checkbox" class="sw" id="sc_en${i}" ${CFG.enabledMask&(1<<i)?"checked":""} onchange="setEn()"></div>
+      <div class="v" id="sc_v${i}">–</div>
+      <div class="acts"><button class="sbtn" onclick="send({c:'tare',p:${i+1}})">Tara</button><input id="sc_k${i}" type="number" value="100" inputmode="decimal"> g <button class="sbtn gold" onclick="send({c:'calib',p:${i+1},g:+$('#sc_k${i}').value})">Kalibrieren</button></div></div>`;
+    h+=`</div><button class="btn save" onclick="send({c:'tare',p:0})">Alle leeren Waagen tarieren</button>
+      <p class="help"><b>Kalibrieren:</b> Waage leer lassen → <b>Tara</b>. Dann ein bekanntes Gewicht (z. B. 100-g-Gewicht oder 100 ml Wasser) auflegen, Gewicht eintragen → <b>Kalibrieren</b>. Nicht angeschlossene Waagen hier ausschalten.</p>`;
+  }
+  if(curTab==="servo"){
+    const row=(id,l,v)=>`<div class="f"><label>${l}</label><input type="range" min="0" max="180" step="1" value="${v}" id="${id}" style="width:45%" oninput="$('#${id}v').value=this.value;send({c:'servo',a:+this.value})"><input type="number" id="${id}v" value="${v}" style="width:64px" onchange="$('#${id}').value=this.value;send({c:'servo',a:+this.value})"><span class="u">°</span></div>`;
+    h+=`<div class="card"><h3>Positionen</h3>${row("a_p","Parkposition",CFG.angPark)}${CFG.ang.map((a,i)=>row("a_"+i,"Glas "+(i+1),a)).join("")}</div>`;
+    FIELDS.servo.forEach(([t,fs])=>h+=`<div class="card"><h3>${t}</h3>${fs.map(fieldHtml).join("")}</div>`);
+    h+=saveBtn("servo")+`<p class="help">Regler bewegen das Rohr live. Position so einstellen, dass der Auslauf mittig über dem Glas steht, dann speichern.</p>`;
+  }
+  if(curTab==="wifi"){
+    const w=ST?ST.wifi:{};
+    h+=`<div class="card"><h3>Status</h3>
+      <div class="f"><label>Heimnetz</label><span>${w.sta?`✅ ${w.ssid} (${w.rssi} dBm)`:"nicht verbunden"}</span></div>
+      ${w.sta?`<div class="f"><label>Adresse</label><span>${w.ip} · ${w.host}.local</span></div>`:""}
+      <div class="f"><label>Hotspot</label><span>${w.ap?"aktiv: "+w.apSsid:"aus"}</span></div></div>
+      <div class="card"><h3>Heimnetz (WLAN)</h3>
+      <div class="f"><label>Netzwerk</label><button class="sbtn" onclick="send({c:'scan'});toast('Suche Netzwerke…')">Suchen</button></div>
+      <div class="netlist">${netList.map(n=>`<button onclick="$('#w_ssid').value=this.dataset.s" data-s="${n.ssid.replace(/"/g,"&quot;")}"><span>${n.lock?"🔒 ":""}${n.ssid.replace(/</g,"&lt;")}</span><span style="color:var(--mute)">${n.rssi} dBm</span></button>`).join("")}</div>
+      <div class="f"><input class="wide" type="text" id="w_ssid" placeholder="SSID" value="${(CFG.ssid||"").replace(/"/g,"&quot;")}"></div>
+      <div class="f"><input class="wide" type="password" id="w_pass" placeholder="${CFG.hasPass?"Passwort (unverändert lassen)":"Passwort"}"></div>
+      <div class="f"><label>Gerätename<small>Erreichbar unter http://name.local</small></label><input type="text" id="w_host" value="${CFG.host}" style="width:150px"></div></div>
+      <div class="card"><h3>Eigener Hotspot</h3>
+      <div class="f"><label>Hotspot immer an<small>Party-Modus ohne Heimnetz</small></label><input type="checkbox" class="sw" id="w_apa" ${CFG.apAlways?"checked":""}></div>
+      <div class="f"><input class="wide" type="password" id="w_app" placeholder="Hotspot-Passwort (min. 8 Zeichen, leer = unverändert)"></div></div>
+      <button class="btn primary save" onclick="saveWifi()">Speichern & Neustart</button>
+      <p class="help">Findet der Drescher das Heimnetz nicht, öffnet er nach 20 s den Hotspot <b>LiquidHarvest-XXXX</b> (Passwort Standard: <code>prost1234</code>). Hotspot jederzeit erzwingen: Drehencoder-Knopf 3 s drücken.</p>`;
+  }
+  if(curTab==="sys"){
+    h+=`<div class="card"><h3>Pumpe</h3><div class="f"><label>Schlauch füllen / entlüften<small>Rohr fährt in Parkposition – Auffangbecher hinstellen!</small></label><input type="number" id="pr_s" value="3" style="width:64px"><span class="u">s</span><button class="sbtn gold" onclick="send({c:'prime',s:+$('#pr_s').value})">Start</button></div></div>
+      <div class="card"><h3>Firmware</h3><div class="f"><label>Version</label><span>${VER}</span></div>
+      <div class="f"><label>Laufzeit</label><span id="upt">${ST?fmtUp(ST.up):"–"}</span></div>
+      <div class="f"><label>Update (firmware.bin)<small id="otaS">Datei von GitHub-Releases</small></label><input type="file" id="ota" accept=".bin" style="width:160px;font-size:12px"></div>
+      <div class="f"><label>REST-API<small>GET /api/state · POST /api/pour?p=1&amp;ml=20 · /api/autofill · /api/stop</small></label></div></div>
+      <div class="row2"><button class="btn" onclick="send({c:'reboot'})">Neustart</button><button class="btn" style="color:#ff8a8a" onclick="if(confirm('Wirklich alles zurücksetzen (inkl. WLAN & Kalibrierung)?'))send({c:'factory'})">Werkseinstellungen</button></div>`;
+  }
+  b.innerHTML=h;
+  if(curTab==="scales") updateScales();
+  const ota=$("#ota"); if(ota) ota.onchange=uploadOta;
+}
+window.setEn=()=>{let m=0;for(let i=0;i<N;i++)if($("#sc_en"+i).checked)m|=1<<i;send({c:"setCfg",cfg:{enabledMask:m}})};
+window.saveWifi=()=>{const o={c:"wifi",ssid:$("#w_ssid").value.trim(),pass:$("#w_pass").value,host:$("#w_host").value.trim().toLowerCase().replace(/[^a-z0-9-]/g,""),apAlways:$("#w_apa").checked};const ap=$("#w_app").value;if(ap){if(ap.length<8){toast("Hotspot-Passwort: mind. 8 Zeichen");return}o.apPass=ap}send(o)};
+function updateScales(){
+  if(!ST) return;
+  for(let i=0;i<N;i++){const p=ST.pl[i],v=$("#sc_v"+i),c=$("#sc_s"+i);if(!v)continue;
+    v.innerHTML=p.ok?`${p.g.toFixed(1)} g<small>roh ${p.raw}</small>`:"–";
+    c.textContent=!p.en?"aus":p.ok?["leer","Glas","gefüllt"][p.s]:"keine Daten"; c.className="chip "+(!p.en?"":p.ok?"c"+(p.s||1):"c0");}
+}
+const fmtUp=s=>`${Math.floor(s/3600)} h ${Math.floor(s%3600/60)} min`;
+function uploadOta(e){
+  const f=e.target.files[0]; if(!f) return;
+  if(demo){toast("Im Demo-Modus nicht verfügbar");return}
+  const fd=new FormData(); fd.append("firmware",f,f.name);
+  const x=new XMLHttpRequest(); x.open("POST","/update");
+  x.upload.onprogress=ev=>$("#otaS").textContent=`Lade hoch… ${Math.round(ev.loaded/ev.total*100)} %`;
+  x.onload=()=>{$("#otaS").textContent=x.status===200?"Fertig – Neustart…":"Fehler: "+x.responseText;if(x.status===200)setTimeout(()=>location.reload(),6000)};
+  x.send(fd);
+}
+
+/* ---------------- Toast ---------------- */
+let tt;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2600)}
+window.toast=toast;window.send=send;window.$=$;
+
+/* ---------------- Demo / Simulation (Vorschau ohne Hardware) ---------------- */
+let SIM;
+function startDemo(){
+  demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[15,45,75,105,135,165],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,encDiv:4,encReverse:false,offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+    pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
+    ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
+  onMsg({t:"cfg",cfg:SIM.cfg,ver:"1.0.0-demo"});
+  setInterval(simTick,150);
+}
+function demoCmd(o){
+  const S=SIM;
+  if(o.c==="pour"){if(S.pl[o.p-1].s){S.jobs.push({p:o.p-1,ml:o.ml});toast(`Glas ${o.p} ist eingereiht`)}}
+  if(o.c==="autofill"){S.pl.forEach((p,i)=>{if(p.s===1)S.jobs.push({p:i,ml:o.ml,auto:1})})}
+  if(o.c==="stop"){S.jobs=[];S.cur=null;S.pump=0;S.ph="idle";toast("Gestoppt")}
+  if(o.c==="aim"&&!S.cur){S.aim=o.p;S.tgt=o.p?S.cfg.ang[o.p-1]:S.cfg.angPark}
+  if(o.c==="servo")S.tgt=o.a;
+  if(o.c==="setCfg"){Object.assign(S.cfg,o.cfg);onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});toast("Gespeichert")}
+  if(o.c==="getCfg")onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});
+  if(o.c==="scan")setTimeout(()=>onMsg({t:"scan",list:[{ssid:"Heimnetz",rssi:-52,lock:true},{ssid:"Gast",rssi:-70,lock:false}]}),800);
+  if(["tare","calib","wifi","reboot","factory","prime"].includes(o.c))toast("Demo: "+o.c);
+}
+function simTick(){
+  const S=SIM,dt=.15; S.up++;
+  const d=S.tgt-S.ang,st=S.cfg.servoSpeed*dt; S.ang=Math.abs(d)<=st?S.tgt:S.ang+Math.sign(d)*st;
+  if(Math.random()<.01){const i=Math.floor(Math.random()*N),p=S.pl[i];if(!S.cur||S.cur.p!==i){if(p.s===0){p.s=1;p.tare=p.w=1.8+Math.random()*30;onMsg({t:"ev",e:"glass_on",p:i+1})}else if(p.s===2&&Math.random()<.5){p.s=0;p.w=0}}}
+  if(!S.cur&&S.jobs.length){S.cur=S.jobs.shift();S.cur.auto=S.cur.auto||0;S.aim=S.cur.p+1;S.tgt=S.cfg.ang[S.cur.p];S.ph="move";S.got=0;S.tgtMl=S.cur.ml}
+  if(S.cur){
+    const p=S.pl[S.cur.p];
+    if(S.ph==="move"&&S.ang===S.tgt){S.ph="fast";S.start=p.w}
+    if(S.ph==="fast"||S.ph==="slow"){S.pump=S.ph==="fast"?100:35;p.w+=S.pump/100*2.2*dt*3;S.got=(p.w-S.start)/.95;if(S.ph==="fast"&&S.got>=S.tgtMl-3)S.ph="slow";if(S.got>=S.tgtMl-.3){S.ph="drip";S.pump=0;S.t=0}}
+    if(S.ph==="drip"&&++S.t>5){p.s=2;onMsg({t:"ev",e:"pour_done",p:S.cur.p+1,ml:S.got});const a=S.cur.auto;S.cur=null;S.ph="idle";if(!S.jobs.length&&(a||S.cfg.parkAfter)){S.aim=0;S.tgt=S.cfg.angPark}}
+  }
+  onMsg({t:"st",aim:S.aim,ang:S.ang,ph:S.ph,pp:S.cur?S.cur.p+1:0,tgt:S.tgtMl,got:S.got,q:S.jobs.length,busy:!!S.cur||S.jobs.length>0,pump:S.pump,
+    pl:S.pl.map(p=>({s:p.s,ok:true,en:true,g:p.w,raw:Math.round(p.w*420),ml:p.s?Math.max(0,(p.w-p.tare)/.95):0,err:false})),
+    wifi:{sta:true,ssid:"Heimnetz",ip:"192.168.1.42",rssi:-55,ap:false,apSsid:"LiquidHarvest-A1B2",host:"liquidharvest"},up:S.up});
+}
+
+staticScene(); requestAnimationFrame(drawAuger); connect();
+setTimeout(()=>{if(!ST&&!demo&&(!ws||ws.readyState!==1)){/* bleibt im Verbindungsversuch */}},3000);
+</script>
+</body>
+</html>

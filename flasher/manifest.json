@@ -1,0 +1,11 @@
+{
+  "name": "Liquid Harvest",
+  "version": "1.0.0",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [{ "path": "firmware/liquid-harvest-esp32.bin", "offset": 0 }]
+    }
+  ]
+}

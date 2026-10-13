@@ -1,0 +1,77 @@
+name: Build & Web-Installer
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+      - name: PlatformIO installieren
+        run: pip install --upgrade platformio
+
+      - name: Firmware bauen
+        run: pio run -e esp32
+
+      - name: Web-Installer zusammenstellen
+        run: |
+          VERSION=$(grep -oP 'FW_VERSION\s+"\K[^"]+' src/version.h)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          mkdir -p site/firmware
+          cp -r flasher/* site/
+          cp .pio/build/esp32/firmware-merged.bin site/firmware/liquid-harvest-esp32.bin
+          cp .pio/build/esp32/firmware.bin        site/firmware/liquid-harvest-ota.bin
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" site/manifest.json
+          ls -la site site/firmware
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: liquid-harvest-${{ env.VERSION }}
+          path: site/firmware/*.bin
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: site
+
+      - name: Release (bei Tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: site/firmware/*.bin
+          generate_release_notes: true
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
