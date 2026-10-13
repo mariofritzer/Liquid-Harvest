@@ -9,6 +9,7 @@
 #include <ESPAsyncWebServer.h>
 #include <Update.h>
 #include <LittleFS.h>
+#include <Preferences.h>
 #include <ArduinoJson.h>
 #include <Adafruit_NeoPixel.h>
 #include <vector>
@@ -912,6 +913,28 @@ static void webBegin() {
 }
 
 // ---------------------------------------------------------------------
+//  Standard-Einrichtung (mitgeflasht aus setup/default-setup.json)
+// ---------------------------------------------------------------------
+static void applyDefaultSetup() {
+  if (!fsOk || !LittleFS.exists("/setup.json")) return;
+  File f = LittleFS.open("/setup.json", "r");
+  JsonDocument d;
+  DeserializationError err = deserializeJson(d, f);
+  f.close();
+  if (err) return;
+  String ver = d["ver"] | "";
+  Preferences pr;
+  pr.begin("shdef", false);
+  if (pr.getString("ver", "") == ver) { pr.end(); return; }   // schon übernommen
+  settingsFromJson(d["cfg"].as<JsonObjectConst>());
+  if (LittleFS.exists("/img.bin")) cfg.imgVer = esp_random();
+  settingsSave();
+  pr.putString("ver", ver);
+  pr.end();
+  Serial.printf("[Setup] Standard-Einrichtung \"%s\" übernommen\n", (const char*)(d["name"] | ""));
+}
+
+// ---------------------------------------------------------------------
 //  Setup / Loop
 // ---------------------------------------------------------------------
 void setup() {
@@ -927,8 +950,9 @@ void setup() {
   stateMutex = xSemaphoreCreateMutex();
 
   settingsLoad();
-  fsOk = LittleFS.begin(true);   // Partition "spiffs" (128 kB) für das eigene Mähdrescher-Bild
+  fsOk = LittleFS.begin(true);   // Partition "spiffs" (896 kB) für Drescher-Bild und Rohr-Video
   Serial.printf("[FS] LittleFS %s\n", fsOk ? "bereit" : "FEHLER");
+  applyDefaultSetup();
 
   ledcSetup(CH_PUMP, 1000, 8);
   ledcAttachPin(PIN_PUMP, CH_PUMP);

@@ -95,6 +95,10 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 
 > **Ab Version 1.1** ist der Datenspeicher größer (für Bild und Video). Beim Umstieg von 1.0 einmal **per USB über den Web-Installer** neu installieren – ein OTA-Update reicht dafür nicht.
 
+## Eigene Standard-Einrichtung mitflashen (ab 1.2)
+
+Exportdatei aus der App als `setup/default-setup.json` ins Repo legen – der Build packt Bild, Video und Darstellung ins Dateisystem des Web-Installers. Nach dem Flashen ist alles sofort aktiv; „Werkseinstellungen“ stellt wieder diese Einrichtung her. Achtung: die Datei wird mit dem Repo veröffentlicht.
+
 ## Erste Inbetriebnahme
 
 1. Firmware über den Web-Installer flashen, WLAN eintragen.

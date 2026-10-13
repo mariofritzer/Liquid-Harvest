@@ -37,6 +37,16 @@ jobs:
       - name: Firmware bauen
         run: pio run -e esp32
 
+      - name: Standard-Einrichtung ins Dateisystem (falls setup/default-setup.json vorhanden)
+        run: |
+          if [ -f setup/default-setup.json ]; then
+            pio run -e esp32 -t buildfs
+            python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32 merge_bin \
+              -o .pio/build/esp32/firmware-full.bin \
+              0x0 .pio/build/esp32/firmware-merged.bin 0x310000 .pio/build/esp32/littlefs.bin
+            mv .pio/build/esp32/firmware-full.bin .pio/build/esp32/firmware-merged.bin
+          fi
+
       - name: Web-Installer zusammenstellen
         run: |
           VERSION=$(grep -oP 'FW_VERSION\s+"\K[^"]+' src/version.h)

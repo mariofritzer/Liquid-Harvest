@@ -2,3 +2,4 @@
 .vscode/
 src/web_index.h
 flasher/firmware/*.bin
+data/

@@ -137,5 +137,8 @@ void settingsFactoryReset() {
   prefs.begin("sh", false);
   prefs.clear();
   prefs.end();
+  prefs.begin("shdef", false);   // Standard-Einrichtung beim nächsten Start erneut übernehmen
+  prefs.clear();
+  prefs.end();
   cfg = Settings();
 }
