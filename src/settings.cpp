@@ -35,6 +35,12 @@ static void clampAll() {
   cfg.encDiv     = constrain(cfg.encDiv, (uint8_t)1, (uint8_t)8);
   cfg.enabledMask &= 0x3F;
   cfg.imgW = constrain(cfg.imgW, 40.0f, 900.0f);
+  cfg.augW = constrain(cfg.augW, 3.0f, 30.0f);
+  cfg.augPX = constrain(cfg.augPX, -300.0f, 300.0f);
+  cfg.augPY = constrain(cfg.augPY, -300.0f, 300.0f);
+  cfg.augPZ = constrain(cfg.augPZ, 40.0f, 300.0f);
+  cfg.augEZ = constrain(cfg.augEZ, 60.0f, 300.0f);
+  if (cfg.augCol.length() != 7 || cfg.augCol[0] != '#') cfg.augCol = "#2f8f4e";
   cfg.imgX = constrain(cfg.imgX, -700.0f, 700.0f);
   cfg.imgY = constrain(cfg.imgY, -700.0f, 700.0f);
   if (cfg.host.length() == 0) cfg.host = "liquidharvest";
@@ -57,6 +63,8 @@ void settingsToJson(JsonObject o) {
   o["ledBright"] = cfg.ledBright; o["encDiv"] = cfg.encDiv;
   o["encReverse"] = cfg.encReverse;
   o["imgOn"] = cfg.imgOn; o["imgW"] = cfg.imgW; o["imgX"] = cfg.imgX; o["imgY"] = cfg.imgY; o["imgVer"] = cfg.imgVer;
+  o["augCol"] = cfg.augCol; o["augW"] = cfg.augW; o["augPX"] = cfg.augPX; o["augPY"] = cfg.augPY;
+  o["augPZ"] = cfg.augPZ; o["augEZ"] = cfg.augEZ; o["augRiser"] = cfg.augRiser;
   JsonArray off = o["offset"].to<JsonArray>();
   JsonArray fac = o["factor"].to<JsonArray>();
   for (int i = 0; i < NUM_PLACES; i++) { off.add(cfg.offset[i]); fac.add(cfg.factor[i]); }
@@ -83,6 +91,8 @@ void settingsFromJson(JsonObjectConst o) {
   rd(o, "ledBright", cfg.ledBright);   rd(o, "encDiv", cfg.encDiv);
   rd(o, "encReverse", cfg.encReverse);
   rd(o, "imgOn", cfg.imgOn); rd(o, "imgW", cfg.imgW); rd(o, "imgX", cfg.imgX); rd(o, "imgY", cfg.imgY); rd(o, "imgVer", cfg.imgVer);
+  rd(o, "augCol", cfg.augCol); rd(o, "augW", cfg.augW); rd(o, "augPX", cfg.augPX); rd(o, "augPY", cfg.augPY);
+  rd(o, "augPZ", cfg.augPZ); rd(o, "augEZ", cfg.augEZ); rd(o, "augRiser", cfg.augRiser);
   JsonArrayConst off = o["offset"];
   if (!off.isNull()) for (int i = 0; i < NUM_PLACES && i < (int)off.size(); i++) cfg.offset[i] = off[i].as<int32_t>();
   JsonArrayConst fac = o["factor"];

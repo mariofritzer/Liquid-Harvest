@@ -42,6 +42,15 @@ struct Settings {
   float    imgY        = -215;
   uint32_t imgVer      = 0;       // ändert sich bei jedem Upload (Cache)
 
+  // --- Darstellung Abtankrohr in der App ---
+  String   augCol      = "#2f8f4e";
+  float    augW        = 11;      // Dicke
+  float    augPX       = 0;       // Ansatzpunkt (Szenen-Koordinaten)
+  float    augPY       = 0;
+  float    augPZ       = 134;     // Höhe am Ansatz
+  float    augEZ       = 134;     // Höhe am Rohrende
+  bool     augRiser    = true;    // Drehturm zeichnen
+
   // --- Waagen ---
   int32_t  offset[NUM_PLACES] = {0, 0, 0, 0, 0, 0};
   float    factor[NUM_PLACES] = {420, 420, 420, 420, 420, 420};  // Rohwert pro Gramm

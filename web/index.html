@@ -72,6 +72,8 @@ h1 small{display:block;font-size:11px;color:var(--mute);font-weight:500;letter-s
 .veil.show{opacity:1;pointer-events:auto}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--panel);border-radius:22px 22px 0 0;border-top:1px solid var(--line);padding:10px 20px calc(20px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.9,.3,1);max-width:760px;margin:0 auto}
 .sheet.show{transform:none}
+.sheet.compact{padding-top:6px}.sheet.compact .f{padding:5px 0}.sheet.compact .grab{margin-bottom:6px}.sheet.compact h2{font-size:16px!important}
+@media(min-width:820px){.sheet.compact{left:auto;right:16px;bottom:16px;width:400px;border-radius:22px;border:1px solid var(--line);margin:0}}
 .grab{width:40px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 12px}
 .sh-head{display:flex;align-items:center;gap:10px}
 .sh-head h2{margin:0;font-size:22px}
@@ -185,7 +187,7 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
   <div class="dbody" id="dbody"></div>
 </div>
 
-<div class="sheet" id="imgAdj">
+<div class="sheet compact" id="imgAdj">
   <div class="grab"></div>
   <div class="sh-head"><h2 style="font-size:18px">Bild ausrichten</h2></div>
   <div class="f"><label>Größe</label><input type="range" id="ia_w" min="60" max="900" step="2" style="width:60%"></div>
@@ -193,6 +195,17 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
   <div class="f"><label>Oben / unten</label><input type="range" id="ia_y" min="-500" max="300" step="1" style="width:60%"></div>
   <p class="help" style="margin:6px 0 12px">Tipp: Das Abtankrohr dreht sich um die Mitte des Glas-Halbkreises – Bild so schieben, dass das Rohr am Drescher ansetzt.</p>
   <div class="row2"><button class="btn" id="ia_cancel">Abbrechen</button><button class="btn primary" id="ia_ok">Speichern</button></div>
+</div>
+<div class="sheet compact" id="augAdj">
+  <div class="grab"></div>
+  <div class="sh-head"><h2 style="font-size:18px">Abtankrohr anpassen</h2><div class="sp"></div><input type="color" id="aa_col" style="width:48px;height:34px;border:0;background:none"></div>
+  <div class="f"><label>Dicke</label><input type="range" id="aa_w" min="3" max="30" step="0.5" style="width:60%"></div>
+  <div class="f"><label>Ansatz links / rechts</label><input type="range" id="aa_x" min="-300" max="300" step="1" style="width:60%"></div>
+  <div class="f"><label>Ansatz vor / zurück</label><input type="range" id="aa_y" min="-300" max="300" step="1" style="width:60%"></div>
+  <div class="f"><label>Höhe am Ansatz</label><input type="range" id="aa_pz" min="40" max="300" step="1" style="width:60%"></div>
+  <div class="f"><label>Höhe am Ende</label><input type="range" id="aa_ez" min="60" max="300" step="1" style="width:60%"></div>
+  <div class="f"><label>Drehturm zeichnen</label><input type="checkbox" class="sw" id="aa_r"></div>
+  <div class="row2" style="margin-top:10px"><button class="btn" id="aa_cancel">Abbrechen</button><button class="btn primary" id="aa_ok">Speichern</button></div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -357,6 +370,7 @@ function reel(){
 
 function staticScene(){
   let s=`<defs>
+    <filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
     <linearGradient id="wood" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7a5532"/><stop offset="1" stop-color="#4b321c"/></linearGradient>
     <radialGradient id="woodTop" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#a87a4c"/><stop offset="1" stop-color="#7d5631"/></radialGradient>
@@ -448,15 +462,26 @@ function render(){
 function drawAuger(){
   if(ST){ if(dispAng===null) dispAng=ST.ang; dispAng+=(ST.ang-dispAng)*.25; }
   const a=dispAng??(CFG?CFG.angPark:0), [dx,dy]=dir(a), ex=dx*R, ey=dy*R;
-  const E=P(ex,ey,HZ), B=P(-dx*14,-dy*14,HZ), SP=P(ex,ey,HZ-40);
-  let s=`<path d="${cylPath(0,0,44,HZ+2,8)}" fill="#26743f"/><path d="${cylPath(0,0,44,HZ+2,8)}" fill="url(#tubeShade)"/>`;
-  s+=`<line x1="${f1(B[0])}" y1="${f1(B[1])}" x2="${f1(E[0])}" y2="${f1(E[1])}" stroke="#163d23" stroke-width="16" stroke-linecap="round"/>`;
-  s+=`<line x1="${f1(B[0])}" y1="${f1(B[1])}" x2="${f1(E[0])}" y2="${f1(E[1])}" stroke="#2f8f4e" stroke-width="11" stroke-linecap="round"/>`;
-  s+=`<line x1="${f1(B[0])}" y1="${f1(B[1]-3)}" x2="${f1(E[0])}" y2="${f1(E[1]-3)}" stroke="#8fe0a8" stroke-width="2.5" stroke-linecap="round" opacity=".75"/>`;
-  for(let k=1;k<4;k++){const M=P(ex*k/4,ey*k/4,HZ);s+=`<ellipse cx="${f1(M[0])}" cy="${f1(M[1])}" rx="3" ry="6.5" fill="#163d23" opacity=".6"/>`}
-  s+=`<line x1="${f1(E[0])}" y1="${f1(E[1])}" x2="${f1(SP[0])}" y2="${f1(SP[1])}" stroke="#1d2024" stroke-width="14" stroke-linecap="round"/>`;
-  s+=`<line x1="${f1(E[0])}" y1="${f1(E[1])}" x2="${f1(SP[0])}" y2="${f1(SP[1])}" stroke="#3a3f45" stroke-width="9" stroke-linecap="round"/>`;
-  s+=`<path d="${cylPath(0,0,HZ-6,HZ+8,10)}" fill="#1f6136"/>${ell(0,0,HZ+8,10,'fill="#5dbb7c"')}`;
+  const A=CFG||{}, col=A.augCol||"#2f8f4e", W=+(A.augW||11), px=+(A.augPX||0), py=+(A.augPY||0), pz=+(A.augPZ||HZ), ez=+(A.augEZ||HZ);
+  const dark=shade(col,.42), mid=shade(col,.78), light=shade(col,1.6);
+  const S0=P(px,py,pz), E=P(ex,ey,ez), vx=E[0]-S0[0], vy=E[1]-S0[1], vl=Math.hypot(vx,vy)||1, ux=vx/vl, uy=vy/vl;
+  let nx=-uy, ny=ux; if(ny>0){nx=-nx;ny=-ny}                 // Normale zeigt nach oben (Glanzkante)
+  const drop=Math.max(24,W*2.4), SP=[E[0],E[1]+drop], C1=[E[0]+ux*W*1.7,E[1]+uy*W*1.7+drop*.1];
+  const pt=p=>`${f1(p[0])},${f1(p[1])}`;
+  const d=`M${pt(S0)} L${pt(E)} Q${pt(C1)} ${pt(SP)}`;
+  const G0=P(px,py,0), G1=P(ex,ey,0);
+  let s=`<line x1="${f1(G0[0])}" y1="${f1(G0[1])}" x2="${f1(G1[0])}" y2="${f1(G1[1])}" stroke="#000" stroke-opacity=".28" stroke-width="${f1(W*1.5)}" stroke-linecap="round" filter="url(#soft)"/>`;
+  if(A.augRiser!==false){
+    const r=W*.8, z0=Math.max(0,pz-90);
+    s+=`<path d="${cylPath(px,py,z0,pz,r)}" fill="${mid}"/><path d="${cylPath(px,py,z0,pz,r)}" fill="url(#tubeShade)"/>`;
+  }
+  s+=`<path d="${d}" fill="none" stroke="${dark}" stroke-width="${f1(W+5)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  s+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="${f1(W)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  s+=`<path d="${d}" fill="none" stroke="${mid}" stroke-width="${f1(W*.35)}" stroke-linecap="round" stroke-linejoin="round" transform="translate(${f1(-nx*W*.28)},${f1(-ny*W*.28)})" opacity=".7"/>`;
+  s+=`<path d="M${pt(S0)} L${pt(E)}" fill="none" stroke="${light}" stroke-width="${f1(Math.max(1.5,W*.2))}" stroke-linecap="round" transform="translate(${f1(nx*W*.25)},${f1(ny*W*.25)})" opacity=".8"/>`;
+  for(const t of [.28,.52,.76]){const M=[S0[0]+vx*t,S0[1]+vy*t],h=W/2+2.5;s+=`<line x1="${f1(M[0]+nx*h)}" y1="${f1(M[1]+ny*h)}" x2="${f1(M[0]-nx*h)}" y2="${f1(M[1]-ny*h)}" stroke="${dark}" stroke-width="2.2" stroke-linecap="round"/>`}
+  s+=`<ellipse cx="${f1(SP[0])}" cy="${f1(SP[1]+1)}" rx="${f1(W*.5)}" ry="${f1(W*.22)}" fill="#0c0e0d"/>`;
+  s+=`<ellipse cx="${f1(S0[0])}" cy="${f1(S0[1])}" rx="${f1(W*.95)}" ry="${f1(W*.55)}" fill="${mid}" stroke="${dark}" stroke-width="1.5"/><ellipse cx="${f1(S0[0])}" cy="${f1(S0[1]-1)}" rx="${f1(W*.45)}" ry="${f1(W*.26)}" fill="${light}" opacity=".7"/>`;
   const now=performance.now(); if(ST&&ST.busy) reelPh-=(now-lastT)/1000*2.2; lastT=now;
   const rg=$("#reel"); if(rg) rg.innerHTML=reel();
   if(ST&&ST.pump>0){
@@ -533,7 +558,7 @@ function updateSheet(){
 }
 
 /* ---------------- Einstellungen ---------------- */
-const TABS=[["dose","Dosierung"],["scales","Waagen"],["servo","Servo"],["img","Drescher-Bild"],["wifi","WLAN"],["sys","System"]];
+const TABS=[["dose","Dosierung"],["scales","Waagen"],["servo","Servo"],["img","Darstellung"],["wifi","WLAN"],["sys","System"]];
 let curTab="dose";
 const FIELDS={
   dose:[["Ausschank",[
@@ -643,6 +668,8 @@ function renderTab(){
       </div>
       <button class="btn primary save" id="im_up" disabled>Hochladen & verwenden</button>
       <div class="row2"><button class="btn" onclick="startAdjust()" ${CFG.imgVer||demoImg?"":"disabled"}>Position anpassen</button><button class="btn" style="color:#ff8a8a" onclick="deleteImg()" ${CFG.imgVer||demoImg?"":"disabled"}>Bild löschen</button></div>
+      <div class="card" style="margin-top:14px"><h3>Abtankrohr</h3>
+      <div class="f"><label>Aussehen & Ansatzpunkt<small>Farbe, Dicke, Höhe – und wo das Rohr am Drescher ansetzt</small></label><button class="sbtn gold" onclick="startAugAdjust()">Anpassen</button></div></div>
       <p class="help">Das Bild wird im Browser verkleinert, auf max. 100 kB komprimiert und auf dem ESP32 gespeichert – es landet nicht im GitHub-Repo. Das Abtankrohr wird weiterhin live darübergezeichnet; der Drehpunkt liegt in der Mitte des Glas-Halbkreises.</p>`;
   }
   if(curTab==="sys"){
@@ -820,15 +847,29 @@ function startAdjust(){
 $("#ia_ok").onclick=()=>{ $("#imgAdj").classList.remove("show"); send({c:"setCfg",cfg:{imgW:CFG.imgW,imgX:CFG.imgX,imgY:CFG.imgY}}); };
 $("#ia_cancel").onclick=()=>{ $("#imgAdj").classList.remove("show"); send({c:"getCfg"}); };
 
+
+// Abtankrohr live anpassen
+const AUG=[["aa_col","augCol"],["aa_w","augW"],["aa_x","augPX"],["aa_y","augPY"],["aa_pz","augPZ"],["aa_ez","augEZ"]];
+let augBackup=null;
+function startAugAdjust(){
+  $("#drawer").classList.remove("show"); $("#augAdj").classList.add("show");
+  augBackup=Object.fromEntries([...AUG.map(a=>a[1]),"augRiser"].map(k=>[k,CFG[k]]));
+  AUG.forEach(([id,k])=>{const e=$("#"+id); e.value=CFG[k]; e.oninput=()=>{CFG[k]=e.type==="color"?e.value:+e.value}});
+  const r=$("#aa_r"); r.checked=CFG.augRiser!==false; r.onchange=()=>CFG.augRiser=r.checked;
+  if(ST&&!ST.busy) send({c:"aim",p:3});
+}
+$("#aa_ok").onclick=()=>{ $("#augAdj").classList.remove("show"); const o={}; [...AUG.map(a=>a[1]),"augRiser"].forEach(k=>o[k]=CFG[k]); send({c:"setCfg",cfg:o}); };
+$("#aa_cancel").onclick=()=>{ $("#augAdj").classList.remove("show"); Object.assign(CFG,augBackup); };
+
 /* ---------------- Toast ---------------- */
 let tt;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2600)}
-window.toast=toast;window.send=send;window.$=$;
+window.toast=toast;window.startAugAdjust=startAugAdjust;window.send=send;window.$=$;
 
 /* ---------------- Demo / Simulation (Vorschau ohne Hardware) ---------------- */
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[15,45,75,105,135,165],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[15,45,75,105,135,165],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   onMsg({t:"cfg",cfg:SIM.cfg,ver:"1.0.0-demo"});
