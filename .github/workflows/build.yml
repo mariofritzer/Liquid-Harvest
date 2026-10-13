@@ -36,13 +36,13 @@ jobs:
 
       - name: Firmware bauen
         run: |
-          pio run -e esp32 > build.log 2>&1 || { tail -25 build.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+          pio run -e esp32 > build.log 2>&1 || { tail -9 build.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
           tail -5 build.log
 
       - name: Standard-Einrichtung ins Dateisystem (falls setup/default-setup.json vorhanden)
         run: |
           if [ -f setup/default-setup.json ]; then
-            pio run -e esp32 -t buildfs > fs.log 2>&1 || { tail -25 fs.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+            pio run -e esp32 -t buildfs > fs.log 2>&1 || { tail -9 fs.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
             tail -5 fs.log
             ls -la .pio/build/esp32/*.bin
           fi
