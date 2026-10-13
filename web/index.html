@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0e1410">
+<meta name="theme-color" content="#0b0b0b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Liquid Harvest</title>
 <style>
 :root{
-  --bg:#0e1410; --bg2:#151d17; --panel:#1b251e; --line:#2a372d; --txt:#eef2e6; --mute:#93a296;
-  --gold:#3fbf72; --gold2:#7fe0a3; --green:#3ecf6a; --blue:#3b82ff; --red:#ff4d4d; --orange:#ff9a1f;
+  --bg:#0b0b0b; --bg2:#151515; --panel:#1b1b1b; --line:#2e2e2e; --txt:#ffffff; --mute:#9a9a9a;
+  --gold:#b4c618; --gold2:#d4e35c; --green:#b4c618; --blue:#3b82ff; --red:#fe0000; --orange:#ff9a1f;
   --r:16px;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--txt);min-height:100%}
-body{background:radial-gradient(120% 80% at 50% 0%,#1d2b20 0%,var(--bg) 60%) fixed;overscroll-behavior:none}
+body{background:radial-gradient(120% 80% at 50% 0%,#1d200c 0%,var(--bg) 60%) fixed;overscroll-behavior:none}
 button{font:inherit;color:inherit;border:0;cursor:pointer}
 input,select{font:inherit;color:var(--txt)}
 .wrap{max-width:760px;margin:0 auto;padding:0 16px calc(24px + env(safe-area-inset-bottom))}
@@ -60,10 +60,10 @@ h1 small{display:block;font-size:11px;color:var(--mute);font-weight:500;letter-s
 .actions{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:12px}
 .seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:4px;gap:4px;grid-column:1/-1}
 .seg button{flex:1;padding:10px 0;border-radius:10px;background:transparent;color:var(--mute);font-weight:650;font-size:14px}
-.seg button.on{background:var(--gold);color:#03240f}
+.seg button.on{background:var(--gold);color:#000000}
 .btn{padding:15px 18px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:15px}
-.btn.primary{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#03240f;border:0;box-shadow:0 6px 20px #3fbf7240}
-.btn.stop{background:var(--red);color:#fff;border:0;grid-column:1/-1;font-size:17px;letter-spacing:.06em;box-shadow:0 6px 24px #ff4d4d55}
+.btn.primary{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#000000;border:0;box-shadow:0 6px 20px #b4c61840}
+.btn.stop{background:var(--red);color:#fff;border:0;grid-column:1/-1;font-size:17px;letter-spacing:.06em;box-shadow:0 6px 24px #fe000055}
 .btn:disabled{opacity:.45}
 .hide{display:none!important}
 
@@ -78,7 +78,7 @@ h1 small{display:block;font-size:11px;color:var(--mute);font-weight:500;letter-s
 .sh-head{display:flex;align-items:center;gap:10px}
 .sh-head h2{margin:0;font-size:22px}
 .chip{font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;background:var(--bg);color:var(--mute)}
-.chip.c1{color:#9fc0ff;background:#3b82ff22}.chip.c2{color:#8ff0ad;background:#3ecf6a22}.chip.c0{color:#ff9a9a;background:#ff4d4d1c}
+.chip.c1{color:#9fc0ff;background:#3b82ff22}.chip.c2{color:#d4e35c;background:#b4c61826}.chip.c0{color:#ff9a9a;background:#ff4d4d1c}
 .big{font-size:44px;font-weight:800;text-align:center;margin:18px 0 4px;font-variant-numeric:tabular-nums}
 .big small{font-size:18px;color:var(--mute);font-weight:600}
 .presets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
@@ -97,7 +97,7 @@ input[type=range]{width:100%;accent-color:var(--gold);height:28px}
 .tabs{display:flex;gap:6px;overflow-x:auto;padding:12px 0;max-width:760px;margin:0 auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tabs button{padding:8px 14px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);color:var(--mute);font-weight:650;white-space:nowrap;font-size:14px}
-.tabs button.on{background:var(--txt);color:var(--bg);border-color:var(--txt)}
+.tabs button.on{background:var(--gold);color:#000;border-color:var(--gold)}
 .dbody{max-width:760px;margin:0 auto;padding:16px 16px calc(40px + env(safe-area-inset-bottom))}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:4px 16px;margin-bottom:14px}
 .card h3{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:14px 0 4px}
@@ -113,7 +113,7 @@ input[type=range]{width:100%;accent-color:var(--gold);height:28px}
 .sw::after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s}
 .sw:checked::after{left:21px}
 .sbtn{padding:9px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);font-weight:650;font-size:13px;white-space:nowrap}
-.sbtn.gold{background:var(--gold);color:#03240f;border:0}
+.sbtn.gold{background:var(--gold);color:#000000;border:0}
 .sbtn.red{background:#ff4d4d22;color:#ff8a8a;border-color:#ff4d4d55}
 .save{width:100%;margin:6px 0 14px}
 .scale-row{padding:12px 0;border-bottom:1px solid var(--line)}
@@ -128,16 +128,16 @@ input[type=range]{width:100%;accent-color:var(--gold);height:28px}
 .help{font-size:13px;color:var(--mute);line-height:1.5;margin:10px 0}
 code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
 
-.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#f3f5ee;color:#121712;padding:11px 16px;border-radius:12px;font-weight:650;font-size:14px;opacity:0;transition:.25s;z-index:50;max-width:calc(100% - 32px);text-align:center;box-shadow:0 10px 30px #0008}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#ffffff;color:#000;padding:11px 16px;border-radius:12px;font-weight:650;font-size:14px;opacity:0;transition:.25s;z-index:50;max-width:calc(100% - 32px);text-align:center;box-shadow:0 10px 30px #0008}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 @media(max-width:480px){#conn{display:none}.pill{padding:10px}.demo{display:none}}
-.demo{font-size:11px;color:#03240f;background:var(--gold);padding:3px 8px;border-radius:6px;font-weight:800;letter-spacing:.08em}
+.demo{font-size:11px;color:#000000;background:var(--gold);padding:3px 8px;border-radius:6px;font-weight:800;letter-spacing:.08em}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <svg class="logo" viewBox="0 0 40 40"><rect width="40" height="40" rx="11" fill="#3fbf72"/><path d="M20 31V12M20 16c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7zm0 6c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7zm0 6c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7z" stroke="#03240f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <svg class="logo" viewBox="0 0 40 40"><rect width="40" height="40" rx="11" fill="#b4c618"/><path d="M20 31V12M20 16c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7zm0 6c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7zm0 6c-3-1-5-4-5-7 3 1 5 4 5 7zm0 0c3-1 5-4 5-7-3 1-5 4-5 7z" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <h1>Liquid Harvest<small>Schnaps-Drescher</small></h1>
     <div class="sp"></div>
     <span id="demoTag" class="demo hide">DEMO</span>
