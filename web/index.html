@@ -214,9 +214,8 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
   <div class="seg" id="va_pos" style="margin:8px 0"></div>
   <p class="help" id="va_hint" style="margin:4px 0 8px"></p>
   <div class="f"><label>Gläser platzieren</label><button class="sbtn gold" id="va_auto">Automatisch</button></div>
-  <div class="f"><label>Abstand unter Auslauf</label><input type="range" id="va_gdy" min="-0.1" max="0.4" step="0.005" style="width:55%"></div>
+  <div class="f"><label>Abstand unter Auslauf</label><input type="range" id="va_gdy" min="-40" max="120" step="1" style="width:55%"></div>
   <div class="f"><label>Glasgröße</label><input type="range" id="va_gs" min="0.3" max="2.5" step="0.01" style="width:55%"></div>
-  <div class="f"><label>Strahl-Länge</label><input type="range" id="va_sh" min="0" max="200" step="1" style="width:55%"></div>
   <div class="f"><label>Video Größe</label><input type="range" id="va_w" min="200" max="1600" step="2" style="width:55%"></div>
   <div class="f"><label>Video links / rechts</label><input type="range" id="va_x" min="-900" max="300" step="1" style="width:55%"></div>
   <div class="f"><label>Video oben / unten</label><input type="range" id="va_y" min="-700" max="200" step="1" style="width:55%"></div>
@@ -416,14 +415,14 @@ function staticScene(){
 function glassBase(i){
   const v=V(); if(!v) return null;
   if(v.gp&&v.gp[i]&&v.gp[i].u!==undefined) return v.gp[i];
-  if(v.tips&&v.tips[i]) return {u:v.tips[i].u, v:v.tips[i].v+(v.gdy??.08)};
+  if(v.tips&&v.tips[i]) return {u:v.tips[i].u, v:v.tips[i].v, tip:true};
   return null;
 }
 function vidToScene(b){ const v=V(); return [v.x+b.u*v.w, v.y+b.v*v.w*v.fh/v.fw]; }
-function glassK(){ const v=V(); return (+v.gs||1)*(v.w/644); }
+function glassK(){ const v=V(); return (+v.gs||.7)*(v.w/644); }
 function glassXY(i){
   const b=vidMode()?glassBase(i):null;
-  if(b){ const [sx,sy]=vidToScene(b), u=sx/C, w=2*sy; return [(u+w)/2,(w-u)/2]; }
+  if(b){ let [sx,sy]=vidToScene(b); if(b.tip) sy+=(GH+(+V().gap||12))*glassK(); const u=sx/C, w=2*sy; return [(u+w)/2,(w-u)/2]; }
   const a=CFG?CFG.ang[i]:[18.3,36.7,55,73.3,91.7,110][i],[dx,dy]=dir(a); return [dx*R,dy*R];
 }
 function glassTf(x,y){ const k=vidMode()&&glassBase(0)?glassK():1; if(k===1) return ""; const b=P(x,y,0); return `transform="translate(${f1(b[0])} ${f1(b[1])}) scale(${k}) translate(${f1(-b[0])} ${f1(-b[1])})"`; }
@@ -499,7 +498,7 @@ function drawAuger(){
   const a=dispAng??(CFG?CFG.angPark:0), [dx,dy]=dir(a), ex=dx*R, ey=dy*R;
   if(vidMode()){
     vidFrame(previewAng??a); $("#auger").innerHTML="";
-    let st=""; if(ST&&ST.pump>0&&ST.pp>0){const p=ST.pl[ST.pp-1],[gx,gy]=glassXY(ST.pp-1),tz=4+Math.min(GH-8,Math.max(p.ml,ST.got)*1.15),T=P(gx,gy,tz),S1=P(gx,gy,GH+(+V().sh||45));
+    let st=""; if(ST&&ST.pump>0&&ST.pp>0){const p=ST.pl[ST.pp-1],[gx,gy]=glassXY(ST.pp-1),tz=4+Math.min(GH-8,Math.max(p.ml,ST.got)*1.15),T=P(gx,gy,tz),S1=P(gx,gy,GH+(+(V().gap??12)));
       st=`<g ${glassTf(gx,gy)}><line class="stream" x1="${f1(S1[0])}" y1="${f1(S1[1])}" x2="${f1(T[0])}" y2="${f1(T[1])}" stroke="#f7c95a" stroke-width="${2+ST.pump/40}" stroke-linecap="round"/></g>`}
     $("#ringStream").innerHTML=st; requestAnimationFrame(drawAuger); return;
   }
@@ -716,7 +715,7 @@ function renderTab(){
       <div class="f" style="display:block"><label>Haltepunkte im Video (Sekunden)<small>Park, Glas 1 … Glas 6 – werden automatisch erkannt</small></label>
         <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px">${["P","1","2","3","4","5","6"].map((l,i)=>`<div style="text-align:center;font-size:11px;color:var(--mute)">${l}<input type="number" step="0.1" id="vt${i}" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 2px;text-align:center;font-size:12px"></div>`).join("")}</div></div>
       <div class="f"><label>Hintergrund entfernen<small>einfarbiger Hintergrund wird transparent – Drescher steht auf der Holzscheibe</small></label><input type="checkbox" class="sw" id="vid_bg" checked></div>
-      <div class="f"><label>Toleranz</label><input type="range" id="vid_tol" min="5" max="120" value="28" style="width:45%"></div>
+      <div class="f"><label>Toleranz</label><input type="range" id="vid_tol" min="1" max="60" value="6" style="width:45%"></div>
       <div class="f"><label>Bilder je Fahrt<small>mehr = flüssiger, braucht mehr Speicher</small></label><input type="range" id="vid_n" min="4" max="16" step="1" value="10" style="width:40%"><span class="u" id="vid_nv" style="width:34px">10</span></div>
       <div class="f"><label>Bildbreite</label><input type="range" id="vid_fw" min="320" max="800" step="20" value="480" style="width:40%"><span class="u" id="vid_fwv" style="width:34px">480</span></div>
       <div class="help" id="vid_info"></div>
@@ -852,6 +851,12 @@ function cutBg(x,ox,oy,w,h,tol){
   for(let X=0;X<w;X++){st.push(X,(h-1)*w+X)} for(let Y=0;Y<h;Y++){st.push(Y*w,Y*w+w-1)}
   while(st.length){const i=st.pop(); if(seen[i]||!near(i)) continue; seen[i]=1; p[i*4+3]=0;
     const X=i%w; if(X>0)st.push(i-1); if(X<w-1)st.push(i+1); if(i>=w)st.push(i-w); if(i<w*(h-1))st.push(i+w);}
+  // Kantenglättung: helle Randpixel neben transparenten Flächen ausblenden (weißer Saum)
+  const edge=[], t3=(tol*6)**2*3;
+  for(let i=0;i<w*h;i++){ if(p[i*4+3]===0) continue; const X=i%w;
+    if((X>0&&!p[(i-1)*4+3])||(X<w-1&&!p[(i+1)*4+3])||(i>=w&&!p[(i-w)*4+3])||(i<w*(h-1)&&!p[(i+w)*4+3])){
+      const dr=p[i*4]-bg[0],dg=p[i*4+1]-bg[1],db=p[i*4+2]-bg[2], dd=dr*dr+dg*dg+db*db; if(dd<t3) edge.push([i,dd/t3]); } }
+  for(const [i,f] of edge) p[i*4+3]=Math.round(255*f*f);
   x.putImageData(d,ox,oy);
 }
 async function processImg(file,removeBg,tol){
@@ -936,7 +941,7 @@ function applyVid(){
   ring.removeAttribute("transform");
   $("#vidWrap").style.display=on?"":"none"; $("#board").style.display="";
   if(on&&v.alpha) $("#vidMaskG").removeAttribute("mask"); else $("#vidMaskG").setAttribute("mask","url(#vfade)");
-  const key=JSON.stringify([on,on&&[v.gp,v.gs,v.tips,v.gdy,v.x,v.y,v.w],CFG&&CFG.ang]);
+  const key=JSON.stringify([on,on&&[v.gp,v.gs,v.tips,v.gap,v.x,v.y,v.w],CFG&&CFG.ang]);
   if(key!==placesKey&&document.querySelector(".glass")){ placesKey=key; rebuildPlaces(); }
   if(!on) return;
   $("#combineDraw").style.display="none"; $("#combineImg").style.display="none";
@@ -966,10 +971,13 @@ const seek=(v,t)=>new Promise(ok=>{v.onseeked=()=>ok();v.currentTime=t});
 let vidProfile=null;   // Bewegungsprofil des gewählten Videos
 // Findet in den 7 Standbildern die Spitze des Abtankrohrs: Pixel, die sich nur in diesem Standbild
 // gegenüber der Parkposition ändern = Rohr an dieser Position; Spitze = am weitesten vom Drescher entfernt
-function detectTips(g,cols,FW,FH,M){
-  const n=FW*FH, F=[...Array(7)].map((_,k)=>{const i=k*M;return g.getImageData((i%cols)*FW,Math.floor(i/cols)*FH,FW,FH).data});
+function detectTips(F,FW,FH){
+  const n=FW*FH;
   const df=(a,b,p)=>Math.abs(a[p]-b[p])+Math.abs(a[p+1]-b[p+1])+Math.abs(a[p+2]-b[p+2])+Math.abs(a[p+3]-b[p+3]);
-  const D=[null]; for(let k=1;k<7;k++){const m=new Uint8Array(n); for(let p=0;p<n;p++) m[p]=df(F[k],F[0],p*4)>70?1:0; D.push(m)}
+  const D=[null]; for(let k=1;k<7;k++){const m=new Uint8Array(n); for(let p=0;p<n;p++) m[p]=df(F[k],F[0],p*4)>90?1:0;
+    // Rauschfilter: nur Pixel behalten, deren 3x3-Umgebung überwiegend ebenfalls geändert ist
+    const f=new Uint8Array(n); for(let y=1;y<FH-1;y++)for(let x=1;x<FW-1;x++){const p=y*FW+x; if(!m[p]) continue; let c=0; for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++) c+=m[p+dy*FW+dx]; f[p]=c>=6?1:0}
+    D.push(f)}
   const f0=F[0], bg=[f0[0],f0[1],f0[2]]; let sx=0,sy=0,c=0;
   for(let p=0;p<n;p++){const q=p*4; if(f0[q+3]>30&&Math.abs(f0[q]-bg[0])+Math.abs(f0[q+1]-bg[1])+Math.abs(f0[q+2]-bg[2])>60){sx+=p%FW;sy+=(p/FW)|0;c++}}
   const cx=c?sx/c:FW/2, cy=c?sy/c:FH/2, tips=[];
@@ -1048,11 +1056,13 @@ async function processVideo(){
     times.push(T[6]);
     const N=times.length, FH=Math.round(FW*v.videoHeight/v.videoWidth), cols=8, rows=Math.ceil(N/cols);
     const c=document.createElement("canvas"); c.width=cols*FW; c.height=rows*FH; const g=c.getContext("2d",{willReadFrequently:true});
-    const bgOff=$("#vid_bg").checked, tol=+$("#vid_tol").value;
+    const bgOff=$("#vid_bg").checked, tol=+$("#vid_tol").value, raw=[];
     for(let i=0;i<N;i++){ await seek(v,Math.min(v.duration-0.02,times[i])); const cx=(i%cols)*FW, cy=Math.floor(i/cols)*FH;
-      g.drawImage(v,cx,cy,FW,FH); if(bgOff) cutBg(g,cx,cy,FW,FH,tol); info(`Zerlege Video… ${i+1}/${N}`); }
+      g.drawImage(v,cx,cy,FW,FH);
+      if(i%M===0) raw.push(g.getImageData(cx,cy,FW,FH).data);          // Standbild im Original für die Spitzen-Erkennung
+      if(bgOff) cutBg(g,cx,cy,FW,FH,tol); info(`Zerlege Video… ${i+1}/${N}`); }
     info("Suche Rohrspitzen…");
-    const tips=detectTips(g,cols,FW,FH,M);
+    const tips=detectTips(raw,FW,FH);
     info("Komprimiere…");
     const out=await compressCanvas(c,maxBytes);
     if(out.blob.size>maxBytes){ info("Zu groß – weniger Bilder je Fahrt oder kleinere Bildbreite wählen."); return; }
@@ -1065,7 +1075,7 @@ async function processVideo(){
       if(!r||!r.ok){ info("Fehler: "+(r?await r.text():"keine Verbindung")); return; }
     }
     const old=V()||{};
-    uiSave({vid:Object.assign({x:-322,y:-205,w:644,gs:1,sh:45,gdy:.08},old,meta)});
+    uiSave({vid:Object.assign({x:-322,y:-205,w:644,gs:.7,sh:12,gap:12},old,meta)});
     info(`Fertig: ${N} Bilder, ${Math.round(out.blob.size/1024)} kB`);
     renderTab(); startVidAdjust();
   }catch(e){ info("Fehler: "+e.message); }
@@ -1082,9 +1092,9 @@ function startVidAdjust(){
   vidBackup=JSON.stringify(V()); aligning=true;
   const v=V();
   if(!Array.isArray(v.gp)||v.gp.some(g=>g&&g.u===undefined)) v.gp=[null,null,null,null,null,null];
-  if(!v.tips) v.tips=[...Array(N)].map((_,i)=>{const a=CFG.ang[i],[dx,dy]=dir(a),b=P(dx*R,dy*R,0);return {u:(b[0]-v.x)/v.w, v:(b[1]-v.y)/(v.w*v.fh/v.fw)-(v.gdy??.08)}});
+  if(!v.tips) v.tips=[...Array(N)].map((_,i)=>{const a=CFG.ang[i],[dx,dy]=dir(a),b=P(dx*R,dy*R,GH+12);return {u:(b[0]-v.x)/v.w, v:(b[1]-v.y)/(v.w*v.fh/v.fw)}});
   applyVid();
-  [["va_w","w"],["va_x","x"],["va_y","y"],["va_gs","gs"],["va_sh","sh"],["va_gdy","gdy"]].forEach(([id,k])=>{const e=$("#"+id); e.value=v[k]??({gs:1,sh:45,gdy:.08}[k]??0); e.oninput=()=>{v[k]=+e.value; applyVid();};});
+  [["va_w","w"],["va_x","x"],["va_y","y"],["va_gs","gs"],["va_gdy","gap"]].forEach(([id,k])=>{const e=$("#"+id); e.value=v[k]??({gs:.7,sh:45,gap:12}[k]??0); e.oninput=()=>{v[k]=+e.value; applyVid();};});
   $("#va_auto").onclick=()=>{ v.gp=[null,null,null,null,null,null]; applyVid(); selectAlign(alignSel); toast("Gläser stehen wieder unter den erkannten Rohrspitzen"); };
   $("#va_pos").innerHTML=["Park","1","2","3","4","5","6"].map((l,i)=>`<button data-p="${i}">${l}</button>`).join("");
   $("#va_pos").querySelectorAll("button").forEach(b=>b.onclick=()=>selectAlign(+b.dataset.p));
