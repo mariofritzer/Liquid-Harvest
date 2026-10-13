@@ -62,6 +62,7 @@ static volatile bool otaRunning = false;
 static uint32_t rebootAt = 0;
 static bool fsOk = false;
 static volatile bool imgChanged = false;     // Upload/Löschen fertig -> Hauptschleife meldet es
+static volatile bool vidChanged = false;
 static File imgFile;
 static bool imgTooBig = false;
 static constexpr size_t IMG_MAX = 100 * 1024;
@@ -792,44 +793,62 @@ static void webBegin() {
 
   server.on("/", HTTP_GET, sendIndex);
 
-  // Eigenes Mähdrescher-Bild (LittleFS)
-  server.on("/combine.img", HTTP_GET, [](AsyncWebServerRequest* r) {
-    if (!fsOk || !LittleFS.exists("/combine.img")) { r->send(404, "text/plain", "kein Bild"); return; }
+  // Eigene Medien im LittleFS: f=img (Drescher-Bild) oder f=vid (Rohr-Video als Bildstreifen)
+  auto serveMedia = [](AsyncWebServerRequest* r, const char* base) {
+    String path = String("/") + base + ".bin", tpath = String("/") + base + ".type";
+    if (!fsOk || !LittleFS.exists(path)) { r->send(404, "text/plain", "nicht vorhanden"); return; }
     String type = "image/webp";
-    File t = LittleFS.open("/combine.type", "r");
+    File t = LittleFS.open(tpath, "r");
     if (t) { type = t.readString(); t.close(); }
-    AsyncWebServerResponse* res = r->beginResponse(LittleFS, "/combine.img", type);
+    AsyncWebServerResponse* res = r->beginResponse(LittleFS, path, type);
     res->addHeader("Cache-Control", "max-age=31536000");   // URL enthält ?v=Version
     r->send(res);
-  });
-  server.on("/combine", HTTP_POST,
+  };
+  server.on("/combine.img", HTTP_GET, [serveMedia](AsyncWebServerRequest* r) { serveMedia(r, "img"); });
+  server.on("/video.img", HTTP_GET, [serveMedia](AsyncWebServerRequest* r) { serveMedia(r, "vid"); });
+  server.on("/upload", HTTP_POST,
     [](AsyncWebServerRequest* r) {
       if (!fsOk) { r->send(500, "text/plain", "Dateisystem nicht verfügbar"); return; }
-      if (imgTooBig) { r->send(413, "text/plain", "Bild zu groß (max. 100 kB)"); return; }
+      if (imgTooBig) { r->send(413, "text/plain", "Datei zu groß für den Speicher"); return; }
       r->send(200, "text/plain", "OK");
     },
-    [](AsyncWebServerRequest*, const String& filename, size_t index, uint8_t* data, size_t len, bool final) {
+    [](AsyncWebServerRequest* r, const String& filename, size_t index, uint8_t* data, size_t len, bool final) {
       if (!fsOk) return;
+      static String base;
+      static size_t maxSize;
       if (!index) {
+        base = (r->hasParam("f") && r->getParam("f")->value() == "vid") ? "vid" : "img";
+        LittleFS.remove("/" + base + ".tmp");
+        // Platz: freier Speicher + was die alte Datei belegt
+        size_t old = 0;
+        File of = LittleFS.open("/" + base + ".bin", "r");
+        if (of) { old = of.size(); of.close(); }
+        size_t freeB = LittleFS.totalBytes() - LittleFS.usedBytes() + old;
+        maxSize = freeB > 16384 ? freeB - 16384 : 0;
+        if (base == "img" && maxSize > IMG_MAX) maxSize = IMG_MAX;
         imgTooBig = false;
-        imgFile = LittleFS.open("/combine.tmp", "w");
+        imgFile = LittleFS.open("/" + base + ".tmp", "w");
       }
-      if (index + len > IMG_MAX) imgTooBig = true;
+      if (index + len > maxSize) imgTooBig = true;
       if (imgFile && !imgTooBig) imgFile.write(data, len);
       if (final && imgFile) {
         imgFile.close();
-        if (imgTooBig) { LittleFS.remove("/combine.tmp"); return; }
-        LittleFS.remove("/combine.img");
-        LittleFS.rename("/combine.tmp", "/combine.img");
-        File t = LittleFS.open("/combine.type", "w");
+        if (imgTooBig) { LittleFS.remove("/" + base + ".tmp"); return; }
+        LittleFS.remove("/" + base + ".bin");
+        LittleFS.rename("/" + base + ".tmp", "/" + base + ".bin");
+        File t = LittleFS.open("/" + base + ".type", "w");
         if (t) { t.print(filename.endsWith(".png") ? "image/png" : filename.endsWith(".jpg") ? "image/jpeg" : "image/webp"); t.close(); }
-        imgChanged = true;
+        if (base == "img") imgChanged = true; else vidChanged = true;
       }
     });
-  server.on("/combine/delete", HTTP_POST, [](AsyncWebServerRequest* r) {
-    if (fsOk) { LittleFS.remove("/combine.img"); LittleFS.remove("/combine.type"); }
-    imgChanged = true;
+  server.on("/upload/delete", HTTP_POST, [](AsyncWebServerRequest* r) {
+    String base = (r->hasParam("f") && r->getParam("f")->value() == "vid") ? "vid" : "img";
+    if (fsOk) { LittleFS.remove("/" + base + ".bin"); LittleFS.remove("/" + base + ".type"); }
+    if (base == "img") imgChanged = true; else vidChanged = true;
     r->send(200, "text/plain", "OK");
+  });
+  server.on("/fs", HTTP_GET, [](AsyncWebServerRequest* r) {
+    r->send(200, "application/json", fsOk ? "{\"total\":" + String(LittleFS.totalBytes()) + ",\"used\":" + String(LittleFS.usedBytes()) + "}" : "{\"total\":0,\"used\":0}");
   });
 
   // REST-API (z. B. für Home Assistant)
@@ -958,11 +977,19 @@ void loop() {
 
   if (imgChanged) {
     imgChanged = false;
-    bool has = fsOk && LittleFS.exists("/combine.img");
+    bool has = fsOk && LittleFS.exists("/img.bin");
     cfg.imgVer = has ? esp_random() : 0;
     if (!has) cfg.imgOn = false;
     settingsSave();
     sendCfg();
+  }
+  if (vidChanged) {
+    vidChanged = false;
+    JsonDocument d;
+    d["t"] = "vid";
+    d["has"] = fsOk && LittleFS.exists("/vid.bin");
+    d["ver"] = esp_random();
+    wsSend(d);
   }
 
   if (rebootAt && millis() > rebootAt) {

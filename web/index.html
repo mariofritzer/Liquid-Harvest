@@ -207,6 +207,22 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
   <div class="f"><label>Drehturm zeichnen</label><input type="checkbox" class="sw" id="aa_r"></div>
   <div class="row2" style="margin-top:10px"><button class="btn" id="aa_cancel">Abbrechen</button><button class="btn primary" id="aa_ok">Speichern</button></div>
 </div>
+<div class="sheet compact" id="vidAdj" style="max-height:62vh;overflow:auto">
+  <div class="grab"></div>
+  <div class="sh-head"><h2 style="font-size:18px">Video ausrichten</h2></div>
+  <div class="f"><label>Vorschau-Winkel<small>nur Anzeige</small></label><input type="range" id="va_pv" min="0" max="180" step="1" style="width:55%"></div>
+  <div class="f"><label>Winkel erstes Bild</label><input type="range" id="va_a0" min="0" max="180" step="1" style="width:55%"></div>
+  <div class="f"><label>Winkel letztes Bild</label><input type="range" id="va_a1" min="0" max="180" step="1" style="width:55%"></div>
+  <div class="f"><label>Video Größe</label><input type="range" id="va_w" min="200" max="1600" step="2" style="width:55%"></div>
+  <div class="f"><label>Video links / rechts</label><input type="range" id="va_x" min="-900" max="300" step="1" style="width:55%"></div>
+  <div class="f"><label>Video oben / unten</label><input type="range" id="va_y" min="-700" max="200" step="1" style="width:55%"></div>
+  <div class="f"><label>Gläser links / rechts</label><input type="range" id="va_rx" min="-300" max="300" step="1" style="width:55%"></div>
+  <div class="f"><label>Gläser oben / unten</label><input type="range" id="va_ry" min="-300" max="300" step="1" style="width:55%"></div>
+  <div class="f"><label>Gläser Abstand</label><input type="range" id="va_rs" min="0.3" max="2.5" step="0.01" style="width:55%"></div>
+  <div class="f"><label>Gläser Neigung</label><input type="range" id="va_rsy" min="0.4" max="1.8" step="0.01" style="width:55%"></div>
+  <p class="help" style="margin:6px 0 10px">Vorschau-Winkel auf die Glas-Winkel stellen und Gläser so verschieben, dass sie unter dem Auslauf im Video stehen.</p>
+  <div class="row2"><button class="btn" id="va_cancel">Abbrechen</button><button class="btn primary" id="va_ok">Speichern</button></div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -370,6 +386,8 @@ function reel(){
 
 function staticScene(){
   let s=`<defs>
+    <radialGradient id="vfadeG" cx="50%" cy="50%" r="60%"><stop offset=".72" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>
+    <mask id="vfade" maskContentUnits="objectBoundingBox"><rect width="1" height="1" fill="url(#vfadeG)"/></mask>
     <filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
     <linearGradient id="wood" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7a5532"/><stop offset="1" stop-color="#4b321c"/></linearGradient>
@@ -382,13 +400,14 @@ function staticScene(){
   const RD=258, TH=18; let top=[],side=[],sideB=[];
   for(let k=0;k<72;k++){const t=k/72*2*Math.PI;top.push([RD*Math.cos(t),RD*Math.sin(t),0])}
   for(let k=0;k<=36;k++){const t=(-45+k*5)*Math.PI/180;side.push([RD*Math.cos(t),RD*Math.sin(t),0]);sideB.unshift([RD*Math.cos(t),RD*Math.sin(t),-TH])}
+  s+=`<g mask="url(#vfade)"><svg id="vidWrap" style="display:none" preserveAspectRatio="none"><image id="vidImg"/></svg></g><g id="board">`;
   s+=`<ellipse cx="0" cy="${TH+30}" rx="330" ry="150" fill="#000" opacity=".35" filter="url(#glow)"/>`;
   s+=poly(side.concat(sideB),"url(#wood)")+poly(top,"url(#woodTop)");
   // Ringe auf der Platte
-  s+=ell(0,0,0,R+38,'fill="none" stroke="#00000022" stroke-width="2"')+ell(0,0,0,R-38,'fill="none" stroke="#00000018" stroke-width="2"');
+  s+=ell(0,0,0,R+38,'fill="none" stroke="#00000022" stroke-width="2"')+ell(0,0,0,R-38,'fill="none" stroke="#00000018" stroke-width="2"')+`</g>`;
   s+=`<g id="combineDraw">${combine()}</g><image id="combineImg" style="display:none" preserveAspectRatio="xMidYMid meet"/>`;
   // Untersetzer + Gläser
-  s+=`<g id="coasters"></g><g id="glasses"></g><g id="auger"></g>`;
+  s+=`<g id="ring"><g id="coasters"></g><g id="glasses"></g><g id="ringStream"></g></g><g id="auger"></g>`;
   $("#svg").innerHTML=s;
   buildPlaces();
 }
@@ -462,6 +481,13 @@ function render(){
 function drawAuger(){
   if(ST){ if(dispAng===null) dispAng=ST.ang; dispAng+=(ST.ang-dispAng)*.25; }
   const a=dispAng??(CFG?CFG.angPark:0), [dx,dy]=dir(a), ex=dx*R, ey=dy*R;
+  if(vidMode()){
+    vidFrame(previewAng??a); $("#auger").innerHTML="";
+    let st=""; if(ST&&ST.pump>0&&ST.pp>0){const p=ST.pl[ST.pp-1],tz=4+Math.min(GH-8,Math.max(p.ml,ST.got)*1.15),T=P(ex,ey,tz),S1=P(ex,ey,tz+70);
+      st=`<line class="stream" x1="${f1(S1[0])}" y1="${f1(S1[1])}" x2="${f1(T[0])}" y2="${f1(T[1])}" stroke="#f7c95a" stroke-width="${2+ST.pump/40}" stroke-linecap="round"/>`}
+    $("#ringStream").innerHTML=st; requestAnimationFrame(drawAuger); return;
+  }
+  $("#ringStream").innerHTML="";
   const A=CFG||{}, col=A.augCol||"#2f8f4e", W=+(A.augW||11), px=+(A.augPX||0), py=+(A.augPY||0), pz=+(A.augPZ||HZ), ez=+(A.augEZ||HZ);
   const dark=shade(col,.42), mid=shade(col,.78), light=shade(col,1.6);
   const S0=P(px,py,pz), E=P(ex,ey,ez), vx=E[0]-S0[0], vy=E[1]-S0[1], vl=Math.hypot(vx,vy)||1, ux=vx/vl, uy=vy/vl;
@@ -668,6 +694,14 @@ function renderTab(){
       </div>
       <button class="btn primary save" id="im_up" disabled>Hochladen & verwenden</button>
       <div class="row2"><button class="btn" onclick="startAdjust()" ${CFG.imgVer||demoImg?"":"disabled"}>Position anpassen</button><button class="btn" style="color:#ff8a8a" onclick="deleteImg()" ${CFG.imgVer||demoImg?"":"disabled"}>Bild löschen</button></div>
+      <div class="card" style="margin-top:14px"><h3>Rohr-Video als Hintergrund</h3>
+      <div class="f"><label>Video-Modus<small>${V()?"Video ist gespeichert":"Noch kein Video hochgeladen"}</small></label><input type="checkbox" class="sw" id="vid_on" ${V()&&V().on?"checked":""} ${V()?"":"disabled"} onchange="uiSave({vid:Object.assign({},V(),{on:this.checked})})"></div>
+      <div class="f"><label>Video wählen<small>Rohr am Anfang eingeklappt, am Ende ausgeschwenkt</small></label><input type="file" id="vid_file" accept="video/*" style="width:150px;font-size:12px"></div>
+      <div class="f"><label>Einzelbilder</label><input type="range" id="vid_n" min="12" max="64" step="4" value="32" style="width:40%"><span class="u" id="vid_nv" style="width:34px">32</span></div>
+      <div class="f"><label>Bildbreite</label><input type="range" id="vid_fw" min="320" max="800" step="20" value="560" style="width:40%"><span class="u" id="vid_fwv" style="width:34px">560</span></div>
+      <div class="help" id="vid_info"></div>
+      <button class="btn primary save" id="vid_up" disabled>Video verarbeiten & hochladen</button>
+      <div class="row2" style="margin-bottom:14px"><button class="btn" onclick="startVidAdjust()" ${V()?"":"disabled"}>Ausrichten</button><button class="btn" style="color:#ff6060" onclick="deleteVid()" ${V()?"":"disabled"}>Video löschen</button></div></div>
       <div class="card" style="margin-top:14px"><h3>Abtankrohr</h3>
       <div class="f"><label>Aussehen & Ansatzpunkt<small>Farbe, Dicke, Höhe – und wo das Rohr am Drescher ansetzt</small></label><button class="sbtn gold" onclick="startAugAdjust()">Anpassen</button></div></div>
       <p class="help">Das Bild wird im Browser verkleinert, auf max. 100 kB komprimiert und auf dem ESP32 gespeichert – es landet nicht im GitHub-Repo. Das Abtankrohr wird weiterhin live darübergezeichnet; der Drehpunkt liegt in der Mitte des Glas-Halbkreises.</p>`;
@@ -681,7 +715,7 @@ function renderTab(){
       <div class="row2"><button class="btn" onclick="send({c:'reboot'})">Neustart</button><button class="btn" style="color:#ff8a8a" onclick="if(confirm('Wirklich alles zurücksetzen (inkl. WLAN & Kalibrierung)?'))send({c:'factory'})">Werkseinstellungen</button></div>`;
   }
   b.innerHTML=h;
-  if(curTab==="img"){ bindImgTab(); bindStl(); if(stlTris) stlUpdate(); }
+  if(curTab==="img"){ bindImgTab(); bindStl(); bindVid(); if(stlTris) stlUpdate(); }
   if(curTab==="scales") updateScales();
   const ota=$("#ota"); if(ota) ota.onchange=uploadOta;
 }
@@ -775,6 +809,7 @@ let demoImg=null, imgBlob=null, imgAspect=0.6, imgLoadedSrc="";
 function imgSrc(){ if(demo) return demoImg; return CFG&&CFG.imgVer?`/combine.img?v=${CFG.imgVer}`:null; }
 function applyImg(){
   const el=$("#combineImg"), dr=$("#combineDraw"); if(!el||!CFG) return;
+  uiGet(); applyVid(); if(vidMode()) return;
   const src=imgSrc(), on=CFG.imgOn&&src;
   el.style.display=on?"":"none"; dr.style.display=on?"none":"";
   if(!on) return;
@@ -804,14 +839,14 @@ async function processImg(file,removeBg,tol){
   if(x1>x0&&y1>y0){const cc=document.createElement("canvas");cc.width=x1-x0+1;cc.height=y1-y0+1;cc.getContext("2d").drawImage(c,-x0,-y0);c=cc}
   return compressCanvas(c);
 }
-async function compressCanvas(c){
-  let scale=1, blob=null;
-  for(let round=0;round<6;round++){
-    const cc=document.createElement("canvas");cc.width=Math.round(c.width*scale);cc.height=Math.round(c.height*scale);cc.getContext("2d").drawImage(c,0,0,cc.width,cc.height);
-    for(let q=.9;q>=.5;q-=.1){blob=await toBlob(cc,"image/webp",q); if(blob.type!=="image/webp"){blob=await toBlob(cc,"image/png");break} if(blob.size<95000)break}
-    if(blob.size<95000) return {blob,canvas:c}; scale*=.8;
+async function compressCanvas(c,maxBytes=95000){
+  let scale=1, blob=null, cw=c.width, ch=c.height;
+  for(let round=0;round<8;round++){
+    const cc=document.createElement("canvas");cc.width=cw=Math.round(c.width*scale);cc.height=ch=Math.round(c.height*scale);cc.getContext("2d").drawImage(c,0,0,cc.width,cc.height);
+    for(let q=.9;q>=.45;q-=.1){blob=await toBlob(cc,"image/webp",q); if(blob.type!=="image/webp"){blob=await toBlob(cc,"image/jpeg",q);} if(blob.size<maxBytes)break}
+    if(blob.size<maxBytes) return {blob,canvas:c,scale,w:cw,h:ch}; scale*=.85;
   }
-  return {blob,canvas:c};
+  return {blob,canvas:c,scale,w:cw,h:ch};
 }
 function bindImgTab(){
   const f=$("#im_file"), run=async()=>{
@@ -828,15 +863,15 @@ function bindImgTab(){
 async function uploadImg(){
   if(!imgBlob) return;
   if(demo){ demoImg=URL.createObjectURL(imgBlob); demoCmd({c:"setCfg",cfg:{imgOn:true,imgVer:Date.now()}}); renderTab(); startAdjust(); return; }
-  const fd=new FormData(); fd.append("file",imgBlob,imgBlob.type==="image/png"?"combine.png":"combine.webp");
+  const fd=new FormData(); fd.append("file",imgBlob,imgBlob.type==="image/png"?"combine.png":imgBlob.type==="image/jpeg"?"combine.jpg":"combine.webp");
   $("#im_info").textContent="Lade hoch…";
-  const r=await fetch("/combine",{method:"POST",body:fd}).catch(()=>null);
+  const r=await fetch("/upload?f=img",{method:"POST",body:fd}).catch(()=>null);
   if(!r||!r.ok){ $("#im_info").textContent="Fehler: "+(r?await r.text():"keine Verbindung"); return; }
   send({c:"setCfg",cfg:{imgOn:true}}); toast("Bild gespeichert"); setTimeout(()=>{renderTab();startAdjust()},600);
 }
 async function deleteImg(){
   if(demo){ demoImg=null; demoCmd({c:"setCfg",cfg:{imgOn:false,imgVer:0}}); renderTab(); return; }
-  await fetch("/combine/delete",{method:"POST"}).catch(()=>null); toast("Bild gelöscht");
+  await fetch("/upload/delete?f=img",{method:"POST"}).catch(()=>null); toast("Bild gelöscht");
 }
 // Position live über der Szene anpassen
 function startAdjust(){
@@ -861,15 +896,102 @@ function startAugAdjust(){
 $("#aa_ok").onclick=()=>{ $("#augAdj").classList.remove("show"); const o={}; [...AUG.map(a=>a[1]),"augRiser"].forEach(k=>o[k]=CFG[k]); send({c:"setCfg",cfg:o}); };
 $("#aa_cancel").onclick=()=>{ $("#augAdj").classList.remove("show"); Object.assign(CFG,augBackup); };
 
+
+/* ---------------- Rohr-Video (Bildstreifen, Bild folgt dem Servo-Winkel) ---------------- */
+let UI={}, demoVid=null, vidLoaded="", previewAng=null;
+function uiGet(){ try{UI=JSON.parse((CFG&&CFG.ui)||"{}")}catch(e){UI={}} return UI }
+function uiSave(patch){ uiGet(); Object.assign(UI,patch); CFG.ui=JSON.stringify(UI); send({c:"setCfg",cfg:{ui:CFG.ui}}); applyImg(); }
+function V(){ return UI.vid||null }
+function vidSrc(){ const v=V(); if(!v) return null; return demo?demoVid:`/video.img?v=${v.ver}` }
+function vidMode(){ const v=V(); return !!(v&&v.on&&vidSrc()) }
+function applyVid(){
+  const on=vidMode(), v=V(), ring=$("#ring");
+  $("#vidWrap").style.display=on?"":"none"; $("#board").style.display=on?"none":"";
+  if(!on){ ring.removeAttribute("transform"); return; }
+  $("#combineDraw").style.display="none"; $("#combineImg").style.display="none";
+  const w=$("#vidWrap"), im=$("#vidImg"), src=vidSrc();
+  if(src!==vidLoaded){ vidLoaded=src; im.setAttribute("href",src); }
+  im.setAttribute("width",v.cols*v.fw); im.setAttribute("height",Math.ceil(v.n/v.cols)*v.fh);
+  w.setAttribute("x",v.x); w.setAttribute("y",v.y); w.setAttribute("width",v.w); w.setAttribute("height",v.w*v.fh/v.fw);
+  ring.setAttribute("transform",`translate(${v.rx} ${v.ry}) scale(${v.rs} ${v.rs*v.rsy})`);
+}
+function vidFrame(angle){
+  const v=V(), t=Math.max(0,Math.min(1,(angle-v.a0)/((v.a1-v.a0)||1))), i=Math.round(t*(v.n-1));
+  $("#vidWrap").setAttribute("viewBox",`${f1((i%v.cols)*v.fw)} ${f1(Math.floor(i/v.cols)*v.fh)} ${f1(v.fw)} ${f1(v.fh)}`);
+}
+const seek=(v,t)=>new Promise(ok=>{v.onseeked=()=>ok();v.currentTime=t});
+function bindVid(){
+  const f=$("#vid_file"); if(!f) return;
+  $("#vid_n").oninput=e=>$("#vid_nv").textContent=e.target.value;
+  $("#vid_fw").oninput=e=>$("#vid_fwv").textContent=e.target.value;
+  f.onchange=()=>{ $("#vid_up").disabled=!f.files[0]; $("#vid_info").textContent=f.files[0]?f.files[0].name:""; };
+  $("#vid_up").onclick=processVideo;
+}
+async function processVideo(){
+  const f=$("#vid_file").files[0]; if(!f) return;
+  const info=t=>$("#vid_info").textContent=t, N=+$("#vid_n").value, FW=+$("#vid_fw").value;
+  $("#vid_up").disabled=true;
+  try{
+    let maxBytes=600*1024;
+    if(!demo){
+      const fs=await fetch("/fs").then(r=>r.json()).catch(()=>null);
+      if(!fs||fs.total<400*1024){ info("Zu wenig Speicher auf dem ESP32 – bitte die Firmware einmal per USB über den Web-Installer neu installieren (größere Speicheraufteilung)."); return; }
+      maxBytes=Math.min(650*1024,fs.total-140*1024);
+    }
+    info("Lese Video…");
+    const v=document.createElement("video"); v.muted=true; v.playsInline=true; v.preload="auto"; v.src=URL.createObjectURL(f);
+    await new Promise((ok,er)=>{v.onloadeddata=ok; v.onerror=()=>er(new Error("Video kann in diesem Browser nicht gelesen werden"))});
+    const FH=Math.round(FW*v.videoHeight/v.videoWidth), cols=8, rows=Math.ceil(N/cols);
+    const c=document.createElement("canvas"); c.width=cols*FW; c.height=rows*FH; const g=c.getContext("2d");
+    for(let i=0;i<N;i++){
+      await seek(v,Math.min(v.duration-0.02,i/(N-1)*v.duration));
+      g.drawImage(v,(i%cols)*FW,Math.floor(i/cols)*FH,FW,FH);
+      info(`Zerlege Video… ${i+1}/${N}`);
+    }
+    info("Komprimiere…");
+    const out=await compressCanvas(c,maxBytes);
+    if(out.blob.size>maxBytes){ info("Zu groß – weniger Einzelbilder oder kleinere Bildbreite wählen."); return; }
+    const meta={n:N,cols,fw:out.w/cols,fh:out.h/rows,ver:Date.now(),on:true};
+    if(demo){ demoVid=URL.createObjectURL(out.blob); }
+    else{
+      info(`Lade hoch… (${Math.round(out.blob.size/1024)} kB)`);
+      const fd=new FormData(); fd.append("file",out.blob,out.blob.type==="image/jpeg"?"video.jpg":"video.webp");
+      const r=await fetch("/upload?f=vid",{method:"POST",body:fd}).catch(()=>null);
+      if(!r||!r.ok){ info("Fehler: "+(r?await r.text():"keine Verbindung")); return; }
+    }
+    const old=V()||{};
+    uiSave({vid:Object.assign({a0:CFG.angPark,a1:180,x:-322,y:-200,w:644,rx:0,ry:0,rs:1,rsy:1},old,meta)});
+    info(`Fertig: ${N} Bilder, ${Math.round(out.blob.size/1024)} kB`);
+    renderTab(); startVidAdjust();
+  }catch(e){ info("Fehler: "+e.message); }
+  finally{ const b=$("#vid_up"); if(b) b.disabled=false; }
+}
+async function deleteVid(){
+  if(!demo) await fetch("/upload/delete?f=vid",{method:"POST"}).catch(()=>null);
+  demoVid=null; uiSave({vid:null}); renderTab(); toast("Video gelöscht");
+}
+const VADJ=[["va_pv",null],["va_a0","a0"],["va_a1","a1"],["va_w","w"],["va_x","x"],["va_y","y"],["va_rx","rx"],["va_ry","ry"],["va_rs","rs"],["va_rsy","rsy"]];
+let vidBackup=null;
+function startVidAdjust(){
+  uiGet(); if(!V()) return;
+  $("#drawer").classList.remove("show"); $("#vidAdj").classList.add("show");
+  vidBackup=JSON.stringify(V());
+  previewAng=dispAng??CFG.angPark;
+  VADJ.forEach(([id,k])=>{const e=$("#"+id); e.value=k?V()[k]:previewAng;
+    e.oninput=()=>{ if(k){V()[k]=+e.value; applyVid();} else previewAng=+e.value; };});
+}
+$("#va_ok").onclick=()=>{ $("#vidAdj").classList.remove("show"); previewAng=null; uiSave({vid:V()}); };
+$("#va_cancel").onclick=()=>{ $("#vidAdj").classList.remove("show"); previewAng=null; UI.vid=JSON.parse(vidBackup); applyVid(); };
+
 /* ---------------- Toast ---------------- */
 let tt;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2600)}
-window.toast=toast;window.startAugAdjust=startAugAdjust;window.send=send;window.$=$;
+window.toast=toast;window.startAugAdjust=startAugAdjust;window.startVidAdjust=startVidAdjust;window.deleteVid=deleteVid;window.uiSave=uiSave;window.V=V;window.send=send;window.$=$;
 
 /* ---------------- Demo / Simulation (Vorschau ohne Hardware) ---------------- */
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[15,45,75,105,135,165],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[15,45,75,105,135,165],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   onMsg({t:"cfg",cfg:SIM.cfg,ver:"1.0.0-demo"});

@@ -40,6 +40,7 @@ static void clampAll() {
   cfg.augPY = constrain(cfg.augPY, -300.0f, 300.0f);
   cfg.augPZ = constrain(cfg.augPZ, 40.0f, 300.0f);
   cfg.augEZ = constrain(cfg.augEZ, 60.0f, 300.0f);
+  if (cfg.ui.length() > 2000 || cfg.ui.length() < 2) cfg.ui = "{}";
   if (cfg.augCol.length() != 7 || cfg.augCol[0] != '#') cfg.augCol = "#2f8f4e";
   cfg.imgX = constrain(cfg.imgX, -700.0f, 700.0f);
   cfg.imgY = constrain(cfg.imgY, -700.0f, 700.0f);
@@ -65,6 +66,7 @@ void settingsToJson(JsonObject o) {
   o["imgOn"] = cfg.imgOn; o["imgW"] = cfg.imgW; o["imgX"] = cfg.imgX; o["imgY"] = cfg.imgY; o["imgVer"] = cfg.imgVer;
   o["augCol"] = cfg.augCol; o["augW"] = cfg.augW; o["augPX"] = cfg.augPX; o["augPY"] = cfg.augPY;
   o["augPZ"] = cfg.augPZ; o["augEZ"] = cfg.augEZ; o["augRiser"] = cfg.augRiser;
+  o["ui"] = cfg.ui;
   JsonArray off = o["offset"].to<JsonArray>();
   JsonArray fac = o["factor"].to<JsonArray>();
   for (int i = 0; i < NUM_PLACES; i++) { off.add(cfg.offset[i]); fac.add(cfg.factor[i]); }
@@ -93,6 +95,7 @@ void settingsFromJson(JsonObjectConst o) {
   rd(o, "imgOn", cfg.imgOn); rd(o, "imgW", cfg.imgW); rd(o, "imgX", cfg.imgX); rd(o, "imgY", cfg.imgY); rd(o, "imgVer", cfg.imgVer);
   rd(o, "augCol", cfg.augCol); rd(o, "augW", cfg.augW); rd(o, "augPX", cfg.augPX); rd(o, "augPY", cfg.augPY);
   rd(o, "augPZ", cfg.augPZ); rd(o, "augEZ", cfg.augEZ); rd(o, "augRiser", cfg.augRiser);
+  rd(o, "ui", cfg.ui);
   JsonArrayConst off = o["offset"];
   if (!off.isNull()) for (int i = 0; i < NUM_PLACES && i < (int)off.size(); i++) cfg.offset[i] = off[i].as<int32_t>();
   JsonArrayConst fac = o["factor"];

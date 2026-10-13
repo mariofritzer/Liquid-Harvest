@@ -30,6 +30,7 @@ Ohne Hardware ausprobieren: `web/index.html?demo` im Browser öffnen, dann läuf
 | **Online** | isometrische 3D-Ansicht am Handy, Gläser poppen live auf, Klick → Menge wählen → einschenken |
 | **WLAN** | Heimnetz mit `http://liquidharvest.local`, Hotspot als Rückfall bzw. Party-Modus, Captive Portal |
 | **Eigenes Drescher-Bild** | eigenes Foto oder **STL-3D-Modell** hochladen (wird im Browser isometrisch gerendert), Hintergrund automatisch freistellen, Position einstellen – das Abtankrohr schwenkt live darüber |
+| **Rohr-Video** | eigenes Video (Rohr schwenkt aus) hochladen – die App zeigt immer das Einzelbild, das zum echten Servo-Winkel passt |
 | **Updates** | Web-Installer per USB oder OTA über die Weboberfläche |
 | **API** | REST für Home Assistant & Co. |
 
@@ -91,6 +92,8 @@ Ohne Hardware ausprobieren: `web/index.html?demo` im Browser öffnen, dann läuf
 ## Web-Installer
 
 <p align="center"><img src="docs/images/flasher.png" alt="Web-Installer" width="560"></p>
+
+> **Ab Version 1.1** ist der Datenspeicher größer (für Bild und Video). Beim Umstieg von 1.0 einmal **per USB über den Web-Installer** neu installieren – ein OTA-Update reicht dafür nicht.
 
 ## Erste Inbetriebnahme
 

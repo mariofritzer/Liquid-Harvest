@@ -51,6 +51,9 @@ struct Settings {
   float    augEZ       = 134;     // Höhe am Rohrende
   bool     augRiser    = true;    // Drehturm zeichnen
 
+  // --- weitere Darstellungs-Einstellungen der Web-App (JSON, von der App verwaltet) ---
+  String   ui          = "{}";
+
   // --- Waagen ---
   int32_t  offset[NUM_PLACES] = {0, 0, 0, 0, 0, 0};
   float    factor[NUM_PLACES] = {420, 420, 420, 420, 420, 420};  // Rohwert pro Gramm
