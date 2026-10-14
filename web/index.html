@@ -1096,9 +1096,7 @@ async function processVideo(){
     if(demo){ demoVid=URL.createObjectURL(out.blob); await demoStore("lh_demo_vid",out.blob); }
     else{
       info(`Lade hoch… (${Math.round(out.blob.size/1024)} kB)`);
-      const fd=new FormData(); fd.append("file",out.blob,out.blob.type==="image/jpeg"?"video.jpg":"video.webp");
-      const r=await fetch("/upload?f=vid",{method:"POST",body:fd}).catch(()=>null);
-      if(!r||!r.ok){ info("Fehler: "+(r?await r.text():"keine Verbindung")); return; }
+      await xhrUpload("/upload?f=vid",out.blob,out.blob.type==="image/png"?"video.png":"video.webp",q=>info(`Lade hoch… ${Math.round(q*100)} %`));
     }
     const old=V()||{};
     const nv=Object.assign({x:-322,y:-205,w:644,gs:.7,sh:12,gap:30},old,meta); autoAlign(nv);
@@ -1144,6 +1142,18 @@ $("#va_ok").onclick=()=>{ endAlign(); uiSave({vid:V()}); };
 $("#va_cancel").onclick=()=>{ endAlign(); UI.vid=JSON.parse(vidBackup); applyVid(); };
 
 /* ---------------- Einrichtung exportieren / importieren ---------------- */
+// Upload mit Fortschritt und verständlicher Fehlermeldung
+function xhrUpload(url,blob,name,onProg){
+  return new Promise((ok,err)=>{
+    const fd=new FormData(); fd.append("file",blob,name);
+    const x=new XMLHttpRequest(); x.open("POST",url); x.timeout=180000;
+    x.upload.onprogress=e=>{ if(onProg&&e.lengthComputable) onProg(e.loaded/e.total); };
+    x.onload=()=>x.status===200?ok():err(new Error(x.responseText||("HTTP "+x.status)));
+    x.onerror=()=>err(new Error("Verbindung zum Drescher während des Hochladens abgebrochen – bitte nochmal versuchen (näher am WLAN / Hotspot)."));
+    x.ontimeout=()=>err(new Error("Zeitüberschreitung beim Hochladen."));
+    x.send(fd);
+  });
+}
 const blobToDataURL=b=>new Promise(ok=>{const r=new FileReader();r.onload=()=>ok(r.result);r.readAsDataURL(b)});
 function dataURLToBlob(u){const [h,d]=u.split(","),m=h.match(/data:([^;]+)/)[1],bin=atob(d),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:m})}
 async function demoStore(key,blob){ try{ if(blob) localStorage.setItem(key,await blobToDataURL(blob)); else localStorage.removeItem(key); }catch(e){ toast("Browser-Speicher voll – Einrichtung bitte exportieren"); } }
@@ -1169,10 +1179,11 @@ async function importSetup(file){
     } else {
       const fs=await fetch("/fs").then(r=>r.json()).catch(()=>null);
       if(d.vid&&(!fs||fs.total<400*1024)){ info("Für das Video bitte die Firmware einmal per USB neu installieren (größerer Speicher)."); return; }
-      const up=async(f,du,name)=>{ const b=dataURLToBlob(du), fd=new FormData(); fd.append("file",b,name+(b.type==="image/png"?".png":b.type==="image/jpeg"?".jpg":".webp"));
-        const r=await fetch("/upload?f="+f,{method:"POST",body:fd}); if(!r.ok) throw new Error(await r.text()); };
-      if(d.img){ info("Übertrage Bild…"); await up("img",d.img,"combine"); } else await fetch("/upload/delete?f=img",{method:"POST"});
-      if(d.vid){ info("Übertrage Video…"); await up("vid",d.vid,"video"); } else await fetch("/upload/delete?f=vid",{method:"POST"});
+      const up=(f,du,name,label)=>{ const b=dataURLToBlob(du);
+        return xhrUpload("/upload?f="+f,b,name+(b.type==="image/png"?".png":b.type==="image/jpeg"?".jpg":".webp"),q=>info(`Übertrage ${label}… ${Math.round(q*100)} %`)); };
+      const del=f=>fetch("/upload/delete?f="+f,{method:"POST"}).catch(()=>{});
+      if(d.img) await up("img",d.img,"combine","Bild"); else await del("img");
+      if(d.vid) await up("vid",d.vid,"video",`Video (${Math.round(d.vid.length*.75/1024)} kB)`); else await del("vid");
       await new Promise(r=>setTimeout(r,600));
       send({c:"setCfg",cfg:d.cfg});
     }

@@ -819,26 +819,30 @@ static void webBegin() {
       static size_t maxSize;
       if (!index) {
         base = (r->hasParam("f") && r->getParam("f")->value() == "vid") ? "vid" : "img";
+        // Alte Datei sofort löschen – sonst passen alte + neue Datei nicht gleichzeitig in den Speicher
         LittleFS.remove("/" + base + ".tmp");
-        // Platz: freier Speicher + was die alte Datei belegt
-        size_t old = 0;
-        File of = LittleFS.open("/" + base + ".bin", "r");
-        if (of) { old = of.size(); of.close(); }
-        size_t freeB = LittleFS.totalBytes() - LittleFS.usedBytes() + old;
+        LittleFS.remove("/" + base + ".bin");
+        LittleFS.remove("/" + base + ".type");
+        size_t freeB = LittleFS.totalBytes() - LittleFS.usedBytes();
         maxSize = freeB > 16384 ? freeB - 16384 : 0;
         if (base == "img" && maxSize > IMG_MAX) maxSize = IMG_MAX;
         imgTooBig = false;
-        imgFile = LittleFS.open("/" + base + ".tmp", "w");
+        imgFile = LittleFS.open("/" + base + ".bin", "w");
+        Serial.printf("[Upload] %s: frei %u Bytes\n", base.c_str(), (unsigned)maxSize);
       }
       if (index + len > maxSize) imgTooBig = true;
-      if (imgFile && !imgTooBig) imgFile.write(data, len);
+      if (imgFile && !imgTooBig && imgFile.write(data, len) != len) imgTooBig = true;   // Speicher voll
       if (final && imgFile) {
         imgFile.close();
-        if (imgTooBig) { LittleFS.remove("/" + base + ".tmp"); return; }
-        LittleFS.remove("/" + base + ".bin");
-        LittleFS.rename("/" + base + ".tmp", "/" + base + ".bin");
+        if (imgTooBig) {
+          LittleFS.remove("/" + base + ".bin");
+          Serial.printf("[Upload] %s zu groß (%u Bytes)\n", base.c_str(), (unsigned)(index + len));
+          if (base == "img") imgChanged = true; else vidChanged = true;
+          return;
+        }
         File t = LittleFS.open("/" + base + ".type", "w");
         if (t) { t.print(filename.endsWith(".png") ? "image/png" : filename.endsWith(".jpg") ? "image/jpeg" : "image/webp"); t.close(); }
+        Serial.printf("[Upload] %s gespeichert (%u Bytes)\n", base.c_str(), (unsigned)(index + len));
         if (base == "img") imgChanged = true; else vidChanged = true;
       }
     });
