@@ -32,7 +32,7 @@ h1 small{display:block;font-size:11px;color:var(--mute);font-weight:500;letter-s
 .iconbtn svg{width:20px;height:20px}
 
 .scene{position:relative;margin:4px -16px 0}
-.scene svg{display:block;width:100%;height:auto;touch-action:manipulation}
+.scene>svg{display:block;width:100%;height:auto;touch-action:manipulation}
 .glass{cursor:pointer}
 .glass .gbody{transform-box:fill-box;transform-origin:50% 100%;transition:transform .35s cubic-bezier(.3,1.6,.5,1),opacity .25s}
 .glass.off .gbody{transform:scale(.2);opacity:0}
@@ -735,8 +735,8 @@ function renderTab(){
         <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px">${["P","1","2","3","4","5","6"].map((l,i)=>`<div style="text-align:center;font-size:11px;color:var(--mute)">${l}<input type="number" step="0.1" id="vt${i}" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 2px;text-align:center;font-size:12px"></div>`).join("")}</div></div>
       <div class="f"><label>Hintergrund entfernen<small>einfarbiger Hintergrund wird transparent – Drescher steht auf der Holzscheibe</small></label><input type="checkbox" class="sw" id="vid_bg" checked></div>
       <div class="f"><label>Toleranz</label><input type="range" id="vid_tol" min="1" max="60" value="6" style="width:45%"></div>
-      <div class="f"><label>Bilder je Fahrt<small>mehr = flüssiger, braucht mehr Speicher</small></label><input type="range" id="vid_n" min="4" max="16" step="1" value="10" style="width:40%"><span class="u" id="vid_nv" style="width:34px">10</span></div>
-      <div class="f"><label>Bildbreite</label><input type="range" id="vid_fw" min="320" max="800" step="20" value="480" style="width:40%"><span class="u" id="vid_fwv" style="width:34px">480</span></div>
+      <div class="f"><label>Bilder je Fahrt<small>mehr = flüssiger, braucht mehr Speicher</small></label><input type="range" id="vid_n" min="3" max="16" step="1" value="5" style="width:40%"><span class="u" id="vid_nv" style="width:34px">5</span></div>
+      <div class="f"><label>Bildbreite</label><input type="range" id="vid_fw" min="320" max="1000" step="20" value="720" style="width:40%"><span class="u" id="vid_fwv" style="width:34px">720</span></div>
       <div class="help" id="vid_info"></div>
       <button class="btn primary save" id="vid_up" disabled>Video verarbeiten & hochladen</button>
       <div class="row2" style="margin-bottom:14px"><button class="btn" onclick="startVidAdjust()" ${V()?"":"disabled"}>Ausrichten</button><button class="btn" style="color:#ff6060" onclick="deleteVid()" ${V()?"":"disabled"}>Video löschen</button></div></div>
@@ -861,6 +861,32 @@ function applyImg(){
 function placeImg(){ const el=$("#combineImg"); el.setAttribute("x",CFG.imgX); el.setAttribute("y",CFG.imgY); el.setAttribute("width",CFG.imgW); el.setAttribute("height",CFG.imgW*imgAspect); }
 const loadImage=src=>new Promise((ok,err)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=err;i.src=src});
 const toBlob=(c,type,q)=>new Promise(ok=>c.toBlob(ok,type,q));
+// Weiches Freistellen: Hintergrund per Flood-Fill, Kantenpixel bekommen anteilige Transparenz
+// und der Hintergrund-Anteil wird aus ihrer Farbe herausgerechnet (kein weißer Saum)
+function softCut(x,w,h,tol){
+  const d=x.getImageData(0,0,w,h), p=d.data, n=w*h, bgm=new Uint8Array(n), st=[];
+  const cs=[0,w-1,(h-1)*w,(h-1)*w+w-1].map(i=>[p[i*4],p[i*4+1],p[i*4+2]]);
+  const B=[0,1,2].map(j=>cs.reduce((a,c)=>a+c[j],0)/4), t2=tol*tol*3;
+  const dist2=i=>{const r=p[i*4]-B[0],g=p[i*4+1]-B[1],b=p[i*4+2]-B[2];return r*r+g*g+b*b};
+  for(let X=0;X<w;X++){st.push(X,(h-1)*w+X)} for(let Y=0;Y<h;Y++){st.push(Y*w,Y*w+w-1)}
+  while(st.length){const i=st.pop(); if(bgm[i]||dist2(i)>=t2) continue; bgm[i]=1;
+    const X=i%w; if(X>0)st.push(i-1); if(X<w-1)st.push(i+1); if(i>=w)st.push(i-w); if(i<n-w)st.push(i+w);}
+  // Abstand zum Hintergrund (bis 3 px) für das Kantenband
+  const near=new Uint8Array(n);
+  for(let i=0;i<n;i++) if(bgm[i]) near[i]=1;
+  for(let r=0;r<3;r++){ const nn=near.slice(); for(let i=0;i<n;i++){ if(near[i]) continue; const X=i%w;
+      if((X>0&&near[i-1])||(X<w-1&&near[i+1])||(i>=w&&near[i-w])||(i<n-w&&near[i+w])) nn[i]=r+2; } near.set(nn); }
+  const D1=90;   // ab diesem Farbabstand zum Hintergrund voll deckend
+  for(let i=0;i<n;i++){
+    if(bgm[i]){ p[i*4+3]=0; continue; }
+    if(!near[i]) continue;
+    const a=Math.min(1,Math.sqrt(dist2(i))/D1); if(a>=1) continue;
+    if(a<.04){ p[i*4+3]=0; continue; }
+    for(let j=0;j<3;j++) p[i*4+j]=Math.max(0,Math.min(255,Math.round(B[j]+(p[i*4+j]-B[j])/a)));
+    p[i*4+3]=Math.round(a*255);
+  }
+  x.putImageData(d,0,0);
+}
 // Einfarbigen Hintergrund ab den Rändern transparent machen (Flood-Fill)
 function cutBg(x,ox,oy,w,h,tol){
   const d=x.getImageData(ox,oy,w,h), p=d.data, seen=new Uint8Array(w*h), st=[];
@@ -1080,13 +1106,33 @@ async function processVideo(){
       for(let j=1;j<M;j++) times.push(ms+(me-ms)*j/M);
     }
     times.push(T[6]);
-    const N=times.length, FH=Math.round(FW*v.videoHeight/v.videoWidth), cols=8, rows=Math.ceil(N/cols);
+    const bgOff=$("#vid_bg").checked, tol=+$("#vid_tol").value, VW=v.videoWidth, VH=v.videoHeight;
+    // 1) Zuschnitt: Bereich, in dem Drescher und Rohr vorkommen (Vereinigung aller Standbilder + Rand)
+    let crop={x:0,y:0,w:VW,h:VH};
+    if(bgOff){
+      info("Suche Bildausschnitt…");
+      const tw=480, th=Math.round(tw*VH/VW), tc=document.createElement("canvas"); tc.width=tw; tc.height=th; const tg=tc.getContext("2d",{willReadFrequently:true});
+      let x0=tw,y0=th,x1=0,y1=0;
+      for(const t of [...T,...times.filter((_,i)=>i%Math.max(1,Math.floor(M/2))===0)]){
+        await seek(v,Math.min(v.duration-0.02,t)); tg.drawImage(v,0,0,tw,th); const d=tg.getImageData(0,0,tw,th).data, b=[d[0],d[1],d[2]];
+        for(let y=0;y<th;y++)for(let x=0;x<tw;x++){const q=(y*tw+x)*4; if(Math.abs(d[q]-b[0])+Math.abs(d[q+1]-b[1])+Math.abs(d[q+2]-b[2])>3*tol){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }}
+      }
+      if(x1>x0&&y1>y0){ const m=.04*tw; x0=Math.max(0,x0-m); y0=Math.max(0,y0-m); x1=Math.min(tw-1,x1+m); y1=Math.min(th-1,y1+m);
+        const k=VW/tw; crop={x:Math.round(x0*k),y:Math.round(y0*k),w:Math.round((x1-x0+1)*k),h:Math.round((y1-y0+1)*k)}; }
+    }
+    // 2) Einzelbilder: in doppelter Auflösung weich freistellen, dann hochwertig verkleinern
+    const N=times.length, FH=Math.round(FW*crop.h/crop.w), cols=8, rows=Math.ceil(N/cols);
     const c=document.createElement("canvas"); c.width=cols*FW; c.height=rows*FH; const g=c.getContext("2d",{willReadFrequently:true});
-    const bgOff=$("#vid_bg").checked, tol=+$("#vid_tol").value, raw=[];
+    g.imageSmoothingEnabled=true; g.imageSmoothingQuality="high";
+    const WW=Math.min(crop.w,FW*2), WH=Math.round(WW*crop.h/crop.w), wc=document.createElement("canvas"); wc.width=WW; wc.height=WH;
+    const wg=wc.getContext("2d",{willReadFrequently:true}); wg.imageSmoothingQuality="high";
+    const raw=[];
     for(let i=0;i<N;i++){ await seek(v,Math.min(v.duration-0.02,times[i])); const cx=(i%cols)*FW, cy=Math.floor(i/cols)*FH;
-      g.drawImage(v,cx,cy,FW,FH);
+      g.drawImage(v,crop.x,crop.y,crop.w,crop.h,cx,cy,FW,FH);
       if(i%M===0) raw.push(g.getImageData(cx,cy,FW,FH).data);          // Standbild im Original für die Spitzen-Erkennung
-      if(bgOff) cutBg(g,cx,cy,FW,FH,tol); info(`Zerlege Video… ${i+1}/${N}`); }
+      if(bgOff){ wg.clearRect(0,0,WW,WH); wg.drawImage(v,crop.x,crop.y,crop.w,crop.h,0,0,WW,WH); softCut(wg,WW,WH,tol);
+        g.clearRect(cx,cy,FW,FH); g.drawImage(wc,0,0,WW,WH,cx,cy,FW,FH); }
+      info(`Zerlege Video… ${i+1}/${N}`); }
     info("Suche Rohrspitzen…");
     const tips=detectTips(raw,FW,FH);
     info("Komprimiere…");
