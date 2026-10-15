@@ -401,6 +401,8 @@ function staticScene(){
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
     <linearGradient id="wood" x1="0" x2="0" y1="0" y2="1"><stop id="bs0" offset="0" stop-color="#7a5532"/><stop id="bs1" offset="1" stop-color="#4b321c"/></linearGradient>
     <radialGradient id="woodTop" cx="50%" cy="40%" r="70%"><stop id="bt0" offset="0" stop-color="#a87a4c"/><stop id="bt1" offset="1" stop-color="#7d5631"/></radialGradient>
+    <radialGradient id="boardLight" cx="38%" cy="25%" r="85%"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></radialGradient>
+    <pattern id="txBark" width="9" height="40" patternUnits="userSpaceOnUse"><path d="M2 0v40M6.5 0c-1 10 1 20 0 40" stroke="#000" stroke-opacity=".45" stroke-width="1.6" fill="none"/><path d="M4.5 0v40" stroke="#fff" stroke-opacity=".08" stroke-width="1"/></pattern>
     <pattern id="txWood" width="400" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><path d="M0 2 Q100 0 200 2.5 T400 2" stroke="#3a240f" stroke-opacity=".22" stroke-width="1.2" fill="none"/><path d="M0 6.5 Q120 8 240 6 T400 6.8" stroke="#fff" stroke-opacity=".06" stroke-width="1" fill="none"/></pattern>
     <pattern id="txStubble" width="14" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><path d="M0 9h14" stroke="#6b4e14" stroke-opacity=".35" stroke-width="2"/><path d="M2 8v-5M6 8v-6M10 8v-4" stroke="#f3dc93" stroke-opacity=".55" stroke-width="1.1"/></pattern>
     <pattern id="txFurrow" width="20" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><rect width="20" height="6" fill="#000" fill-opacity=".22"/><rect y="6" width="20" height="2" fill="#fff" fill-opacity=".07"/></pattern>
@@ -416,9 +418,11 @@ function staticScene(){
   for(let k=0;k<=36;k++){const t=(-45+k*5)*Math.PI/180;side.push([RD*Math.cos(t),RD*Math.sin(t),0]);sideB.unshift([RD*Math.cos(t),RD*Math.sin(t),-TH])}
   s+=`<g id="board">`;
   s+=`<ellipse cx="0" cy="${TH+30}" rx="330" ry="150" fill="#000" opacity=".35" filter="url(#glow)"/>`;
-  s+=poly(side.concat(sideB),"url(#wood)",'id="boardSide"')+poly(top,"url(#woodTop)",'id="boardTop"')+poly(top,"none",'id="boardTex"');
-  // Ringe auf der Platte
-  s+=ell(0,0,0,R+38,'fill="none" stroke="#00000022" stroke-width="2"')+ell(0,0,0,R-38,'fill="none" stroke="#00000018" stroke-width="2"')+`</g>`;
+  s+=poly(side.concat(sideB),"url(#wood)",'id="boardSide"')+poly(side.concat(sideB),"url(#txBark)",'id="boardSideTex" opacity=".55"')+poly(top,"url(#woodTop)",'id="boardTop"')+poly(top,"none",'id="boardTex"');
+  // Oberfläche als Textur in isometrischer Projektion (Welt x/y -> Bildschirm)
+  s+=`<clipPath id="discClip"><circle r="${RD}"/></clipPath><g transform="matrix(${C} ${S} ${-C} ${S} 0 0)"><image id="boardImg" x="${-RD}" y="${-RD}" width="${2*RD}" height="${2*RD}" clip-path="url(#discClip)" preserveAspectRatio="none" style="display:none"/></g>`;
+  s+=poly(top,"url(#boardLight)",'id="boardLightP" style="pointer-events:none"');
+  s+=`<g id="boardRings">`+ell(0,0,0,R+38,'fill="none" stroke="#00000022" stroke-width="2"')+ell(0,0,0,R-38,'fill="none" stroke="#00000018" stroke-width="2"')+`</g></g>`;
   s+=`<g id="vidMaskG" mask="url(#vfade)"><svg id="vidWrap" style="display:none" preserveAspectRatio="none"><image id="vidImg"/></svg></g>`;
   s+=`<g id="combineDraw">${combine()}</g><image id="combineImg" style="display:none" preserveAspectRatio="xMidYMid meet"/>`;
   // Untersetzer + Gläser
@@ -1283,29 +1287,114 @@ async function importSetup(file){
 }
 
 
-/* ---------------- Untergrund ---------------- */
+/* ---------------- Untergrund (prozedurale Texturen) ---------------- */
+// Wertrauschen + fBm, deterministisch über Seed
+function noise2(seed){
+  const P=new Uint8Array(512); let s=seed>>>0||1; const r=()=>((s=(s*1664525+1013904223)>>>0)/4294967296);
+  const p=[...Array(256).keys()]; for(let i=255;i>0;i--){const j=Math.floor(r()*(i+1)); [p[i],p[j]]=[p[j],p[i]]} for(let i=0;i<512;i++) P[i]=p[i&255];
+  const V=new Float32Array(256); for(let i=0;i<256;i++) V[i]=r();
+  const sm=t=>t*t*(3-2*t);
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi, X=xi&255, Y=yi&255;
+    const a=V[P[P[X]+Y]], b=V[P[P[X+1]+Y]], c=V[P[P[X]+Y+1]], d=V[P[P[X+1]+Y+1]], u=sm(xf), v=sm(yf);
+    return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v; };
+}
+function fbm(n,x,y,o=4){ let v=0,a=.5,f=1,t=0; for(let i=0;i<o;i++){ v+=a*n(x*f,y*f); t+=a; a*=.5; f*=2.03; } return v/t; }
+const mix=(a,b,t)=>a+(b-a)*t, clamp=(v,a=0,b=255)=>v<a?a:v>b?b:v;
+const hexRgb=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16));
+function lerpCol(c1,c2,t){ return [mix(c1[0],c2[0],t),mix(c1[1],c2[1],t),mix(c1[2],c2[2],t)]; }
+// Erzeugt ein quadratisches Texturbild (Draufsicht in Weltkoordinaten)
+function genTexture(kind,S=768){
+  const cv=document.createElement("canvas"); cv.width=cv.height=S; const g=cv.getContext("2d"), img=g.createImageData(S,S), d=img.data;
+  const n1=noise2(11), n2=noise2(23), n3=noise2(37), c=S/2;
+  const put=(i,col,k=1)=>{ d[i]=clamp(col[0]*k); d[i+1]=clamp(col[1]*k); d[i+2]=clamp(col[2]*k); d[i+3]=255; };
+  for(let y=0;y<S;y++) for(let x=0;x<S;x++){
+    const i=(y*S+x)*4, nx=x/S, ny=y/S; let col;
+    if(kind==="holz"){
+      const dx=x-c*1.03, dy=y-c*.98, r=Math.hypot(dx,dy)/c, ang=Math.atan2(dy,dx);
+      const wob=fbm(n1,nx*6,ny*6,3)*.06+fbm(n2,Math.cos(ang)*2+3,Math.sin(ang)*2+3,3)*.04;
+      const rr=r+wob, ring=Math.pow(.5+.5*Math.sin(rr*190),5);           // Spätholz-Linien
+      const heart=Math.max(0,1-rr/.55);                                    // Kernholz dunkler
+      let base=lerpCol(hexRgb("#d6ab74"),hexRgb("#b07a44"),fbm(n3,nx*40,ny*40,2)*.6+heart*.5);
+      col=lerpCol(base,hexRgb("#7a4b25"),ring*.55);
+      const grain=fbm(n2,Math.cos(ang)*40,Math.sin(ang)*40+r*3,2); col=lerpCol(col,[0,0,0],(grain-.5)*.12+.02);
+      if(rr<.025) col=lerpCol(col,hexRgb("#5a3418"),.7);                  // Mark
+      if(r>.925){ const t=Math.min(1,(r-.925)/.04); col=lerpCol(col,lerpCol(hexRgb("#4b2f1b"),hexRgb("#2c1b0f"),fbm(n1,nx*80,ny*80,3)),t); }  // Rinde
+      else if(r>.88) col=lerpCol(col,hexRgb("#e2c08e"),(r-.88)/.045*.5); // helles Splintholz
+    } else if(kind==="stroh"){
+      const f=fbm(n1,nx*14,ny*14,4), row=.5+.5*Math.sin(ny*S/9*Math.PI*2);
+      col=lerpCol(hexRgb("#a47a2f"),hexRgb("#dcb866"),f*.9+row*.15);
+    } else if(kind==="wiese"){
+      const f=fbm(n1,nx*10,ny*10,5), f2=fbm(n2,nx*60,ny*60,2);
+      col=lerpCol(hexRgb("#244a14"),hexRgb("#4f8a2b"),f*.8+f2*.35);
+    } else if(kind==="acker"){
+      const fur=Math.sin(ny*S/16*Math.PI*2+fbm(n1,nx*4,ny*4,2)*2.5), sh=fur>0?1+fur*.18:1+fur*.32;
+      const f=fbm(n2,nx*30,ny*30,4);
+      col=lerpCol(hexRgb("#3a2414"),hexRgb("#6e4a2b"),f*.85); col=col.map(v=>v*sh);
+    } else if(kind==="schiefer"){
+      const f=fbm(n1,nx*3,ny*26,5), f2=fbm(n2,nx*90,ny*90,2), band=.5+.5*Math.sin((ny+f*.08)*S/40);
+      col=lerpCol(hexRgb("#2f353c"),hexRgb("#5b646e"),f*.75+band*.12); col=lerpCol(col,[0,0,0],(f2-.5)*.25);
+    } else { // beton
+      const f=fbm(n1,nx*5,ny*5,4), f2=fbm(n2,nx*160,ny*160,2), stain=fbm(n3,nx*2.5,ny*2.5,3);
+      col=lerpCol(hexRgb("#8f8f8a"),hexRgb("#b7b7b1"),f*.6+.2); col=lerpCol(col,[0,0,0],(f2-.5)*.28+Math.max(0,stain-.55)*.4);
+    }
+    put(i,col);
+  }
+  g.putImageData(img,0,0);
+  // Details als Striche/Punkte
+  const R=noise2(77), rnd=(()=>{let s=12345;return()=>((s=(s*1103515245+12345)>>>0)/4294967296)})();
+  if(kind==="holz"){ // Trockenrisse vom Rand Richtung Kern
+    g.lineCap="round";
+    for(let k=0;k<5;k++){ const a=rnd()*Math.PI*2, len=.25+rnd()*.35; g.strokeStyle="rgba(40,20,8,.65)";
+      for(let w=3.2;w>.4;w-=.7){ g.lineWidth=w; g.beginPath(); let r0=.9;
+        g.moveTo(c+Math.cos(a)*r0*c,c+Math.sin(a)*r0*c);
+        for(let t=0;t<=1;t+=.1){ const rr=r0-len*t*(3.2-w)/3, aa=a+(R(t*8,k)-.5)*.06; g.lineTo(c+Math.cos(aa)*rr*c,c+Math.sin(aa)*rr*c); } g.stroke(); } } }
+  if(kind==="stroh"){ // Stoppeln in Reihen + loses Stroh
+    for(let row=4;row<S;row+=9) for(let x=0;x<S;x+=3+rnd()*4){ const y=row+(rnd()-.5)*3;
+      g.fillStyle="rgba(60,40,10,.35)"; g.fillRect(x+1,y+1,2.4,2.4);
+      g.fillStyle=`rgba(${235+rnd()*20|0},${205+rnd()*25|0},${130+rnd()*40|0},.95)`; g.beginPath(); g.arc(x,y,1.3+rnd(),0,7); g.fill(); }
+    for(let k=0;k<2600;k++){ const x=rnd()*S,y=rnd()*S,a=rnd()*Math.PI,l=6+rnd()*18; g.strokeStyle=`rgba(${230+rnd()*25|0},${200+rnd()*30|0},${120+rnd()*40|0},${.35+rnd()*.4})`; g.lineWidth=.8+rnd()*.9;
+      g.beginPath(); g.moveTo(x,y); g.lineTo(x+Math.cos(a)*l,y+Math.sin(a)*l); g.stroke(); } }
+  if(kind==="wiese"){ // Halme + ein paar Blüten
+    for(let k=0;k<70000;k++){ const x=rnd()*S,y=rnd()*S,a=rnd()*Math.PI*2,l=2.5+rnd()*5, h=rnd();
+      g.strokeStyle=`rgba(${40+h*70|0},${100+h*90|0},${25+h*30|0},${.5+rnd()*.5})`; g.lineWidth=.7+rnd()*.7;
+      g.beginPath(); g.moveTo(x,y); g.lineTo(x+Math.cos(a)*l,y+Math.sin(a)*l); g.stroke(); }
+    for(let k=0;k<160;k++){ const x=rnd()*S,y=rnd()*S; g.fillStyle=rnd()<.6?"#f4f1e4":"#f2d43a"; g.beginPath(); g.arc(x,y,1.2+rnd()*.9,0,7); g.fill(); } }
+  if(kind==="acker"){ // Erdklumpen + Steinchen
+    for(let k=0;k<5000;k++){ const x=rnd()*S,y=rnd()*S,r=.8+rnd()*2.6, l=rnd()<.5;
+      g.fillStyle=l?`rgba(140,100,65,${.25+rnd()*.3})`:`rgba(25,14,6,${.3+rnd()*.35})`; g.beginPath(); g.ellipse(x,y,r*1.3,r,rnd()*3,0,7); g.fill(); }
+    for(let k=0;k<220;k++){ const x=rnd()*S,y=rnd()*S,r=1+rnd()*2; g.fillStyle=`rgb(${120+rnd()*60|0},${115+rnd()*55|0},${105+rnd()*50|0})`; g.beginPath(); g.ellipse(x,y,r*1.3,r,rnd()*3,0,7); g.fill(); } }
+  if(kind==="schiefer"){ g.strokeStyle="rgba(10,12,15,.55)"; g.lineWidth=1;
+    for(let k=0;k<7;k++){ let x=rnd()*S,y=rnd()*S; g.beginPath(); g.moveTo(x,y); for(let j=0;j<12;j++){ x+=(rnd()-.3)*40; y+=(rnd()-.5)*14; g.lineTo(x,y);} g.stroke(); } }
+  if(kind==="beton"){ for(let k=0;k<2400;k++){ const x=rnd()*S,y=rnd()*S,r=.5+rnd()*1.6; g.fillStyle=`rgba(40,40,38,${.25+rnd()*.45})`; g.beginPath(); g.arc(x,y,r,0,7); g.fill(); } }
+  return cv.toDataURL("image/jpeg",.88);
+}
 const SURF={
-  holz:    {n:"Holz",        t:["#a87a4c","#7d5631"], s:["#7a5532","#4b321c"], fill:"url(#txWood)"},
-  stroh:   {n:"Stoppelfeld", t:["#dcb75c","#a9822e"], s:["#8c6a26","#5a4316"], fill:"url(#txStubble)"},
-  wiese:   {n:"Wiese",       t:["#5f9a36","#3a6a1e"], s:["#4a3420","#2c1e12"], filter:"url(#txGrass)"},
-  acker:   {n:"Acker",       t:["#6e4c2f","#47301b"], s:["#4a3320","#2a1c10"], fill:"url(#txFurrow)"},
-  schiefer:{n:"Schiefer",    t:["#4d545c","#2f343a"], s:["#2c3035","#17191c"], filter:"url(#txNoise)"},
-  beton:   {n:"Beton",       t:["#a9a9a4","#7a7a76"], s:["#6a6a66","#444441"], filter:"url(#txNoise)"},
-  keine:   {n:"Ohne",        t:null}
+  holz:    {n:"Holzscheibe", s:["#4b2f1b","#24160b"], bark:true, sw:["#d6ab74","#7a4b25"]},
+  stroh:   {n:"Stoppelfeld", s:["#6b4a26","#3a2812"], sw:["#e2c070","#a47a2f"]},
+  wiese:   {n:"Wiese",       s:["#4a3420","#24180c"], sw:["#5f9a36","#244a14"]},
+  acker:   {n:"Acker",       s:["#4a3320","#22160b"], sw:["#6e4a2b","#3a2414"]},
+  schiefer:{n:"Schiefer",    s:["#2c3035","#121417"], sw:["#5b646e","#2f353c"]},
+  beton:   {n:"Beton",       s:["#7e7e79","#4a4a46"], sw:["#b7b7b1","#8f8f8a"]},
+  keine:   {n:"Ohne"}
 };
+const texCache={};
 function applyBoard(){
   const id=(UI&&UI.board)||"holz", b=SURF[id]||SURF.holz, set=(i,c)=>{const e=$("#"+i); if(e) e.setAttribute("stop-color",c)};
-  const top=$("#boardTop"), side=$("#boardSide"), tex=$("#boardTex"); if(!top) return;
-  const show=!!b.t; [top,side,tex].forEach(e=>e.style.display=show?"":"none");
-  document.querySelectorAll("#board ellipse").forEach(e=>e.style.display=show?"":"none");
+  const top=$("#boardTop"); if(!top) return;
+  const show=!!b.s;
+  ["boardTop","boardSide","boardSideTex","boardLightP","boardImg"].forEach(i=>{const e=$("#"+i); if(e) e.style.display=show?"":"none"});
+  $("#boardTex").style.display="none"; $("#boardRings").style.display="none";
+  document.querySelectorAll("#board > ellipse").forEach(e=>e.style.display=show?"":"none");
   if(!show) return;
-  set("bt0",b.t[0]); set("bt1",b.t[1]); set("bs0",b.s[0]); set("bs1",b.s[1]);
-  tex.setAttribute("fill",b.fill||"#fff"); if(b.filter) tex.setAttribute("filter",b.filter); else tex.removeAttribute("filter");
+  set("bs0",b.s[0]); set("bs1",b.s[1]); set("bt0",b.sw[0]); set("bt1",b.sw[1]);
+  $("#boardSideTex").style.display=b.bark?"":"none";
+  const im=$("#boardImg");
+  if(im.dataset.kind!==id){ im.dataset.kind=id; setTimeout(()=>{ texCache[id]=texCache[id]||genTexture(id); if(im.dataset.kind===id) im.setAttribute("href",texCache[id]); },0); }
 }
 function boardCard(){
   const cur=(UI&&UI.board)||"holz";
   return `<details class="card fold" data-k="board"><summary>Untergrund</summary><div class="surf">${Object.entries(SURF).map(([k,b])=>
-    `<button class="${k===cur?"on":""}" onclick="uiSave({board:'${k}'});renderTab()"><i style="background:${b.t?`radial-gradient(circle at 50% 35%,${b.t[0]},${b.t[1]})`:"repeating-conic-gradient(#2a2a2a 0 25%,#1b1b1b 0 50%) 0 0/10px 10px"}"></i>${b.n}</button>`).join("")}</div></details>`;
+    `<button class="${k===cur?"on":""}" onclick="uiSave({board:'${k}'});renderTab()"><i style="background:${b.sw?`radial-gradient(circle at 50% 35%,${b.sw[0]},${b.sw[1]})`:"repeating-conic-gradient(#2a2a2a 0 25%,#1b1b1b 0 50%) 0 0/10px 10px"}"></i>${b.n}</button>`).join("")}</div></details>`;
 }
 // Ein-/ausklappbare Reiter: Zustand pro Gerät merken
 function bindFolds(){
