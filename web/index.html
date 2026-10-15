@@ -467,8 +467,22 @@ function glassXY(i){
   const a=CFG?CFG.ang[i]:[18.3,36.7,55,73.3,91.7,110][i],[dx,dy]=dir(a); return [dx*R,dy*R];
 }
 function glassTf(x,y){ const k=vidMode()&&glassBase(0)?glassK():1; if(k===1) return ""; const b=P(x,y,0); return `transform="translate(${f1(b[0])} ${f1(b[1])}) scale(${k}) translate(${f1(-b[0])} ${f1(-b[1])})"`; }
+// Ältere Einrichtungen ohne erkannte Parkstellung: aus den gespeicherten Standbildern nachträglich bestimmen
+let parkTried="";
+async function ensureParkTip(){
+  const v=V(); if(!v||v.ptip||!v.M||parkTried===vidSrc()) return;
+  parkTried=vidSrc();
+  try{
+    const im=await loadImage(vidSrc()), fw=Math.round(v.fw), fh=Math.round(v.fh);
+    const c=document.createElement("canvas"); c.width=fw; c.height=fh; const g=c.getContext("2d",{willReadFrequently:true});
+    const F=[...Array(7)].map((_,k)=>{ const i=k*v.M; g.fillStyle="#fdfdfd"; g.fillRect(0,0,fw,fh);
+      g.drawImage(im,(i%v.cols)*v.fw,Math.floor(i/v.cols)*v.fh,v.fw,v.fh,0,0,fw,fh); return g.getImageData(0,0,fw,fh).data; });
+    const t=detectTips(F,fw,fh);
+    if(t.park){ v.ptip=t.park; buildPark(); if(ST) render(); uiSave({vid:v}); }
+  }catch(e){ console.warn("Parkstellung nicht bestimmbar",e); }
+}
 function parkXY(){
-  if(vidMode()){ const v=V(); if(!v.ptip) return null;
+  if(vidMode()){ const v=V(); if(!v.ptip){ ensureParkTip(); return null; }
     let [sx,sy]=vidToScene(v.ptip); sy+=(GH+(+(v.gap??30)))*glassK(); const u=sx/C, w=2*sy; return [(u+w)/2,(w-u)/2]; }
   const [dx,dy]=dir(CFG?CFG.angPark:0); return [dx*R,dy*R];
 }
@@ -1358,12 +1372,14 @@ function genTexture(kind,S=768){
   g.putImageData(img,0,0);
   // Details als Striche/Punkte
   const R=noise2(77), rnd=(()=>{let s=12345;return()=>((s=(s*1103515245+12345)>>>0)/4294967296)})();
-  if(kind==="holz"){ // Trockenrisse vom Rand Richtung Kern
-    g.lineCap="round";
-    for(let k=0;k<5;k++){ const a=rnd()*Math.PI*2, len=.25+rnd()*.35; g.strokeStyle="rgba(40,20,8,.65)";
-      for(let w=3.2;w>.4;w-=.7){ g.lineWidth=w; g.beginPath(); let r0=.9;
-        g.moveTo(c+Math.cos(a)*r0*c,c+Math.sin(a)*r0*c);
-        for(let t=0;t<=1;t+=.1){ const rr=r0-len*t*(3.2-w)/3, aa=a+(R(t*8,k)-.5)*.06; g.lineTo(c+Math.cos(aa)*rr*c,c+Math.sin(aa)*rr*c); } g.stroke(); } } }
+  if(kind==="holz"){ // Trockenrisse: schmale, spitz zulaufende Keile vom Rand Richtung Kern
+    for(let k=0;k<4;k++){ const a=rnd()*Math.PI*2, len=.15+rnd()*.25, r0=.92, wid=.005+rnd()*.006, pts=[];
+      for(let t=0;t<=1.0001;t+=.05){ const rr=r0-len*t, aa=a+(R(t*6,k*3)-.5)*.012, hw=wid*Math.pow(1-t,1.4);
+        pts.push([rr,aa,hw]); }
+      g.fillStyle="rgba(45,24,10,.8)"; g.beginPath();
+      pts.forEach(([rr,aa,hw],i)=>{ const x=c+Math.cos(aa+hw/rr)*rr*c, y=c+Math.sin(aa+hw/rr)*rr*c; i?g.lineTo(x,y):g.moveTo(x,y); });
+      for(let i=pts.length-1;i>=0;i--){ const [rr,aa,hw]=pts[i]; g.lineTo(c+Math.cos(aa-hw/rr)*rr*c,c+Math.sin(aa-hw/rr)*rr*c); }
+      g.closePath(); g.fill(); } }
   if(kind==="platte"){ // ein paar kleine Äste
     for(let k=0;k<6;k++){ const x=rnd()*S, y=rnd()*S, r=3+rnd()*7;
       const gr=g.createRadialGradient(x,y,0,x,y,r*2.4); gr.addColorStop(0,"rgba(110,62,25,.95)"); gr.addColorStop(.35,"rgba(150,95,45,.7)"); gr.addColorStop(1,"rgba(200,150,90,0)");
