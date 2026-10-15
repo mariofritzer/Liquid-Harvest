@@ -32,6 +32,17 @@ h1 small{display:block;font-size:11px;color:var(--mute);font-weight:500;letter-s
 .iconbtn svg{width:20px;height:20px}
 
 .scene{position:relative;margin:4px -16px 0}
+details.fold{padding:0 16px;margin-bottom:14px}
+details.fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:15px 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-weight:700;user-select:none}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .2s;margin:0 4px 4px 0}
+details.fold[open]>summary{color:var(--txt);border-bottom:1px solid var(--line)}
+details.fold[open]>summary::after{transform:rotate(-135deg);margin-bottom:-4px}
+details.fold[open]{padding-bottom:12px}
+.surf{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;padding:12px 0 4px}
+.surf button{background:var(--bg2);border:2px solid var(--line);border-radius:14px;padding:10px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;font-weight:650;color:var(--mute)}
+.surf button i{width:52px;height:30px;border-radius:50%;display:block;box-shadow:inset 0 -5px 0 #0004}
+.surf button.on{border-color:var(--gold);color:var(--txt)}
 .scene>svg{display:block;width:100%;height:auto;touch-action:manipulation}
 .glass{cursor:pointer}
 .glass .gbody{transform-box:fill-box;transform-origin:50% 100%;transition:transform .35s cubic-bezier(.3,1.6,.5,1),opacity .25s}
@@ -388,8 +399,13 @@ function staticScene(){
     <mask id="vfade" maskContentUnits="objectBoundingBox"><rect width="1" height="1" fill="url(#vfadeG)"/></mask>
     <filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
-    <linearGradient id="wood" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7a5532"/><stop offset="1" stop-color="#4b321c"/></linearGradient>
-    <radialGradient id="woodTop" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#a87a4c"/><stop offset="1" stop-color="#7d5631"/></radialGradient>
+    <linearGradient id="wood" x1="0" x2="0" y1="0" y2="1"><stop id="bs0" offset="0" stop-color="#7a5532"/><stop id="bs1" offset="1" stop-color="#4b321c"/></linearGradient>
+    <radialGradient id="woodTop" cx="50%" cy="40%" r="70%"><stop id="bt0" offset="0" stop-color="#a87a4c"/><stop id="bt1" offset="1" stop-color="#7d5631"/></radialGradient>
+    <pattern id="txWood" width="400" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><path d="M0 2 Q100 0 200 2.5 T400 2" stroke="#3a240f" stroke-opacity=".22" stroke-width="1.2" fill="none"/><path d="M0 6.5 Q120 8 240 6 T400 6.8" stroke="#fff" stroke-opacity=".06" stroke-width="1" fill="none"/></pattern>
+    <pattern id="txStubble" width="14" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><path d="M0 9h14" stroke="#6b4e14" stroke-opacity=".35" stroke-width="2"/><path d="M2 8v-5M6 8v-6M10 8v-4" stroke="#f3dc93" stroke-opacity=".55" stroke-width="1.1"/></pattern>
+    <pattern id="txFurrow" width="20" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><rect width="20" height="6" fill="#000" fill-opacity=".22"/><rect y="6" width="20" height="2" fill="#fff" fill-opacity=".07"/></pattern>
+    <filter id="txGrass" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9 .55" numOctaves="2" seed="4"/><feColorMatrix values="0 0 0 0 .55  0 0 0 0 .85  0 0 0 0 .3  0 0 0 -1.6 1.05"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+    <filter id="txNoise" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".09 .16" numOctaves="3" seed="9"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -.7 .38"/><feComposite in2="SourceGraphic" operator="in"/></filter>
     <linearGradient id="glassG" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".35" stop-color="#fff" stop-opacity=".08"/><stop offset=".8" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#fff" stop-opacity=".32"/></linearGradient>
     <linearGradient id="tubeShade" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".25"/><stop offset=".4" stop-color="#fff" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient>
     <linearGradient id="liq" x1="0" x2="1"><stop offset="0" stop-color="#f7c95a"/><stop offset=".5" stop-color="#f0b43a"/><stop offset="1" stop-color="#c98a1e"/></linearGradient>
@@ -400,7 +416,7 @@ function staticScene(){
   for(let k=0;k<=36;k++){const t=(-45+k*5)*Math.PI/180;side.push([RD*Math.cos(t),RD*Math.sin(t),0]);sideB.unshift([RD*Math.cos(t),RD*Math.sin(t),-TH])}
   s+=`<g id="board">`;
   s+=`<ellipse cx="0" cy="${TH+30}" rx="330" ry="150" fill="#000" opacity=".35" filter="url(#glow)"/>`;
-  s+=poly(side.concat(sideB),"url(#wood)")+poly(top,"url(#woodTop)");
+  s+=poly(side.concat(sideB),"url(#wood)",'id="boardSide"')+poly(top,"url(#woodTop)",'id="boardTop"')+poly(top,"none",'id="boardTex"');
   // Ringe auf der Platte
   s+=ell(0,0,0,R+38,'fill="none" stroke="#00000022" stroke-width="2"')+ell(0,0,0,R-38,'fill="none" stroke="#00000018" stroke-width="2"')+`</g>`;
   s+=`<g id="vidMaskG" mask="url(#vfade)"><svg id="vidWrap" style="display:none" preserveAspectRatio="none"><image id="vidImg"/></svg></g>`;
@@ -727,13 +743,13 @@ function renderTab(){
       <p class="help">Findet der Drescher das Heimnetz nicht, öffnet er nach 20 s den Hotspot <b>LiquidHarvest-XXXX</b> (Passwort Standard: <code>prost1234</code>). Hotspot jederzeit erzwingen: Drehencoder-Knopf 3 s drücken.</p>`;
   }
   if(curTab==="img"){
-    h+=`<div class="card"><h3>Eigenes Bild</h3>
+    h+=`${boardCard()}<details class="card fold" data-k="img"><summary>Drescher als Bild / 3D-Modell</summary><h3>Foto / Bild</h3>
       <div class="f"><label>Eigenes Bild statt Zeichnung<small>${CFG.imgVer||demoImg?"Bild ist gespeichert":"Noch kein Bild hochgeladen"}</small></label><input type="checkbox" class="sw" id="im_on" ${CFG.imgOn?"checked":""} ${CFG.imgVer||demoImg?"":"disabled"} onchange="send({c:'setCfg',cfg:{imgOn:this.checked}})"></div>
       <div class="f"><label>Foto / Bild wählen<small>schräg von oben, einfarbiger Hintergrund</small></label><input type="file" id="im_file" accept="image/*" style="width:150px;font-size:12px"></div>
       <div class="f"><label>Hintergrund entfernen<small>Einfarbiger Hintergrund wird transparent</small></label><input type="checkbox" class="sw" id="im_bg" checked></div>
       <div class="f"><label>Toleranz</label><input type="range" id="im_tol" min="5" max="120" value="40" style="width:45%"></div>
-      </div>
-      <div class="card"><h3>…oder 3D-Modell (STL)</h3>
+
+      <h3>…oder 3D-Modell (STL)</h3>
       <div class="f"><label>STL-Datei<small>Binär oder ASCII, wird im Browser gerendert</small></label><input type="file" id="st_file" accept=".stl" style="width:150px;font-size:12px"></div>
       <div class="f"><label>Hochachse</label><select id="st_up" style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px"><option value="z">Z oben</option><option value="y">Y oben</option></select></div>
       <div class="f"><label>Drehung</label><input type="range" id="st_rot" min="0" max="360" step="5" value="0" style="width:55%"></div>
@@ -742,28 +758,29 @@ function renderTab(){
       <div class="f"><label>Farbe oben<small>ab Höhe (Dach, Kabine …)</small></label><input type="range" id="st_h" min="50" max="101" value="101" style="width:35%"><input type="color" id="st_c2" value="#e9ece6" style="width:56px;height:34px;border:0;background:none"></div>
       <div class="f"><label>Farbe unten<small>bis Höhe (Fahrwerk, Reifen …)</small></label><input type="range" id="st_l" min="0" max="50" value="0" style="width:35%"><input type="color" id="st_c3" value="#222428" style="width:56px;height:34px;border:0;background:none"></div>
       <div style="padding:12px 0;text-align:center"><canvas id="im_prev" style="max-width:100%;max-height:220px;background:repeating-conic-gradient(#2a372d 0 25%,#1b251e 0 50%) 0 0/16px 16px;border-radius:10px;display:none"></canvas><div class="help" id="im_info"></div></div>
-      </div>
+
       <button class="btn primary save" id="im_up" disabled>Hochladen & verwenden</button>
       <div class="row2"><button class="btn" onclick="startAdjust()" ${CFG.imgVer||demoImg?"":"disabled"}>Position anpassen</button><button class="btn" style="color:#ff8a8a" onclick="deleteImg()" ${CFG.imgVer||demoImg?"":"disabled"}>Bild löschen</button></div>
-      <div class="card" style="margin-top:14px"><h3>Rohr-Video als Hintergrund</h3>
+      <p class="help">Das Bild wird im Browser verkleinert, auf max. 100 kB komprimiert und auf dem ESP32 gespeichert – es landet nicht im GitHub-Repo. Das Abtankrohr wird weiterhin live darübergezeichnet; der Drehpunkt liegt in der Mitte des Glas-Halbkreises.</p></details>
+      <details class="card fold" data-k="vid"><summary>Rohr-Video als Hintergrund</summary>
       <div class="f"><label>Video-Modus<small>${V()?"Video ist gespeichert":"Noch kein Video hochgeladen"}</small></label><input type="checkbox" class="sw" id="vid_on" ${V()&&V().on?"checked":""} ${V()?"":"disabled"} onchange="uiSave({vid:Object.assign({},V(),{on:this.checked})})"></div>
       <div class="f"><label>Video wählen<small>Rohr fährt Park → Glas 1 … 6 an und hält jeweils kurz</small></label><input type="file" id="vid_file" accept="video/*" style="width:150px;font-size:12px"></div>
       <div class="f" style="display:block"><label>Haltepunkte im Video (Sekunden)<small>Park, Glas 1 … Glas 6 – werden automatisch erkannt</small></label>
         <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px">${["P","1","2","3","4","5","6"].map((l,i)=>`<div style="text-align:center;font-size:11px;color:var(--mute)">${l}<input type="number" step="0.1" id="vt${i}" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 2px;text-align:center;font-size:12px"></div>`).join("")}</div></div>
-      <div class="f"><label>Hintergrund entfernen<small>einfarbiger Hintergrund wird transparent – Drescher steht auf der Holzscheibe</small></label><input type="checkbox" class="sw" id="vid_bg" checked></div>
+      <div class="f"><label>Hintergrund entfernen<small>einfarbiger Hintergrund wird transparent – Drescher steht auf dem Untergrund</small></label><input type="checkbox" class="sw" id="vid_bg" checked></div>
       <div class="f"><label>Toleranz</label><input type="range" id="vid_tol" min="1" max="60" value="6" style="width:45%"></div>
       <div class="f"><label>Bilder je Fahrt<small>mehr = flüssiger, braucht mehr Speicher</small></label><input type="range" id="vid_n" min="3" max="16" step="1" value="5" style="width:40%"><span class="u" id="vid_nv" style="width:34px">5</span></div>
       <div class="f"><label>Bildbreite</label><input type="range" id="vid_fw" min="320" max="1000" step="20" value="720" style="width:40%"><span class="u" id="vid_fwv" style="width:34px">720</span></div>
       <div class="help" id="vid_info"></div>
       <button class="btn primary save" id="vid_up" disabled>Video verarbeiten & hochladen</button>
-      <div class="row2" style="margin-bottom:14px"><button class="btn" onclick="startVidAdjust()" ${V()?"":"disabled"}>Ausrichten</button><button class="btn" style="color:#ff6060" onclick="deleteVid()" ${V()?"":"disabled"}>Video löschen</button></div></div>
-      <div class="card" style="margin-top:14px"><h3>Einrichtung sichern & übertragen</h3>
+      <div class="row2" style="margin-bottom:14px"><button class="btn" onclick="startVidAdjust()" ${V()?"":"disabled"}>Ausrichten</button><button class="btn" style="color:#ff6060" onclick="deleteVid()" ${V()?"":"disabled"}>Video löschen</button></div></details>
+      <details class="card fold" data-k="setup"><summary>Einrichtung sichern & übertragen</summary>
       <div class="f"><label>Exportieren<small>Bild, Video, Ausrichtung, Rohr & Winkel in eine Datei</small></label><button class="sbtn gold" onclick="exportSetup()">Exportieren</button></div>
       <div class="f"><label>Importieren<small>${demo?"in diese Vorschau laden":"auf den Drescher übertragen"}</small></label><input type="file" id="setup_file" accept=".json,application/json" style="width:150px;font-size:12px"></div>
-      <div class="help" id="setup_info">${demo?"Vorschau-Modus: alles hier einrichten, exportieren und nach dem Flashen am Drescher importieren.":""}</div></div>
-      <div class="card" style="margin-top:14px"><h3>Abtankrohr</h3>
-      <div class="f"><label>Aussehen & Ansatzpunkt<small>Farbe, Dicke, Höhe – und wo das Rohr am Drescher ansetzt</small></label><button class="sbtn gold" onclick="startAugAdjust()">Anpassen</button></div></div>
-      <p class="help">Das Bild wird im Browser verkleinert, auf max. 100 kB komprimiert und auf dem ESP32 gespeichert – es landet nicht im GitHub-Repo. Das Abtankrohr wird weiterhin live darübergezeichnet; der Drehpunkt liegt in der Mitte des Glas-Halbkreises.</p>`;
+      <div class="help" id="setup_info">${demo?"Vorschau-Modus: alles hier einrichten, exportieren und nach dem Flashen am Drescher importieren.":""}</div></details>
+      <details class="card fold" data-k="aug"><summary>Abtankrohr</summary>
+      <div class="f"><label>Aussehen & Ansatzpunkt<small>Farbe, Dicke, Höhe – und wo das Rohr am Drescher ansetzt</small></label><button class="sbtn gold" onclick="startAugAdjust()">Anpassen</button></div></details>
+      `;
   }
   if(curTab==="sys"){
     h+=`<div class="card"><h3>Pumpe</h3><div class="f"><label>Schlauch füllen / entlüften<small>Rohr fährt in Parkposition – Auffangbecher hinstellen!</small></label><input type="number" id="pr_s" value="3" style="width:64px"><span class="u">s</span><button class="sbtn gold" onclick="send({c:'prime',s:+$('#pr_s').value})">Start</button></div></div>
@@ -774,7 +791,7 @@ function renderTab(){
       <div class="row2"><button class="btn" onclick="send({c:'reboot'})">Neustart</button><button class="btn" style="color:#ff8a8a" onclick="if(confirm('Wirklich alles zurücksetzen (inkl. WLAN & Kalibrierung)?'))send({c:'factory'})">Werkseinstellungen</button></div>`;
   }
   b.innerHTML=h;
-  if(curTab==="img"){ bindImgTab(); bindStl(); bindVid(); $("#setup_file").onchange=e=>importSetup(e.target.files[0]); if(stlTris) stlUpdate(); }
+  if(curTab==="img"){ bindFolds(); bindImgTab(); bindStl(); bindVid(); $("#setup_file").onchange=e=>importSetup(e.target.files[0]); if(stlTris) stlUpdate(); }
   if(curTab==="scales") updateScales();
   const ota=$("#ota"); if(ota) ota.onchange=uploadOta;
 }
@@ -868,7 +885,7 @@ let demoImg=null, imgBlob=null, imgAspect=0.6, imgLoadedSrc="";
 function imgSrc(){ if(demo) return demoImg; return CFG&&CFG.imgVer?`/combine.img?v=${CFG.imgVer}`:null; }
 function applyImg(){
   const el=$("#combineImg"), dr=$("#combineDraw"); if(!el||!CFG) return;
-  uiGet(); applyVid(); if(vidMode()) return;
+  uiGet(); applyBoard(); applyVid(); if(vidMode()) return;
   const src=imgSrc(), on=CFG.imgOn&&src;
   el.style.display=on?"":"none"; dr.style.display=on?"none":"";
   if(!on) return;
@@ -1263,6 +1280,40 @@ async function importSetup(file){
     info("Einrichtung übernommen ✔"); toast("Einrichtung übernommen");
     setTimeout(()=>{applyImg(); if($("#drawer").classList.contains("show")) renderTab();},800);
   }catch(e){ info("Fehler: "+e.message); }
+}
+
+
+/* ---------------- Untergrund ---------------- */
+const SURF={
+  holz:    {n:"Holz",        t:["#a87a4c","#7d5631"], s:["#7a5532","#4b321c"], fill:"url(#txWood)"},
+  stroh:   {n:"Stoppelfeld", t:["#dcb75c","#a9822e"], s:["#8c6a26","#5a4316"], fill:"url(#txStubble)"},
+  wiese:   {n:"Wiese",       t:["#5f9a36","#3a6a1e"], s:["#4a3420","#2c1e12"], filter:"url(#txGrass)"},
+  acker:   {n:"Acker",       t:["#6e4c2f","#47301b"], s:["#4a3320","#2a1c10"], fill:"url(#txFurrow)"},
+  schiefer:{n:"Schiefer",    t:["#4d545c","#2f343a"], s:["#2c3035","#17191c"], filter:"url(#txNoise)"},
+  beton:   {n:"Beton",       t:["#a9a9a4","#7a7a76"], s:["#6a6a66","#444441"], filter:"url(#txNoise)"},
+  keine:   {n:"Ohne",        t:null}
+};
+function applyBoard(){
+  const id=(UI&&UI.board)||"holz", b=SURF[id]||SURF.holz, set=(i,c)=>{const e=$("#"+i); if(e) e.setAttribute("stop-color",c)};
+  const top=$("#boardTop"), side=$("#boardSide"), tex=$("#boardTex"); if(!top) return;
+  const show=!!b.t; [top,side,tex].forEach(e=>e.style.display=show?"":"none");
+  document.querySelectorAll("#board ellipse").forEach(e=>e.style.display=show?"":"none");
+  if(!show) return;
+  set("bt0",b.t[0]); set("bt1",b.t[1]); set("bs0",b.s[0]); set("bs1",b.s[1]);
+  tex.setAttribute("fill",b.fill||"#fff"); if(b.filter) tex.setAttribute("filter",b.filter); else tex.removeAttribute("filter");
+}
+function boardCard(){
+  const cur=(UI&&UI.board)||"holz";
+  return `<details class="card fold" data-k="board"><summary>Untergrund</summary><div class="surf">${Object.entries(SURF).map(([k,b])=>
+    `<button class="${k===cur?"on":""}" onclick="uiSave({board:'${k}'});renderTab()"><i style="background:${b.t?`radial-gradient(circle at 50% 35%,${b.t[0]},${b.t[1]})`:"repeating-conic-gradient(#2a2a2a 0 25%,#1b1b1b 0 50%) 0 0/10px 10px"}"></i>${b.n}</button>`).join("")}</div></details>`;
+}
+// Ein-/ausklappbare Reiter: Zustand pro Gerät merken
+function bindFolds(){
+  document.querySelectorAll("details.fold").forEach(d=>{
+    const k="lh_fold_"+d.dataset.k; let v=null; try{ v=localStorage.getItem(k) }catch(e){}
+    d.open=v===null?d.dataset.k==="board":v==="1";
+    d.addEventListener("toggle",()=>{ try{ localStorage.setItem(k,d.open?"1":"0") }catch(e){} });
+  });
 }
 
 /* ---------------- Toast ---------------- */
