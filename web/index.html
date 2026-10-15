@@ -1320,6 +1320,20 @@ function genTexture(kind,S=768){
       if(rr<.025) col=lerpCol(col,hexRgb("#5a3418"),.7);                  // Mark
       if(r>.925){ const t=Math.min(1,(r-.925)/.04); col=lerpCol(col,lerpCol(hexRgb("#4b2f1b"),hexRgb("#2c1b0f"),fbm(n1,nx*80,ny*80,3)),t); }  // Rinde
       else if(r>.88) col=lerpCol(col,hexRgb("#e2c08e"),(r-.88)/.045*.5); // helles Splintholz
+    } else if(kind==="platte"){
+      // Leimholz aus 3 Brettern: Stamm-Achse entlang y, tangential angeschnitten -> Fladern (Flammen)
+      const bw=S/3, bi=Math.min(2,Math.floor(x/bw));
+      const lx=x-bi*bw-bw*(.3+.4*((bi*37)%10)/10)+fbm(n3,bi*5+nx*2,ny*5,3)*16-8;   // seitliches Pendeln der Fasern
+      const h=S*(.015+.07*fbm(n1,bi*7.3,ny*1.6,3));                                   // Schnitt nahe der Stammachse -> Fladern
+      const r=Math.sqrt(lx*lx+h*h*9);
+      const ring=r/(9+bi*1.2), fr=ring-Math.floor(ring);
+      const late=Math.pow(Math.max(0,1-Math.abs(fr-.85)/.1),1.6);                  // schmale dunkle Spätholzlinie
+      const fine=.5+.5*Math.sin((x+fbm(n2,nx*4,ny*40,2)*5)*2.4);                  // feine Längsfasern
+      const fine2=.5+.5*Math.sin((x+fbm(n3,nx*6,ny*60,2)*3)*5.7);
+      const tone=[[238,217,176],[234,210,164],[240,222,184]][bi];
+      col=lerpCol(tone,[198,154,96],late*.62);
+      col=lerpCol(col,[205,170,118],fine*.13+fine2*.07+fbm(n1,nx*16,ny*2,2)*.1);
+      if(Math.abs(x-Math.round(x/bw)*bw)<1.2&&x>2&&x<S-2) col=lerpCol(col,[170,130,80],.35);   // Leimfuge
     } else if(kind==="stroh"){
       const f=fbm(n1,nx*14,ny*14,4), row=.5+.5*Math.sin(ny*S/9*Math.PI*2);
       col=lerpCol(hexRgb("#a47a2f"),hexRgb("#dcb866"),f*.9+row*.15);
@@ -1348,6 +1362,11 @@ function genTexture(kind,S=768){
       for(let w=3.2;w>.4;w-=.7){ g.lineWidth=w; g.beginPath(); let r0=.9;
         g.moveTo(c+Math.cos(a)*r0*c,c+Math.sin(a)*r0*c);
         for(let t=0;t<=1;t+=.1){ const rr=r0-len*t*(3.2-w)/3, aa=a+(R(t*8,k)-.5)*.06; g.lineTo(c+Math.cos(aa)*rr*c,c+Math.sin(aa)*rr*c); } g.stroke(); } } }
+  if(kind==="platte"){ // ein paar kleine Äste
+    for(let k=0;k<6;k++){ const x=rnd()*S, y=rnd()*S, r=3+rnd()*7;
+      const gr=g.createRadialGradient(x,y,0,x,y,r*2.4); gr.addColorStop(0,"rgba(110,62,25,.95)"); gr.addColorStop(.35,"rgba(150,95,45,.7)"); gr.addColorStop(1,"rgba(200,150,90,0)");
+      g.fillStyle=gr; g.beginPath(); g.ellipse(x,y,r*1.6,r*2.4,0,0,7); g.fill();
+      g.fillStyle="rgba(70,38,14,.9)"; g.beginPath(); g.ellipse(x,y,r*.5,r*.7,0,0,7); g.fill(); } }
   if(kind==="stroh"){ // Stoppeln in Reihen + loses Stroh
     for(let row=4;row<S;row+=9) for(let x=0;x<S;x+=3+rnd()*4){ const y=row+(rnd()-.5)*3;
       g.fillStyle="rgba(60,40,10,.35)"; g.fillRect(x+1,y+1,2.4,2.4);
@@ -1370,6 +1389,7 @@ function genTexture(kind,S=768){
 }
 const SURF={
   holz:    {n:"Holzscheibe", s:["#4b2f1b","#24160b"], bark:true, sw:["#d6ab74","#7a4b25"]},
+  platte:  {n:"Holzplatte",  s:["#c9a06a","#94693a"], sw:["#eed9b0","#c9a06a"]},
   stroh:   {n:"Stoppelfeld", s:["#6b4a26","#3a2812"], sw:["#e2c070","#a47a2f"]},
   wiese:   {n:"Wiese",       s:["#4a3420","#24180c"], sw:["#5f9a36","#244a14"]},
   acker:   {n:"Acker",       s:["#4a3320","#22160b"], sw:["#6e4a2b","#3a2414"]},
