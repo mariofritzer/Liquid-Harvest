@@ -56,7 +56,13 @@ jobs:
           mkdir -p site/app && cp web/index.html site/app/index.html
           cp .pio/build/esp32/firmware-merged.bin site/firmware/liquid-harvest-esp32.bin
           cp .pio/build/esp32/firmware.bin        site/firmware/liquid-harvest-ota.bin
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" site/manifest.json
+          # Versionsnummer enthält die Standard-Einrichtung -> neue Einrichtung = neue Version im Installer
+          MVER="$VERSION"
+          if [ -f setup/default-setup.json ]; then MVER="$VERSION+setup.$(sha1sum setup/default-setup.json | cut -c1-7)"; fi
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$MVER\"/" site/manifest.json
+          # Cache-Buster: Browser lädt nach jedem Build garantiert die neue Firmware
+          sed -i "s#firmware/liquid-harvest-esp32.bin#firmware/liquid-harvest-esp32.bin?v=${GITHUB_SHA::8}#" site/manifest.json
+          cat site/manifest.json
           ls -la site site/firmware
 
       - uses: actions/upload-artifact@v4

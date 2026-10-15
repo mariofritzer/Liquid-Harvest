@@ -240,7 +240,7 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
 "use strict";
 const $=s=>document.querySelector(s);
 const N=6;
-let ST=null, CFG=null, VER="", amount=20, sheetIdx=-1, shAmount=20, dispAng=null, netList=[];
+let SETUPINFO="", ST=null, CFG=null, VER="", amount=20, sheetIdx=-1, shAmount=20, dispAng=null, netList=[];
 
 /* ---------------- Verbindung ---------------- */
 let ws=null, demo=false;
@@ -257,7 +257,7 @@ function setConn(on){ $("#dot").classList.toggle("on",on); $("#conn").textConten
 
 function onMsg(m){
   if(m.t==="st"){ST=m;render()}
-  else if(m.t==="cfg"){CFG=m.cfg;VER=m.ver;buildAmount();applyImg();if($("#drawer").classList.contains("show")&&curTab!=="img")renderTab()}
+  else if(m.t==="cfg"){CFG=m.cfg;VER=m.ver;SETUPINFO=m.setup||"";buildAmount();applyImg();if($("#drawer").classList.contains("show")&&curTab!=="img")renderTab()}
   else if(m.t==="ev"){
     if(m.e==="glass_on") pop(m.p);
     if(m.e==="pour_done") toast(`Glas ${m.p}: ${m.ml.toFixed(1)} ml – Prost! 🥃`);
@@ -790,6 +790,7 @@ function renderTab(){
   if(curTab==="sys"){
     h+=`<div class="card"><h3>Pumpe</h3><div class="f"><label>Schlauch füllen / entlüften<small>Rohr fährt in Parkposition – Auffangbecher hinstellen!</small></label><input type="number" id="pr_s" value="3" style="width:64px"><span class="u">s</span><button class="sbtn gold" onclick="send({c:'prime',s:+$('#pr_s').value})">Start</button></div></div>
       <div class="card"><h3>Firmware</h3><div class="f"><label>Version</label><span>${VER}</span></div>
+      <div class="f"><label>Standard-Einrichtung<small>${SETUPINFO||"–"}</small></label><button class="sbtn" onclick="send({c:'reapplySetup'})">Neu laden</button></div>
       <div class="f"><label>Laufzeit</label><span id="upt">${ST?fmtUp(ST.up):"–"}</span></div>
       <div class="f"><label>Update (firmware.bin)<small id="otaS">Datei von GitHub-Releases</small></label><input type="file" id="ota" accept=".bin" style="width:160px;font-size:12px"></div>
       <div class="f"><label>REST-API<small>GET /api/state · POST /api/pour?p=1&amp;ml=20 · /api/autofill · /api/stop</small></label></div></div>

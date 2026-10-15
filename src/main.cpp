@@ -116,11 +116,13 @@ static void toast(const String& msg) {
   wsSend(d);
 }
 
+static String setupInfoStr();
 static void sendCfg() {
   JsonDocument d;
   d["t"] = "cfg";
   settingsToJson(d["cfg"].to<JsonObject>());
   d["ver"] = FW_VERSION;
+  d["setup"] = setupInfoStr();
   wsSend(d);
 }
 
@@ -693,6 +695,10 @@ static void handleCmd(const String& msg) {
     if (!scanPending) { WiFi.scanNetworks(true); scanPending = true; }
   } else if (c == "reboot") {
     rebootAt = millis() + 500;
+  } else if (c == "reapplySetup") {
+    Preferences pr; pr.begin("shdef", false); pr.clear(); pr.end();
+    toast("Standard-Einrichtung wird neu geladen – Neustart ...");
+    rebootAt = millis() + 1200;
   } else if (c == "factory") {
     settingsFactoryReset();
     toast("Werkseinstellungen – Neustart ...");
@@ -919,8 +925,10 @@ static void webBegin() {
 // ---------------------------------------------------------------------
 //  Standard-Einrichtung (mitgeflasht aus setup/default-setup.json)
 // ---------------------------------------------------------------------
+static String setupInfo = "keine";
+static String setupInfoStr() { return setupInfo; }
 static void applyDefaultSetup() {
-  if (!fsOk || !LittleFS.exists("/setup.json")) return;
+  if (!fsOk || !LittleFS.exists("/setup.json")) { setupInfo = "keine mitgeflasht"; return; }
   File f = LittleFS.open("/setup.json", "r");
   JsonDocument d;
   DeserializationError err = deserializeJson(d, f);
@@ -929,12 +937,13 @@ static void applyDefaultSetup() {
   String ver = d["ver"] | "";
   Preferences pr;
   pr.begin("shdef", false);
-  if (pr.getString("ver", "") == ver) { pr.end(); return; }   // schon übernommen
+  if (pr.getString("ver", "") == ver) { pr.end(); setupInfo = "aktiv (" + ver + ")"; return; }   // schon übernommen
   settingsFromJson(d["cfg"].as<JsonObjectConst>());
   if (LittleFS.exists("/img.bin")) cfg.imgVer = esp_random();
   settingsSave();
   pr.putString("ver", ver);
   pr.end();
+  setupInfo = "neu übernommen (" + ver + ")";
   Serial.printf("[Setup] Standard-Einrichtung \"%s\" übernommen\n", (const char*)(d["name"] | ""));
 }
 
