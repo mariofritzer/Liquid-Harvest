@@ -406,7 +406,7 @@ function staticScene(){
   s+=`<g id="vidMaskG" mask="url(#vfade)"><svg id="vidWrap" style="display:none" preserveAspectRatio="none"><image id="vidImg"/></svg></g>`;
   s+=`<g id="combineDraw">${combine()}</g><image id="combineImg" style="display:none" preserveAspectRatio="xMidYMid meet"/>`;
   // Untersetzer + Gläser
-  s+=`<g id="ring"><g id="coasters"></g><g id="glasses"></g><g id="ringStream"></g></g><g id="auger"></g>`;
+  s+=`<g id="ring"><g id="parkMark" style="cursor:pointer"></g><g id="coasters"></g><g id="glasses"></g><g id="ringStream"></g></g><g id="auger"></g>`;
   $("#svg").innerHTML=s;
   buildPlaces();
 }
@@ -422,7 +422,7 @@ function glassBase(i){
 // -> Mittelpunkt = Drehpunkt. Video so skalieren/verschieben, dass der Drehpunkt in der Scheibenmitte
 // liegt und die Gläser auf dem Ring der Holzscheibe stehen.
 function autoAlign(v){
-  const S=100, pts=(v.tips||[]).filter(Boolean).map(t=>[t.u*v.fw/S,t.v*v.fh/S]); if(pts.length<4) return false;   // skaliert -> stabil
+  const S=100, pts=[...(v.tips||[]),v.ptip].filter(Boolean).map(t=>[t.u*v.fw/S,t.v*v.fh/S]); if(pts.length<4) return false;   // skaliert -> stabil
   const A=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]], b=[0,0,0,0];
   for(const [x,y] of pts){ const r=[x*x,y*y,x,y]; for(let i=0;i<4;i++){ b[i]+=r[i]; for(let j=0;j<4;j++) A[i][j]+=r[i]*r[j]; } }
   for(let i=0;i<4;i++){ let m=i; for(let k=i+1;k<4;k++) if(Math.abs(A[k][i])>Math.abs(A[m][i])) m=k; [A[i],A[m]]=[A[m],A[i]]; [b[i],b[m]]=[b[m],b[i]];
@@ -445,6 +445,20 @@ function glassXY(i){
   const a=CFG?CFG.ang[i]:[18.3,36.7,55,73.3,91.7,110][i],[dx,dy]=dir(a); return [dx*R,dy*R];
 }
 function glassTf(x,y){ const k=vidMode()&&glassBase(0)?glassK():1; if(k===1) return ""; const b=P(x,y,0); return `transform="translate(${f1(b[0])} ${f1(b[1])}) scale(${k}) translate(${f1(-b[0])} ${f1(-b[1])})"`; }
+function parkXY(){
+  if(vidMode()){ const v=V(); if(!v.ptip) return null;
+    let [sx,sy]=vidToScene(v.ptip); sy+=(GH+(+(v.gap??30)))*glassK(); const u=sx/C, w=2*sy; return [(u+w)/2,(w-u)/2]; }
+  const [dx,dy]=dir(CFG?CFG.angPark:0); return [dx*R,dy*R];
+}
+function buildPark(){
+  const g=$("#parkMark"); if(!g) return;
+  const pp=parkXY(); if(!pp){ g.innerHTML=""; return; }
+  const [x,y]=pp, tf=vidMode()?glassTf(x,y):"", c=P(x,y,2), k=vidMode()?glassK():1;
+  g.innerHTML=`<g ${tf}>${ell(x,y,0,30,'id="pkGlow" fill="#ffb000" opacity="0" filter="url(#glow)"')}
+    ${ell(x,y,1,24,'fill="#1b1b1b" stroke="#000" stroke-opacity=".4"')}
+    ${ell(x,y,2,20,'id="pkRing" fill="none" stroke="#9a9a9a" stroke-width="2.5" stroke-dasharray="6 5"')}
+    <text x="${f1(c[0])}" y="${f1(c[1]+6)}" text-anchor="middle" font-size="17" font-weight="800" fill="#cfcfcf" style="pointer-events:none">P</text></g>`;
+}
 function buildPlaces(){
   let co="",gl="";
   const free=vidMode()&&glassBase(0);
@@ -466,7 +480,7 @@ function buildPlaces(){
         <text class="gml" id="gm${i}" x="${f1(P(x,y,GH)[0])}" y="${f1(P(x,y,GH)[1]-14)}"></text>
       </g></g>`;
   }
-  $("#coasters").innerHTML=co;
+  $("#coasters").innerHTML=co; buildPark();
   // Gläser nach Tiefe sortieren (hinten zuerst)
   const tmp=document.createElementNS("http://www.w3.org/2000/svg","g");tmp.innerHTML=gl;
   [...tmp.children].sort((a,b)=>a.dataset.d-b.dataset.d).forEach(n=>$("#glasses").appendChild(n));
@@ -507,6 +521,9 @@ function render(){
     } else {lq.setAttribute("d","");ls.setAttribute("opacity","0")}
     $("#gm"+i).textContent=p.s!==0&&ml>=0.5?ml.toFixed(ml<10?1:0)+" ml":"";
   }
+  const pg=$("#pkGlow"), pr=$("#pkRing");
+  if(pg){ const at=ST.aim===0&&!ST.busy; pg.setAttribute("opacity",at?".8":"0"); pg.setAttribute("class",at?"pulse":"");
+    pr.setAttribute("stroke",at?"#ffb000":"#9a9a9a"); }
   renderStatus();
   if(sheetIdx>=0) updateSheet();
   if($("#drawer").classList.contains("show")&&curTab==="scales") updateScales();
@@ -986,7 +1003,7 @@ function applyVid(){
   ring.removeAttribute("transform");
   $("#vidWrap").style.display=on?"":"none"; $("#board").style.display="";
   if(on&&v.alpha) $("#vidMaskG").removeAttribute("mask"); else $("#vidMaskG").setAttribute("mask","url(#vfade)");
-  const key=JSON.stringify([on,on&&[v.gp,v.gs,v.tips,v.gap,v.x,v.y,v.w],CFG&&CFG.ang]);
+  const key=JSON.stringify([on,on&&[v.gp,v.gs,v.tips,v.ptip,v.gap,v.x,v.y,v.w],CFG&&CFG.ang,CFG&&CFG.angPark]);
   if(key!==placesKey&&document.querySelector(".glass")){ placesKey=key; rebuildPlaces(); }
   if(!on) return;
   $("#combineDraw").style.display="none"; $("#combineImg").style.display="none";
@@ -1042,6 +1059,16 @@ function detectTips(F,FW,FH){
     const md=Math.max(...pts.map(p=>p[0])), top=pts.filter(p=>p[0]>=md-Math.max(6,md*.08));
     tips.push({u:top.reduce((a,p)=>a+p[1],0)/top.length/FW, v:Math.max(...top.map(p=>p[2]))/FH});
   }
+  // Parkstellung: Pixel, die sich in allen 6 Glas-Standbildern gegenüber dem Parkbild unterscheiden
+  { const m=new Uint8Array(n); for(let p=0;p<n;p++){ let all=true; for(let j=1;j<7;j++) if(!D[j][p]){all=false;break} if(all) m[p]=1; }
+    const lab=new Int32Array(n); let best=[], cur=0;
+    for(let p=0;p<n;p++){ if(!m[p]||lab[p]) continue; cur++; const comp=[], st=[p]; lab[p]=cur;
+      while(st.length){ const q=st.pop(); comp.push(q); const x=q%FW;
+        for(const r of [x>0?q-1:-1, x<FW-1?q+1:-1, q-FW, q+FW]) if(r>=0&&r<n&&m[r]&&!lab[r]){ lab[r]=cur; st.push(r); } }
+      if(comp.length>best.length) best=comp; }
+    if(best.length>=20){ const pts=best.map(p=>{const x=p%FW,y=(p/FW)|0;return [Math.sqrt((x-cx)**2+(y-cy)**2),x,y]});
+      const md=Math.max(...pts.map(p=>p[0])), top=pts.filter(p=>p[0]>=md-Math.max(6,md*.08));
+      tips.park={u:top.reduce((a,p)=>a+p[1],0)/top.length/FW, v:Math.max(...top.map(p=>p[2]))/FH}; } }
   return tips;
 }
 function openVideo(file){
@@ -1134,11 +1161,11 @@ async function processVideo(){
         g.clearRect(cx,cy,FW,FH); g.drawImage(wc,0,0,WW,WH,cx,cy,FW,FH); }
       info(`Zerlege Video… ${i+1}/${N}`); }
     info("Suche Rohrspitzen…");
-    const tips=detectTips(raw,FW,FH);
+    const tips=detectTips(raw,FW,FH), ptip=tips.park||null;
     info("Komprimiere…");
     const out=await compressCanvas(c,maxBytes);
     if(out.blob.size>maxBytes){ info("Zu groß – weniger Bilder je Fahrt oder kleinere Bildbreite wählen."); return; }
-    const meta={n:N,M,segs:6,cols,fw:out.w/cols,fh:out.h/rows,ver:Date.now(),on:true,times:T,alpha:bgOff,tips,gp:[null,null,null,null,null,null]};
+    const meta={n:N,M,segs:6,cols,fw:out.w/cols,fh:out.h/rows,ver:Date.now(),on:true,times:T,alpha:bgOff,tips:[...tips],ptip,gp:[null,null,null,null,null,null]};
     if(demo){ demoVid=URL.createObjectURL(out.blob); await demoStore("lh_demo_vid",out.blob); }
     else{
       info(`Lade hoch… (${Math.round(out.blob.size/1024)} kB)`);
@@ -1284,6 +1311,7 @@ function simTick(){
 }
 
 staticScene(); requestAnimationFrame(drawAuger); connect();
+$("#parkMark").addEventListener("click",()=>{ if(!aligning) send({c:"aim",p:0}); });
 setTimeout(()=>{if(!ST&&!demo&&(!ws||ws.readyState!==1)){/* bleibt im Verbindungsversuch */}},3000);
 </script>
 </body>
