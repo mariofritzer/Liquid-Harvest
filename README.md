@@ -19,7 +19,6 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 
 ### Untergründe & Darstellung
 
-<p align="center"><img src="docs/images/untergruende.png" alt="Untergründe: Holzscheibe, Holzplatte, Stoppelfeld, Wiese, Acker, Schiefer, Beton, ohne" width="900"></p>
 <p align="center"><sub>Holzscheibe · Holzplatte · Stoppelfeld · Wiese · Acker · Schiefer · Beton · ohne – Glasnummern passen ihre Farbe automatisch an</sub></p>
 
 <p align="center"><img src="docs/images/app-darstellung.png" alt="Einstellungen: Darstellung mit Klapp-Reitern" width="220"></p>
