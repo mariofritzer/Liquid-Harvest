@@ -17,6 +17,13 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | <img src="docs/images/app-start.png" width="200"> | <img src="docs/images/app-pour.png" width="200"> | <img src="docs/images/app-glass.png" width="200"> | <img src="docs/images/app-scales.png" width="200"> |
 | Gläser poppen auf, sobald sie auf der Waage stehen | Fortschritt, Warteschlange, Notstopp | Menge wählen und starten | Tara + Kalibrierung pro Platz |
 
+### Untergründe & Darstellung
+
+<p align="center"><img src="docs/images/untergruende.png" alt="Untergründe: Holzscheibe, Holzplatte, Stoppelfeld, Wiese, Acker, Schiefer, Beton, ohne" width="900"></p>
+<p align="center"><sub>Holzscheibe · Holzplatte · Stoppelfeld · Wiese · Acker · Schiefer · Beton · ohne – Glasnummern passen ihre Farbe automatisch an</sub></p>
+
+<p align="center"><img src="docs/images/app-darstellung.png" alt="Einstellungen: Darstellung mit Klapp-Reitern" width="220"></p>
+
 **Online-Vorschau:** [mariofritzer.github.io/Liquid-Harvest/app/](https://mariofritzer.github.io/Liquid-Harvest/app/) – die komplette App als Simulation, ohne Hardware. Dort kannst du Bild, STL-Modell, Rohr-Video, Ausrichtung und Farben vorab einrichten, unter ⚙️ → Darstellung **exportieren** und nach dem Flashen am Drescher **importieren**.
 
 ## Funktionen
@@ -30,7 +37,9 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | **Online** | isometrische 3D-Ansicht am Handy, Gläser poppen live auf, Klick → Menge wählen → einschenken |
 | **WLAN** | Heimnetz mit `http://liquidharvest.local`, Hotspot als Rückfall bzw. Party-Modus, Captive Portal |
 | **Eigenes Drescher-Bild** | eigenes Foto oder **STL-3D-Modell** hochladen (wird im Browser isometrisch gerendert), Hintergrund automatisch freistellen, Position einstellen – das Abtankrohr schwenkt live darüber |
-| **Rohr-Video** | eigenes Video (Rohr schwenkt aus) hochladen – die App zeigt immer das Einzelbild, das zum echten Servo-Winkel passt |
+| **Rohr-Video** | eigenes Video (Rohr fährt Park → Glas 1 … 6) hochladen – Haltepunkte, Rohrspitzen und Parkposition werden erkannt, Hintergrund freigestellt, Gläser automatisch unter den Auslauf gesetzt; die App zeigt immer das Bild zum echten Servo-Winkel |
+| **Untergrund** | Holzscheibe, Holzplatte, Stoppelfeld, Wiese, Acker, Schiefer, Beton oder ohne – realistische Texturen, im Browser erzeugt |
+| **Standard-Einrichtung** | Export aus der App als `setup/default-setup.json` ins Repo → wird beim Flashen mitinstalliert; jeder Build prüft das Image und startet es testweise im ESP32-Emulator |
 | **Updates** | Web-Installer per USB oder OTA über die Weboberfläche |
 | **API** | REST für Home Assistant & Co. |
 
