@@ -39,13 +39,15 @@ jobs:
           if [ -f setup/default-setup.json ]; then
             pio run -e esp32 -t buildfs > fs.log 2>&1 || { tail -9 fs.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
             tail -3 fs.log
+            # sichern: der folgende Firmware-Build räumt .pio/build auf
+            cp .pio/build/esp32/littlefs.bin fs-image.bin
           fi
 
       - name: Firmware bauen
         run: |
           pio run -e esp32 > build.log 2>&1 || { tail -9 build.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
           tail -5 build.log
-          if [ -f .pio/build/esp32/littlefs.bin ]; then python scripts/append_fs.py; fi
+          if [ -f fs-image.bin ]; then python scripts/append_fs.py fs-image.bin; fi
 
       - name: Image prüfen (Standard-Einrichtung enthalten?)
         run: |

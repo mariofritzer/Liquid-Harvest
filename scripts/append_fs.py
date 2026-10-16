@@ -1,8 +1,9 @@
 # Hängt das Dateisystem-Image (Standard-Einrichtung) an seine Partitionsadresse ans Gesamt-Image an.
-# Aufruf nach "pio run -t buildfs" und "pio run": python scripts/append_fs.py
+# Aufruf nach "pio run -t buildfs" und "pio run": python scripts/append_fs.py [littlefs-image.bin]
 import csv, os, sys
 b = ".pio/build/esp32"
-merged, fs = os.path.join(b, "firmware-merged.bin"), os.path.join(b, "littlefs.bin")
+merged = os.path.join(b, "firmware-merged.bin")
+fs = sys.argv[1] if len(sys.argv) > 1 else os.path.join(b, "littlefs.bin")
 if not os.path.exists(fs):
     sys.exit("littlefs.bin fehlt")
 start = None
