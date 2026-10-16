@@ -91,8 +91,8 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 ## Verdrahtungs-Tipps
 
 - **Servo:** 470–1000 µF Elko direkt an 5 V/GND des Servos.
-- **Pumpe:** Freilaufdiode (z. B. 1N5819) antiparallel zur Pumpe, falls das D4184-Modul keine hat. 10 kΩ Pulldown Gate→GND, damit die Pumpe beim Booten sicher aus ist.
-- **Taster-LED:** 12-V-LED-Version über Transistor/MOSFET schalten, 3–6-V-Version mit Vorwiderstand direkt.
+- **Pumpe:** Freilaufdiode 1N5819 antiparallel zur Pumpe ist Pflicht – das D4184-Modul (2 × AOD4184A) hat keine. 10 kΩ Pulldown PWM→GND, damit die Pumpe beim Booten sicher aus ist.
+- **Taster-LED** (5–12 V, Vorwiderstand eingebaut): „+“ an +12 V, „−“ über NPN-Transistor (BC547, 1 kΩ an der Basis) nach GND – GPIO 26 schaltet bzw. dimmt.
 - **Masse:** sternförmig führen, Pumpen-/Servostrom nicht über die HX711-Masse.
 - **HX711:** RATE-Pin auf GND (10 Messungen/s, rauschärmer). Nicht angeschlossene Waagen in den Einstellungen deaktivieren.
 - Schlauch und Rohr **lebensmittelecht** (Silikon, alkoholbeständig).
