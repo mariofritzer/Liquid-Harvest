@@ -748,7 +748,7 @@ function renderTab(){
     h+=`<div class="card"><h3>Status</h3>
       <div class="f"><label>Heimnetz</label><span>${w.sta?`✅ ${w.ssid} (${w.rssi} dBm)`:"nicht verbunden"}</span></div>
       ${w.sta?`<div class="f"><label>Adresse</label><span>${w.ip} · ${w.host}.local</span></div>`:""}
-      <div class="f"><label>Hotspot</label><span>${w.ap?"aktiv: "+w.apSsid:"aus"}</span></div></div>
+      <div class="f"><label>Hotspot</label><span>${w.ap?"aktiv: "+w.apSsid+(w.apOpen?" (offen)":" (mit Passwort)"):"aus"}</span></div></div>
       <div class="card"><h3>Heimnetz (WLAN)</h3>
       <div class="f"><label>Netzwerk</label><button class="sbtn" onclick="send({c:'scan'});toast('Suche Netzwerke…')">Suchen</button></div>
       <div class="netlist">${netList.map(n=>`<button onclick="$('#w_ssid').value=this.dataset.s" data-s="${n.ssid.replace(/"/g,"&quot;")}"><span>${n.lock?"🔒 ":""}${n.ssid.replace(/</g,"&lt;")}</span><span style="color:var(--mute)">${n.rssi} dBm</span></button>`).join("")}</div>
@@ -759,7 +759,7 @@ function renderTab(){
       <div class="f"><label>Hotspot immer an<small>Party-Modus ohne Heimnetz</small></label><input type="checkbox" class="sw" id="w_apa" ${CFG.apAlways?"checked":""}></div>
       <div class="f"><input class="wide" type="password" id="w_app" placeholder="Hotspot-Passwort (min. 8 Zeichen, leer = unverändert)"></div></div>
       <button class="btn primary save" onclick="saveWifi()">Speichern & Neustart</button>
-      <p class="help">Findet der Drescher das Heimnetz nicht, öffnet er nach 20 s den Hotspot <b>LiquidHarvest-XXXX</b> (Passwort Standard: <code>prost1234</code>). Hotspot jederzeit erzwingen: Drehencoder-Knopf 3 s drücken.</p>`;
+      <p class="help">Findet der Drescher das Heimnetz nicht, öffnet er nach 20 s den Hotspot <b>LiquidHarvest-XXXX</b> (Passwort Standard: <code>prost1234</code>).<br><b>Drehencoder-Knopf 3 s drücken:</b> Hotspot <b>ohne Passwort</b> ein (Glas-LEDs blinken blau) – nochmal 3 s: Hotspot aus (rot).</p>`;
   }
   if(curTab==="img"){
     h+=`${boardCard()}<details class="card fold" data-k="img"><summary>Drescher als Bild / 3D-Modell</summary><h3>Foto / Bild</h3>

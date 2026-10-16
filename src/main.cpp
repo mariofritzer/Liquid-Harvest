@@ -83,6 +83,9 @@ static SemaphoreHandle_t stateMutex;
 enum WState : uint8_t { W_CONNECTING, W_STA, W_AP };
 static WState wstate = W_AP;
 static bool apActive = false;
+static bool apOpen = false;        // Hotspot ohne Passwort (per Encoder-Knopf erzwungen)
+static bool apUserOff = false;     // Hotspot per Knopf ausgeschaltet -> kein automatischer Rückfall-Hotspot
+static uint32_t ledFlashUntil = 0, ledFlashColor = 0;
 static uint32_t tWifi = 0, tStaRetry = 0;
 static bool staRetrying = false;
 static String apSsid;
@@ -414,7 +417,7 @@ struct Button {
 Button btn{PIN_BTN, 1500};
 Button encBtn{PIN_ENC_SW, 3000};
 
-static void startAP();
+static void toggleForcedAP();
 
 static void inputLoop() {
   btn.update();
@@ -435,7 +438,7 @@ static void inputLoop() {
   if (btn.longResult && aimIdx == 0 && !pourBusy()) startPrime(15000, true);  // halten = entlüften
 
   if (encBtn.clickResult && !pourBusy()) aim(0);
-  if (encBtn.longResult) { toast("WLAN-Hotspot gestartet"); startAP(); }
+  if (encBtn.longResult) toggleForcedAP();   // 3 s: offenen Hotspot ein / aus
 
   // Drehencoder -> Rohr live schwenken
   static int32_t lastCount = 0, acc = 0;
@@ -481,6 +484,11 @@ static void ledsLoop() {
     else                                       c = strip.Color(max(2, 10 * cfg.ledBright / 100), 0, 0); // Orientierung
     strip.setPixelColor(i, c);
   }
+  if (now < ledFlashUntil) {   // kurze Rückmeldung: blau = Hotspot an, rot = aus
+    float k = (cfg.ledBright / 100.0f) * (0.4f + 0.6f * ((now / 150) % 2));
+    uint8_t r = (ledFlashColor >> 16) & 255, g = (ledFlashColor >> 8) & 255, b = ledFlashColor & 255;
+    for (int i = 0; i < NUM_PLACES; i++) strip.setPixelColor(i, strip.Color(r * k, g * k, b * k));
+  }
   strip.show();
 
   // Taster-Beleuchtung
@@ -495,13 +503,17 @@ static void ledsLoop() {
 // ---------------------------------------------------------------------
 //  WLAN
 // ---------------------------------------------------------------------
-static void startAP() {
-  if (apActive) return;
+static void startAP(bool open = false) {
+  if (apActive && open == apOpen) return;
+  if (apActive) { dns.stop(); WiFi.softAPdisconnect(true); }
   WiFi.mode(cfg.ssid.length() ? WIFI_AP_STA : WIFI_AP);
-  WiFi.softAP(apSsid.c_str(), cfg.apPass.length() >= 8 ? cfg.apPass.c_str() : nullptr);
+  bool pw = !open && cfg.apPass.length() >= 8;
+  WiFi.softAP(apSsid.c_str(), pw ? cfg.apPass.c_str() : nullptr);
   dns.start(53, "*", WiFi.softAPIP());
   apActive = true;
-  Serial.printf("[WLAN] Hotspot \"%s\" aktiv – http://%s/\n", apSsid.c_str(), WiFi.softAPIP().toString().c_str());
+  apOpen = !pw;
+  Serial.printf("[WLAN] Hotspot \"%s\" aktiv (%s) – http://%s/\n", apSsid.c_str(), pw ? "mit Passwort" : "offen",
+                WiFi.softAPIP().toString().c_str());
 }
 
 static void stopAP() {
@@ -510,6 +522,31 @@ static void stopAP() {
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_STA);
   apActive = false;
+  apOpen = false;
+}
+
+// Encoder-Knopf 3 s: offenen Hotspot einschalten bzw. wieder ausschalten
+static void toggleForcedAP() {
+  uint32_t now = millis();
+  if (apActive) {
+    stopAP();
+    apUserOff = true;
+    if (cfg.ssid.length() && WiFi.status() != WL_CONNECTED) {
+      WiFi.setAutoReconnect(true);
+      WiFi.begin(cfg.ssid.c_str(), cfg.pass.c_str());
+      wstate = W_CONNECTING;
+      tWifi = now;
+    }
+    ledFlashColor = strip.Color(255, 0, 0);
+    Serial.println("[WLAN] Hotspot per Knopf ausgeschaltet");
+    toast("Hotspot ausgeschaltet");
+  } else {
+    apUserOff = false;
+    startAP(true);
+    ledFlashColor = strip.Color(0, 90, 255);
+    toast("Hotspot ohne Passwort gestartet");
+  }
+  ledFlashUntil = now + 900;
 }
 
 static void wifiBegin() {
@@ -546,6 +583,8 @@ static void wifiLoop() {
         wstate = W_STA;
         Serial.printf("[WLAN] Verbunden: http://%s/  bzw. http://%s.local/\n",
                       WiFi.localIP().toString().c_str(), cfg.host.c_str());
+      } else if (now - tWifi > 20000 && apUserOff) {
+        tWifi = now;   // Hotspot wurde per Knopf ausgeschaltet: weiter nur das Heimnetz versuchen
       } else if (now - tWifi > 20000) {
         Serial.println("[WLAN] Heimnetz nicht erreichbar -> Hotspot");
         WiFi.setAutoReconnect(false);
@@ -562,7 +601,7 @@ static void wifiLoop() {
 
     case W_AP:
       // Heimnetz regelmäßig erneut versuchen (z. B. Router nach Stromausfall später da)
-      if (cfg.ssid.length() && !cfg.apAlways) {
+      if (cfg.ssid.length() && !cfg.apAlways && !apOpen) {
         if (!staRetrying && now - tStaRetry > 120000 && WiFi.softAPgetStationNum() == 0) {
           WiFi.mode(WIFI_AP_STA);
           WiFi.begin(cfg.ssid.c_str(), cfg.pass.c_str());
@@ -749,6 +788,7 @@ static void buildState(String& out) {
   w["ip"] = WiFi.localIP().toString();
   w["rssi"] = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
   w["ap"] = apActive;
+  w["apOpen"] = apOpen;
   w["apSsid"] = apSsid;
   w["host"] = cfg.host;
   d["up"] = now / 1000;

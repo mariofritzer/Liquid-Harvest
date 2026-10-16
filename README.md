@@ -62,7 +62,7 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | Taster während Ausschank | **Notstopp** |
 | Taster halten in Parkposition | Pumpe läuft solange gedrückt (Schlauch füllen) |
 | Encoder-Knopf 1× | Rohr parken |
-| Encoder-Knopf 3 s | WLAN-Hotspot erzwingen |
+| Encoder-Knopf 3 s | Hotspot **ohne Passwort** ein (Glas-LEDs blinken blau) · nochmal 3 s: aus (rot) |
 
 ### LED-Farben
 
