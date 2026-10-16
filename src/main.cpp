@@ -966,6 +966,8 @@ void setup() {
   fsOk = LittleFS.begin(true);   // Partition "spiffs" (896 kB) für Drescher-Bild und Rohr-Video
   Serial.printf("[FS] LittleFS %s\n", fsOk ? "bereit" : "FEHLER");
   applyDefaultSetup();
+  Serial.printf("[Setup] Standard-Einrichtung: %s | Darstellung %u Zeichen | Park %.1f°, Glas 1 %.1f°, Glas 6 %.1f°\n",
+                setupInfo.c_str(), (unsigned)cfg.ui.length(), cfg.angPark, cfg.ang[0], cfg.ang[NUM_PLACES - 1]);
 
   ledcSetup(CH_PUMP, 1000, 8);
   ledcAttachPin(PIN_PUMP, CH_PUMP);

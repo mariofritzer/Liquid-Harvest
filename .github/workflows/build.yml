@@ -47,6 +47,14 @@ jobs:
           tail -5 build.log
           if [ -f .pio/build/esp32/littlefs.bin ]; then python scripts/append_fs.py; fi
 
+      - name: Image prüfen (Standard-Einrichtung enthalten?)
+        run: |
+          pip install -q littlefs-python
+          python scripts/verify_image.py .pio/build/esp32/firmware-merged.bin
+
+      - name: Boot-Test im ESP32-Emulator
+        run: bash scripts/qemu_boot_test.sh .pio/build/esp32/firmware-merged.bin
+
       - name: Web-Installer zusammenstellen
         run: |
           VERSION=$(grep -oP 'FW_VERSION\s+"\K[^"]+' src/version.h)

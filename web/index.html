@@ -60,7 +60,7 @@ details.fold[open]{padding-bottom:12px}
 #svg.busy .beacon{animation:pulse .5s ease-in-out infinite}
 .stream{stroke-dasharray:6 7;animation:flow .35s linear infinite}
 @keyframes flow{to{stroke-dashoffset:-13}}
-.gnum{font-size:13px;font-weight:700;fill:var(--mute);text-anchor:middle;pointer-events:none}
+.gnum{font-size:15px;font-weight:800;text-anchor:middle;pointer-events:none;fill:var(--num-fill,#cfcfcf);stroke:var(--num-halo,#000a);stroke-width:4px;paint-order:stroke;stroke-linejoin:round}
 .gml{font-size:12px;font-weight:700;fill:#fff;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#0008;stroke-width:3px}
 
 .status{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-top:-6px}
@@ -1406,19 +1406,20 @@ function genTexture(kind,S=768){
   return cv.toDataURL("image/jpeg",.88);
 }
 const SURF={
-  holz:    {n:"Holzscheibe", s:["#4b2f1b","#24160b"], bark:true, sw:["#d6ab74","#7a4b25"]},
-  platte:  {n:"Holzplatte",  s:["#c9a06a","#94693a"], sw:["#eed9b0","#c9a06a"]},
-  stroh:   {n:"Stoppelfeld", s:["#6b4a26","#3a2812"], sw:["#e2c070","#a47a2f"]},
-  wiese:   {n:"Wiese",       s:["#4a3420","#24180c"], sw:["#5f9a36","#244a14"]},
-  acker:   {n:"Acker",       s:["#4a3320","#22160b"], sw:["#6e4a2b","#3a2414"]},
-  schiefer:{n:"Schiefer",    s:["#2c3035","#121417"], sw:["#5b646e","#2f353c"]},
-  beton:   {n:"Beton",       s:["#7e7e79","#4a4a46"], sw:["#b7b7b1","#8f8f8a"]},
-  keine:   {n:"Ohne"}
+  holz:    {n:"Holzscheibe", s:["#4b2f1b","#24160b"], bark:true, sw:["#d6ab74","#7a4b25"], num:["#2b1708","#f6e3c4d9"]},
+  platte:  {n:"Holzplatte",  s:["#c9a06a","#94693a"], sw:["#eed9b0","#c9a06a"], num:["#3a240f","#fff6e6cc"]},
+  stroh:   {n:"Stoppelfeld", s:["#6b4a26","#3a2812"], sw:["#e2c070","#a47a2f"], num:["#2e2004","#fff2c8d0"]},
+  wiese:   {n:"Wiese",       s:["#4a3420","#24180c"], sw:["#5f9a36","#244a14"], num:["#ffffff","#0f2a07d9"]},
+  acker:   {n:"Acker",       s:["#4a3320","#22160b"], sw:["#6e4a2b","#3a2414"], num:["#fff1dc","#1a0d04d9"]},
+  schiefer:{n:"Schiefer",    s:["#2c3035","#121417"], sw:["#5b646e","#2f353c"], num:["#ffffff","#000000c0"]},
+  beton:   {n:"Beton",       s:["#7e7e79","#4a4a46"], sw:["#b7b7b1","#8f8f8a"], num:["#1c1c1c","#ffffffcc"]},
+  keine:   {n:"Ohne",                                                       num:["#d9d9d9","#000000b3"]}
 };
 const texCache={};
 function applyBoard(){
   const id=(UI&&UI.board)||"holz", b=SURF[id]||SURF.holz, set=(i,c)=>{const e=$("#"+i); if(e) e.setAttribute("stop-color",c)};
   const top=$("#boardTop"); if(!top) return;
+  const sv=$("#svg"); sv.style.setProperty("--num-fill",b.num[0]); sv.style.setProperty("--num-halo",b.num[1]);
   const show=!!b.s;
   ["boardTop","boardSide","boardSideTex","boardLightP","boardImg"].forEach(i=>{const e=$("#"+i); if(e) e.style.display=show?"":"none"});
   $("#boardTex").style.display="none"; $("#boardRings").style.display="none";
