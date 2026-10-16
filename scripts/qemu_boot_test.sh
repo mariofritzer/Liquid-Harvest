@@ -14,9 +14,13 @@ ann() { if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::$1 title=Boot-Test::$2"; e
 if ! curl -fsSL -o "$W/q.tar.xz" "https://github.com/espressif/qemu/releases/download/$QV/$QF" || ! tar xJf "$W/q.tar.xz" -C "$W"; then
   ann warning "Emulator nicht verfügbar – Boot-Test übersprungen"; exit 0
 fi
-command -v apt-get >/dev/null && ! ldconfig -p | grep -q libslirp && sudo apt-get install -y -qq libslirp0 >/dev/null 2>&1
 Q="$W/qemu/bin/qemu-system-xtensa"
-if ! "$Q" --version >/dev/null 2>&1; then ann warning "Emulator startet nicht – Boot-Test übersprungen"; exit 0; fi
+if ! "$Q" --version >/dev/null 2>&1 && command -v apt-get >/dev/null; then
+  sudo apt-get update -qq >/dev/null 2>&1; sudo apt-get install -y -qq libslirp0 libsdl2-2.0-0 libpixman-1-0 >/dev/null 2>&1
+fi
+if ! "$Q" --version >/dev/null 2>&1; then
+  ann warning "Emulator startet nicht – Boot-Test übersprungen ($(ldd "$Q" 2>/dev/null | grep 'not found' | awk '{print $1}' | tr '\n' ' '))"; exit 0
+fi
 
 # Flash auf 4 MB auffüllen (wie ein gelöschter Chip)
 python3 - "$IMG" "$W/flash.bin" <<'EOF'
