@@ -20,7 +20,7 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 ### Untergründe & Darstellung
 
 <p align="center"><sub>Holzscheibe · Holzplatte · Stoppelfeld · Wiese · Acker · Schiefer · Beton · ohne – Glasnummern passen ihre Farbe automatisch an</sub></p>
-
+<p align="center"><img src="docs/images/untergruende.png" alt="Einstellungen: Darstellung mit Klapp-Reitern" width="220"></p>
 <p align="center"><img src="docs/images/app-darstellung.png" alt="Einstellungen: Darstellung mit Klapp-Reitern" width="220"></p>
 
 **Online-Vorschau:** [mariofritzer.github.io/Liquid-Harvest/app/](https://mariofritzer.github.io/Liquid-Harvest/app/) – die komplette App als Simulation, ohne Hardware. Dort kannst du Bild, STL-Modell, Rohr-Video, Ausrichtung und Farben vorab einrichten, unter ⚙️ → Darstellung **exportieren** und nach dem Flashen am Drescher **importieren**.
