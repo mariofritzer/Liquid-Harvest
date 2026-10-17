@@ -16,6 +16,8 @@
 #include <stdint.h>
 
 constexpr int NUM_PLACES = 6;
+constexpr int MAX_LEDS = 64;            // max. LEDs in der WS2812B-Kette
+constexpr int MAX_LEDS_PER_GLASS = 12;  // max. LEDs, die einem Glas zugeordnet werden können
 
 // Waagen (HX711): gemeinsamer Takt, je eine Datenleitung
 constexpr int PIN_HX_SCK = 4;

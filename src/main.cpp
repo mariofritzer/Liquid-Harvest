@@ -68,7 +68,18 @@ static File imgFile;
 static bool imgTooBig = false;
 static constexpr size_t IMG_MAX = 100 * 1024;
 
-Adafruit_NeoPixel strip(NUM_PLACES, PIN_LEDS, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip(MAX_LEDS, PIN_LEDS, NEO_GRB + NEO_KHZ800);
+static uint8_t ledTest[MAX_LEDS_PER_GLASS * 2];   // LED-Nummern, die gerade zum Testen leuchten
+static uint8_t ledTestN = 0;
+static uint32_t ledTestUntil = 0;
+
+// Kettenlänge übernehmen (alte, nun überzählige LEDs vorher ausschalten)
+static void applyLedCount() {
+  if (strip.numPixels() == cfg.ledCount) return;
+  strip.clear(); strip.show();
+  strip.updateLength(cfg.ledCount);
+  strip.clear(); strip.show();
+}
 
 // Web
 AsyncWebServer server(80);
@@ -471,6 +482,7 @@ static void ledsLoop() {
   float fastPulse = 0.35f + 0.65f * (0.5f + 0.5f * sinf(now * 2 * PI / 450.0f));
   bool blink = (now / 150) % 2;
 
+  uint32_t placeCol[NUM_PLACES];
   for (int i = 0; i < NUM_PLACES; i++) {
     const Place& pl = places[i];
     uint32_t c;
@@ -482,12 +494,21 @@ static void ledsLoop() {
     else if (pl.st == P_GLASS)                c = scaleColor(0, 60, 255, 1);                     // bereit
     else if (pl.st == P_FILLED)               c = scaleColor(0, 255, 40, 1);                     // fertig
     else                                       c = strip.Color(max(2, 10 * cfg.ledBright / 100), 0, 0); // Orientierung
-    strip.setPixelColor(i, c);
+    placeCol[i] = c;
+  }
+  // Jede LED bekommt die Farbe ihres Glases; nicht zugeordnete LEDs bleiben aus
+  strip.clear();
+  for (int i = 0; i < NUM_PLACES; i++)
+    for (int k = 0; k < cfg.ledMapN[i]; k++)
+      if (cfg.ledMap[i][k] >= 1 && cfg.ledMap[i][k] <= strip.numPixels()) strip.setPixelColor(cfg.ledMap[i][k] - 1, placeCol[i]);
+  if (now < ledTestUntil) {    // Test aus den Einstellungen: gewählte LEDs blinken weiß
+    uint32_t w = blink ? strip.Color(255, 255, 255) : strip.Color(40, 40, 40);
+    for (int k = 0; k < ledTestN; k++) if (ledTest[k] >= 1 && ledTest[k] <= strip.numPixels()) strip.setPixelColor(ledTest[k] - 1, w);
   }
   if (now < ledFlashUntil) {   // kurze Rückmeldung: blau = Hotspot an, rot = aus
     float k = (cfg.ledBright / 100.0f) * (0.4f + 0.6f * ((now / 150) % 2));
     uint8_t r = (ledFlashColor >> 16) & 255, g = (ledFlashColor >> 8) & 255, b = ledFlashColor & 255;
-    for (int i = 0; i < NUM_PLACES; i++) strip.setPixelColor(i, strip.Color(r * k, g * k, b * k));
+    for (int i = 0; i < (int)strip.numPixels(); i++) strip.setPixelColor(i, strip.Color(r * k, g * k, b * k));
   }
   strip.show();
 
@@ -718,6 +739,7 @@ static void handleCmd(const String& msg) {
     o.remove("ssid"); o.remove("pass"); o.remove("apPass"); o.remove("host"); o.remove("apAlways");
     settingsFromJson(o);
     settingsSave();
+    applyLedCount();
     if (!pourBusy()) aim(aimIdx);
     sendCfg();
     toast("Gespeichert");
@@ -732,6 +754,10 @@ static void handleCmd(const String& msg) {
     rebootAt = millis() + 1500;
   } else if (c == "scan") {
     if (!scanPending) { WiFi.scanNetworks(true); scanPending = true; }
+  } else if (c == "ledTest") {          // {"c":"ledTest","leds":[2,3]} – LEDs kurz weiß blinken lassen
+    ledTestN = 0;
+    for (JsonVariant v : d["leds"].as<JsonArray>()) if (ledTestN < sizeof(ledTest)) ledTest[ledTestN++] = v.as<int>();
+    ledTestUntil = millis() + 2500;
   } else if (c == "reboot") {
     rebootAt = millis() + 500;
   } else if (c == "reapplySetup") {
@@ -1030,7 +1056,8 @@ void setup() {
 
   strip.begin();
   strip.clear();
-  strip.show();
+  strip.show();                 // ganze mögliche Kette einmal löschen
+  applyLedCount();
 
   Scales::begin();
 

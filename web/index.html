@@ -257,7 +257,7 @@ function setConn(on){ $("#dot").classList.toggle("on",on); $("#conn").textConten
 
 function onMsg(m){
   if(m.t==="st"){ST=m;render()}
-  else if(m.t==="cfg"){CFG=m.cfg;VER=m.ver;SETUPINFO=m.setup||"";buildAmount();applyImg();if($("#drawer").classList.contains("show")&&curTab!=="img")renderTab()}
+  else if(m.t==="cfg"){CFG=m.cfg;VER=m.ver;SETUPINFO=m.setup||"";buildAmount();applyImg();if($("#drawer").classList.contains("show")&&curTab!=="img"&&!(curTab==="leds"&&LEDEDIT))renderTab()}
   else if(m.t==="ev"){
     if(m.e==="glass_on") pop(m.p);
     if(m.e==="pour_done") toast(`Glas ${m.p}: ${m.ml.toFixed(1)} ml – Prost! 🥃`);
@@ -670,7 +670,7 @@ function updateSheet(){
 }
 
 /* ---------------- Einstellungen ---------------- */
-const TABS=[["dose","Dosierung"],["scales","Waagen"],["servo","Servo"],["img","Darstellung"],["wifi","WLAN"],["sys","System"]];
+const TABS=[["dose","Dosierung"],["scales","Waagen"],["servo","Servo"],["leds","LEDs"],["img","Darstellung"],["wifi","WLAN"],["sys","System"]];
 let curTab="dose";
 const FIELDS={
   dose:[["Ausschank",[
@@ -709,11 +709,11 @@ function collect(tab){
   (FIELDS[tab]||[]).forEach(([_,fs])=>fs.forEach(([k,,, u])=>{const e=$("#f_"+k);if(!e)return;o[k]=u==="bool"?e.checked:+e.value*(+e.dataset.mul)}));
   return o;
 }
-function openDrawer(){ $("#drawer").classList.add("show"); send({c:"getCfg"}); renderTabs(); renderTab(); }
+function openDrawer(){ LEDEDIT=null; $("#drawer").classList.add("show"); send({c:"getCfg"}); renderTabs(); renderTab(); }
 $("#gear").onclick=openDrawer; $("#dClose").onclick=()=>$("#drawer").classList.remove("show");
 function renderTabs(){
   $("#tabs").innerHTML=TABS.map(([k,l])=>`<button data-k="${k}" class="${k===curTab?"on":""}">${l}</button>`).join("");
-  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{curTab=b.dataset.k;renderTabs();renderTab()});
+  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{curTab=b.dataset.k;LEDEDIT=null;renderTabs();renderTab()});
 }
 function saveBtn(tab){return `<button class="btn primary save" onclick="saveTab('${tab}')">Speichern</button>`}
 window.saveTab=tab=>{
@@ -728,6 +728,24 @@ function renderTab(){
     FIELDS.dose.forEach(([t,fs])=>h+=`<div class="card"><h3>${t}</h3>${fs.map(fieldHtml).join("")}</div>`);
     h+=saveBtn("dose");
     h+=`<p class="help">Ablauf: Pumpe läuft mit <b>schnell</b>, schaltet „Langsam ab“ Gramm vor dem Ziel auf <b>langsam</b> und stoppt „Stopp vorher“ Gramm vor dem Ziel – der Rest läuft aus dem Schlauch nach. Zu viel im Glas → „Stopp vorher“ erhöhen.</p>`;
+  }
+  if(curTab==="leds"){
+    if(!LEDEDIT) LEDEDIT={n:CFG.ledCount||6,map:(CFG.ledMap||[[1],[2],[3],[4],[5],[6]]).map(a=>[...a])};
+    const E=LEDEDIT, cnt={}; E.map.flat().forEach(v=>cnt[v]=(cnt[v]||0)+1);
+    const bad=v=>!(v>=1&&v<=E.n)||cnt[v]>1;
+    h+=`<div class="card"><h3>LED-Kette</h3>
+      <div class="f"><label>Anzahl LEDs<small>alle WS2812B in der Kette, max. 64</small></label><input type="number" id="lc_n" min="1" max="64" value="${E.n}" inputmode="numeric"></div>
+      <div class="f"><label>Nicht zugeordnete LEDs<small>bleiben aus</small></label><span style="color:var(--mute)">${[...Array(E.n)].map((_,i)=>i+1).filter(v=>!cnt[v]).join(", ")||"keine"}</span></div></div>`;
+    E.map.forEach((leds,i)=>{
+      h+=`<div class="card"><div class="f" style="border-bottom:1px solid var(--line)"><label style="font-weight:700">Glas ${i+1}</label><button class="sbtn" onclick="ledTestGlass(${i})">Testen</button></div>`;
+      leds.forEach((v,k)=>h+=`<div class="f"><label>LED Nr.</label><input type="number" min="1" max="64" value="${v}" inputmode="numeric" style="${bad(v)?"border-color:var(--red);color:#ff8a8a":""}" onchange="ledSet(${i},${k},this.value)"><button class="sbtn" onclick="send({c:'ledTest',leds:[${v}]})">Test</button><button class="sbtn red" onclick="ledDel(${i},${k})" aria-label="LED entfernen">✕</button></div>`);
+      if(!leds.length) h+=`<p class="help" style="margin:8px 0">Keine LED – dieses Glas zeigt keinen Status.</p>`;
+      h+=`<button class="btn" style="width:100%;margin:10px 0 12px;padding:11px" onclick="ledAdd(${i})">+ LED hinzufügen</button></div>`;
+    });
+    const errs=E.map.flat().filter(bad);
+    h+=errs.length?`<p class="help" style="color:#ff8a8a">Rot markiert: Nummer doppelt vergeben oder größer als die Anzahl LEDs.</p>`:"";
+    h+=`<button class="btn primary save" onclick="ledSave()" ${errs.length?"disabled":""}>Speichern</button>
+      <p class="help"><b>Testen</b> lässt die LEDs ein paar Sekunden weiß blinken – so findest du heraus, welche Nummer wo sitzt. Die Nummer zählt ab der ersten LED nach dem ESP32 (LED 1).</p>`;
   }
   if(curTab==="scales"){
     h+=`<div class="card"><h3>Waagen</h3>`;
@@ -1444,6 +1462,21 @@ function bindFolds(){
   });
 }
 
+/* ---------------- LED-Zuordnung ---------------- */
+let LEDEDIT=null;
+function ledRefresh(){ const e=$("#lc_n"); if(e) LEDEDIT.n=Math.max(1,Math.min(64,+e.value||1)); const y=$("#drawer").scrollTop; renderTab(); $("#drawer").scrollTop=y; }
+window.ledSet=(i,k,v)=>{ LEDEDIT.map[i][k]=+v; ledRefresh(); };
+window.ledDel=(i,k)=>{ LEDEDIT.map[i].splice(k,1); ledRefresh(); };
+window.ledAdd=i=>{ const e=$("#lc_n"); if(e) LEDEDIT.n=Math.max(1,Math.min(64,+e.value||1));
+  const used=new Set(LEDEDIT.map.flat()); let v=1; while(used.has(v)) v++;
+  if(v>LEDEDIT.n) LEDEDIT.n=Math.min(64,v);
+  if(LEDEDIT.map[i].length>=12){ toast("Maximal 12 LEDs pro Glas"); return; }
+  LEDEDIT.map[i].push(v); ledRefresh(); };
+window.ledTestGlass=i=>{ if(!LEDEDIT.map[i].length){ toast("Glas "+(i+1)+" hat keine LED"); return; } send({c:"ledTest",leds:LEDEDIT.map[i]}); };
+window.ledSave=()=>{ const e=$("#lc_n"); if(e) LEDEDIT.n=Math.max(1,Math.min(64,+e.value||1));
+  send({c:"setCfg",cfg:{ledCount:LEDEDIT.n,ledMap:LEDEDIT.map}}); LEDEDIT=null; };
+document.addEventListener("change",e=>{ if(e.target&&e.target.id==="lc_n") ledRefresh(); });
+
 /* ---------------- Toast ---------------- */
 let tt;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2600)}
 window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAugAdjust;window.startVidAdjust=startVidAdjust;window.deleteVid=deleteVid;window.uiSave=uiSave;window.V=V;window.send=send;window.$=$;
@@ -1452,7 +1485,7 @@ window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAug
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
@@ -1468,6 +1501,7 @@ function demoCmd(o){
   if(o.c==="stop"){S.jobs=[];S.cur=null;S.pump=0;S.ph="idle";toast("Gestoppt")}
   if(o.c==="aim"&&!S.cur){S.aim=o.p;S.tgt=o.p?S.cfg.ang[o.p-1]:S.cfg.angPark}
   if(o.c==="servo")S.tgt=o.a;
+  if(o.c==="ledTest"){toast("Demo: LED "+o.leds.join(", ")+" blinkt");return}
   if(o.c==="setCfg"){Object.assign(S.cfg,o.cfg);try{localStorage.setItem("lh_demo_cfg",JSON.stringify(S.cfg))}catch(e){};onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});toast("Gespeichert")}
   if(o.c==="getCfg")onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});
   if(o.c==="scan")setTimeout(()=>onMsg({t:"scan",list:[{ssid:"Heimnetz",rssi:-52,lock:true},{ssid:"Gast",rssi:-70,lock:false}]}),800);

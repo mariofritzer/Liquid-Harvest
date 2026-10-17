@@ -33,6 +33,15 @@ static void clampAll() {
   cfg.servoMaxUs = constrain(cfg.servoMaxUs, (uint16_t)1500, (uint16_t)2800);
   cfg.ledBright  = constrain(cfg.ledBright, (uint8_t)1, (uint8_t)100);
   cfg.encDiv     = constrain(cfg.encDiv, (uint8_t)1, (uint8_t)8);
+  cfg.ledCount   = constrain(cfg.ledCount, (uint8_t)1, (uint8_t)MAX_LEDS);
+  for (int i = 0; i < NUM_PLACES; i++) {          // ungültige Nummern entfernen
+    uint8_t n = 0;
+    for (int k = 0; k < cfg.ledMapN[i] && k < MAX_LEDS_PER_GLASS; k++) {
+      uint8_t v = cfg.ledMap[i][k];
+      if (v >= 1 && v <= cfg.ledCount) cfg.ledMap[i][n++] = v;
+    }
+    cfg.ledMapN[i] = n;
+  }
   cfg.enabledMask &= 0x3F;
   cfg.imgW = constrain(cfg.imgW, 40.0f, 900.0f);
   cfg.augW = constrain(cfg.augW, 3.0f, 30.0f);
@@ -62,6 +71,12 @@ void settingsToJson(JsonObject o) {
   o["servoSpeed"] = cfg.servoSpeed;
   o["servoMinUs"] = cfg.servoMinUs; o["servoMaxUs"] = cfg.servoMaxUs;
   o["ledBright"] = cfg.ledBright; o["encDiv"] = cfg.encDiv;
+  o["ledCount"] = cfg.ledCount;
+  JsonArray lm = o["ledMap"].to<JsonArray>();
+  for (int i = 0; i < NUM_PLACES; i++) {
+    JsonArray g = lm.add<JsonArray>();
+    for (int k = 0; k < cfg.ledMapN[i]; k++) g.add(cfg.ledMap[i][k]);
+  }
   o["encReverse"] = cfg.encReverse;
   o["imgOn"] = cfg.imgOn; o["imgW"] = cfg.imgW; o["imgX"] = cfg.imgX; o["imgY"] = cfg.imgY; o["imgVer"] = cfg.imgVer;
   o["augCol"] = cfg.augCol; o["augW"] = cfg.augW; o["augPX"] = cfg.augPX; o["augPY"] = cfg.augPY;
@@ -91,6 +106,20 @@ void settingsFromJson(JsonObjectConst o) {
   rd(o, "servoSpeed", cfg.servoSpeed);
   rd(o, "servoMinUs", cfg.servoMinUs); rd(o, "servoMaxUs", cfg.servoMaxUs);
   rd(o, "ledBright", cfg.ledBright);   rd(o, "encDiv", cfg.encDiv);
+  rd(o, "ledCount", cfg.ledCount);
+  JsonArrayConst lm = o["ledMap"];
+  if (!lm.isNull()) {
+    for (int i = 0; i < NUM_PLACES; i++) {
+      JsonArrayConst g = lm[i];
+      cfg.ledMapN[i] = 0;
+      if (g.isNull()) continue;
+      for (JsonVariantConst v : g) {
+        if (cfg.ledMapN[i] >= MAX_LEDS_PER_GLASS) break;
+        int n = v.as<int>();
+        if (n >= 1 && n <= MAX_LEDS) cfg.ledMap[i][cfg.ledMapN[i]++] = (uint8_t)n;
+      }
+    }
+  }
   rd(o, "encReverse", cfg.encReverse);
   rd(o, "imgOn", cfg.imgOn); rd(o, "imgW", cfg.imgW); rd(o, "imgX", cfg.imgX); rd(o, "imgY", cfg.imgY); rd(o, "imgVer", cfg.imgVer);
   rd(o, "augCol", cfg.augCol); rd(o, "augW", cfg.augW); rd(o, "augPX", cfg.augPX); rd(o, "augPY", cfg.augPY);

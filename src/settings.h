@@ -32,6 +32,9 @@ struct Settings {
 
   // --- LEDs / Bedienung ---
   uint8_t  ledBright   = 60;      // %
+  uint8_t  ledCount    = 6;       // LEDs in der Kette
+  uint8_t  ledMapN[NUM_PLACES] = {1, 1, 1, 1, 1, 1};                       // Anzahl LEDs je Glas
+  uint8_t  ledMap[NUM_PLACES][MAX_LEDS_PER_GLASS] = {{1}, {2}, {3}, {4}, {5}, {6}};  // LED-Nummern (ab 1)
   uint8_t  encDiv      = 4;       // Flanken pro Raste (KY-040: meist 4, manche 2)
   bool     encReverse  = false;
 
