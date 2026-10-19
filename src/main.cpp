@@ -264,6 +264,30 @@ static void stopAll(const char* reason) {
   if (was) toast("Gestoppt");
 }
 
+// ---------------------------------------------------------------------
+//  Zähler: Stamperl und Liter – gesamt und seit dem letzten Session-Reset
+//  (eigener NVS-Bereich, damit Export/Import der Einstellungen sie nicht überschreibt)
+// ---------------------------------------------------------------------
+static struct { uint32_t totN = 0, sesN = 0; double totMl = 0, sesMl = 0; uint32_t sesStart = 0; } stats;
+
+static void statsLoad() {
+  Preferences p; p.begin("stat", true);
+  stats.totN = p.getUInt("tn", 0); stats.totMl = p.getDouble("tml", 0);
+  stats.sesN = p.getUInt("sn", 0); stats.sesMl = p.getDouble("sml", 0); stats.sesStart = p.getUInt("ss", 0);
+  p.end();
+}
+static void statsSave() {
+  Preferences p; p.begin("stat", false);
+  p.putUInt("tn", stats.totN); p.putDouble("tml", stats.totMl);
+  p.putUInt("sn", stats.sesN); p.putDouble("sml", stats.sesMl); p.putUInt("ss", stats.sesStart);
+  p.end();
+}
+static void statsAdd(float ml) {
+  if (ml < 0.5f) return;   // nichts drin (z. B. Abbruch) -> nicht zählen
+  stats.totN++; stats.sesN++; stats.totMl += ml; stats.sesMl += ml;
+  statsSave();
+}
+
 static void startPrime(uint32_t ms, bool byButton, uint8_t pos = 0) {
   if (pourBusy()) return;
   aim(pos);   // 0 = Park, 1..6 = über Glas
@@ -334,7 +358,8 @@ static void pourLoop(bool btnHeld) {
     }
 
     case PH_DRIP:
-      if (now - pour.tPhase >= max<uint32_t>(800, (cfg.pumpDriver == 1 ? cfg.retractMs : 0) + 400)) {
+      // erst zurücksaugen (H-Brücke), dann die eingestellte Pause zum Nachtropfen ins Glas
+      if (now - pour.tPhase >= (uint32_t)(cfg.pumpDriver == 1 ? cfg.retractMs : 0) + max<uint32_t>(300, cfg.dripMs)) {
         int p = pour.p;
         pour.got = Scales::gs(p) - pour.startW;
         places[p].st = P_FILLED;
@@ -347,6 +372,7 @@ static void pourLoop(bool btnHeld) {
         }
         if (cfg.shotsSinceClean < 60000) cfg.shotsSinceClean++;
         settingsSave();
+        statsAdd(places[p].lastMl);
         event("pour_done", p, places[p].lastMl);
         finishJob();
       }
@@ -560,9 +586,26 @@ static void ledsLoop() {
       if (cfg.ledMap[i][k] >= 1 && cfg.ledMap[i][k] <= strip.numPixels()) strip.setPixelColor(cfg.ledMap[i][k] - 1, placeCol[i]);
   // Rundumleuchte: blinkt wie ein drehendes Warnlicht, solange gefahren oder gepumpt wird
   bool working = pourBusy() || servoCur != servoTgt || pumpPct > 0 || pumpRev > 0;
+  const int bn = max(1, (int)cfg.beaconN);
   for (int k = 0; k < cfg.beaconN; k++) {
-    float ph = (now % 900) / 900.0f + (float)k / max(1, (int)cfg.beaconN);
-    float f = working ? powf(max(0.0f, cosf(ph * 2 * PI)), 6) : 0;
+    float f = 0;
+    if (working) switch (cfg.beaconFx) {
+      default:
+      case 0: {   // Drehlicht: scharfer Lichtkegel läuft um, LEDs versetzt
+        float ph = (now % 900) / 900.0f + (float)k / bn;
+        f = powf(max(0.0f, cosf(ph * 2 * PI)), 6); break; }
+      case 1: {   // abwechselnd weich auf- und abblenden
+        float ph = (now % 1400) / 1400.0f + (float)k / bn;
+        f = 0.5f - 0.5f * cosf(ph * 2 * PI); f *= f; break; }
+      case 2: {   // alle gemeinsam Doppelblitz
+        uint32_t t = now % 1000; f = (t < 70 || (t >= 150 && t < 220)) ? 1 : 0; break; }
+      case 3: {   // Wechselblitz: gerade / ungerade LEDs abwechselnd doppelt blitzen
+        uint32_t t = now % 1000; bool a = (k % 2 == 0) == (t < 500); uint32_t u = t % 500;
+        f = (a && (u < 60 || (u >= 120 && u < 180))) ? 1 : 0; break; }
+      case 4:     // Lauflicht: immer nur eine LED an
+        f = ((now / 180) % bn == (uint32_t)k) ? 1 : 0; break;
+      case 5: f = 1; break;   // Dauerlicht
+    }
     uint32_t c = cfg.beaconCol;
     float kk = f * cfg.beaconLvl / 100.0f * cfg.ledBright / 100.0f;
     if (cfg.beaconMap[k] >= 1 && cfg.beaconMap[k] <= strip.numPixels())
@@ -808,6 +851,15 @@ static void handleCmd(const String& msg) {
   } else if (c == "cleanRinse" || c == "cleanDry") {
     if (d["p"].is<int>()) { cfg.cleanPos = constrain((int)d["p"], 0, NUM_PLACES); settingsSave(); }
     startPrime((uint32_t)(c == "cleanRinse" ? cfg.cleanRinseS : cfg.cleanDryS) * 1000, false, cfg.cleanPos);
+  } else if (c == "statsReset") {
+    // Sicherheitsabfrage: Die App schickt das eingetippte Wort mit
+    if (String((const char*)(d["confirm"] | "")) != "reset") { toast("Nicht zurückgesetzt – bitte „reset“ eintippen"); return; }
+    String w = d["w"] | "ses";
+    time_t t = time(nullptr);
+    stats.sesN = 0; stats.sesMl = 0; stats.sesStart = t > 1700000000 ? (uint32_t)t : 0;
+    if (w == "all") { stats.totN = 0; stats.totMl = 0; }
+    statsSave();
+    toast(w == "all" ? "Alle Zähler zurückgesetzt" : "Session zurückgesetzt");
   } else if (c == "cleanDone") {
     cfg.shotsSinceClean = 0;
     time_t t = time(nullptr);
@@ -895,6 +947,9 @@ static void buildState(String& out) {
     JsonObject cl = d["clean"].to<JsonObject>();
     cl["due"] = due; cl["shots"] = cfg.shotsSinceClean; cl["days"] = days;
     d["stopB"] = roundf(cfg.stopBefore * 100) / 100;
+    JsonObject s = d["stat"].to<JsonObject>();
+    s["sn"] = stats.sesN; s["sml"] = roundf(stats.sesMl); s["tn"] = stats.totN; s["tml"] = roundf(stats.totMl);
+    s["ss"] = stats.sesStart;
   }
   d["pp"] = pour.p + 1;
   d["tgt"] = roundf(pour.ml * 10) / 10;
@@ -1140,6 +1195,7 @@ void setup() {
   stateMutex = xSemaphoreCreateMutex();
 
   settingsLoad();
+  statsLoad();
   fsOk = LittleFS.begin(true);   // Partition "spiffs" (896 kB) für Drescher-Bild und Rohr-Video
   Serial.printf("[FS] LittleFS %s\n", fsOk ? "bereit" : "FEHLER");
   applyDefaultSetup();

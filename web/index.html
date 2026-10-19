@@ -41,6 +41,10 @@ details.fold[open]>summary::after{transform:rotate(-135deg);margin-bottom:-4px}
 details.fold[open]{padding-bottom:12px}
 .sw-dot{width:22px;height:22px;border-radius:50%;flex:none;box-shadow:0 0 10px currentColor,inset 0 0 0 1px #fff3}
 .card select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px;color:var(--txt);font-size:14px}
+.rgb{display:flex;gap:8px;width:100%}.rgb label{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);font-weight:650}.rgb input{width:100%!important;min-width:0;box-sizing:border-box;text-align:center;padding-left:4px;padding-right:4px}
+.statBar{display:flex;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 14px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);font-size:13.5px;color:var(--mute);cursor:pointer}.statBar b{color:var(--txt);font-weight:700}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.stats div{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px}.stats small{display:block;color:var(--mute);font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.06em}.stats b{display:block;font-size:26px;margin-top:4px}.stats span{color:var(--mute);font-size:13px}
+.modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:#000a;padding:16px}.modal.hide{display:none}.modal>div{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;max-width:380px;width:100%}.modal h3{margin:0 0 8px}.modal p{color:var(--mute);font-size:14px;margin:0 0 12px}.modal input{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:16px;color:var(--txt)}.modal .row{display:flex;gap:10px;margin-top:14px}.modal .row .btn{flex:1}
 .cleanBar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 14px;border-radius:14px;background:#b4c61822;border:1px solid #b4c61866;font-weight:650;font-size:14px}
 .surf{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;padding:12px 0 4px}
 .surf button{background:var(--bg2);border:2px solid var(--line);border-radius:14px;padding:10px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;font-weight:650;color:var(--mute)}
@@ -174,6 +178,8 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
 
   <div class="cleanBar hide" id="cleanBar"><span>🧽 Reinigung fällig</span><button class="sbtn gold" onclick="openClean()">Jetzt spülen</button></div>
 
+  <div class="statBar hide" id="statBar" onclick="openStats()"><span>🥃 Session: <b id="sbS">0</b></span><span>Gesamt: <b id="sbT">0</b></span></div>
+
   <div class="actions">
     <div class="seg" id="amount"></div>
     <button class="btn primary" id="fillAll">Alle leeren Gläser füllen</button>
@@ -240,6 +246,11 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
   <div class="row2" style="margin-top:8px"><button class="btn" id="va_cancel">Abbrechen</button><button class="btn primary" id="va_ok">Speichern</button></div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="modal hide" id="rstModal" role="dialog" aria-modal="true" aria-labelledby="rstT"><div>
+  <h3 id="rstT">Zähler zurücksetzen</h3><p id="rstP"></p>
+  <input id="rstIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="reset" oninput="$('#rstGo').disabled=this.value.trim().toLowerCase()!=='reset'">
+  <div class="row"><button class="btn" onclick="$('#rstModal').classList.add('hide')">Abbrechen</button><button class="btn stop" id="rstGo" disabled onclick="statsReset()">Zurücksetzen</button></div>
+</div></div>
 
 <script>
 "use strict";
@@ -615,7 +626,22 @@ function pop(n){const g=$("#g"+(n-1)); if(!g) return; g.classList.add("off"); re
 
 /* ---------------- Status / Aktionen ---------------- */
 window.openClean=()=>{ curTab="sys"; openDrawer(); setTimeout(()=>{const c=$("#cleanCard"); if(c) c.scrollIntoView({block:"start"})},150); };
+const fmtL=ml=>(ml/1000).toFixed(2).replace(".",",")+" l";
+window.openStats=()=>{ curTab="sys"; openDrawer(); setTimeout(()=>{const c=$("#statCard"); if(c) c.scrollIntoView({block:"start"})},150); };
+let RST_W="ses";
+window.askReset=w=>{ RST_W=w; $("#rstP").innerHTML=(w==="all"?"Setzt <b>Session und Gesamtzähler</b> auf 0.":"Setzt die <b>Session</b> auf 0 – der Gesamtzähler bleibt.")+" Zur Sicherheit <b>reset</b> eintippen:";
+  const i=$("#rstIn"); i.value=""; $("#rstGo").disabled=true; $("#rstModal").classList.remove("hide"); setTimeout(()=>i.focus(),50); };
+window.statsReset=()=>{ const v=$("#rstIn").value.trim().toLowerCase(); if(v!=="reset") return; send({c:"statsReset",w:RST_W,confirm:"reset"}); $("#rstModal").classList.add("hide"); };
+function renderStats(){
+  const s=ST.stat; if(!s) return;
+  $("#statBar").classList.remove("hide");
+  $("#sbS").textContent=`${s.sn} · ${fmtL(s.sml)}`; $("#sbT").textContent=`${s.tn} · ${fmtL(s.tml)}`;
+  const c=$("#statVals"); if(c) c.innerHTML=statValsHtml();
+}
+function statValsHtml(){ const s=(ST&&ST.stat)||{sn:0,sml:0,tn:0,tml:0,ss:0};
+  return `<div><small>Session</small><b>${s.sn}</b><span>Stamperl · ${fmtL(s.sml)}</span></div><div><small>Gesamt</small><b>${s.tn}</b><span>Stamperl · ${fmtL(s.tml)}</span></div>`; }
 function renderStatus(){
+  renderStats();
   $("#cleanBar").classList.toggle("hide",!(ST.clean&&ST.clean.due)||ST.busy);
   const st=$("#status"), n=ST.pl.filter(p=>p.s===1).length, f=ST.pl.filter(p=>p.s===2).length;
   st.classList.toggle("busy",ST.busy);
@@ -690,7 +716,8 @@ const FIELDS={
       ["pwmSlow","Leistung langsam","Letzte Gramm tröpfchenweise","%",5,100,1],
       ["slowBefore","Langsam ab","…Gramm vor dem Ziel","g",0,30,.1],
       ["stopBefore","Stopp vorher","Nachlauf im Schlauch – wird bei „lernen“ automatisch nachgestellt","g",0,10,.01],
-      ["autoTune","Nachlauf automatisch lernen","passt „Stopp vorher“ nach jedem Glas an","bool"]]],
+      ["autoTune","Nachlauf automatisch lernen","passt „Stopp vorher“ nach jedem Glas an","bool"],
+      ["dripMs","Pause nach dem Einfüllen","Rohr bleibt so lange über dem Glas, damit Tropfen noch hineinfallen","ms",0,10000,100]]],
     ["Pumpentreiber",[
       ["pumpDriver","Verbaut","","select",[[0,"MOSFET-Modul"],[1,"H-Brücke"]]],
       ["retractMs","Zurücksaugen","nur H-Brücke: nach dem Einschenken rückwärts gegen Nachtropfen, 0 = aus","ms",0,2000,50],
@@ -750,7 +777,7 @@ function renderTab(){
   if(curTab==="leds"){
     if(!LEDEDIT) LEDEDIT={n:CFG.ledCount||6,map:(CFG.ledMap||[[1],[2],[3],[4],[5],[6]]).map(a=>[...a]),
       col:[...ledCfg("ledCol")],lvl:[...ledCfg("ledLvl")],fx:[...ledCfg("ledFx")],bfx:[...ledCfg("btnFx")],bb:CFG.btnBright??100,
-      bm:[...(CFG.beaconMap||[])],bcol:CFG.beaconCol||"#FF8C00",blvl:CFG.beaconLvl??100};
+      bm:[...(CFG.beaconMap||[])],bcol:CFG.beaconCol||"#FF8C00",blvl:CFG.beaconLvl??100,bfx:CFG.beaconFx??0};
     const E=LEDEDIT, cnt={}; [...E.map.flat(),...E.bm].forEach(v=>cnt[v]=(cnt[v]||0)+1);
     const bad=v=>!(v>=1&&v<=E.n)||cnt[v]>1;
     h+=`<div class="card"><h3>LED-Kette</h3>
@@ -766,6 +793,8 @@ function renderTab(){
     h+=`<div class="card"><div class="f" style="border-bottom:1px solid var(--line)"><label style="font-weight:700">Rundumleuchte<small>zusätzliche WS2812B am Drescher – blinkt, solange er fährt oder pumpt</small></label>${E.bm.length?`<button class="sbtn" onclick="send({c:'ledTest',leds:LEDEDIT.bm})">Testen</button>`:""}</div>`;
     E.bm.forEach((v,k)=>h+=`<div class="f"><label>LED Nr.</label><input type="number" min="1" max="64" value="${v}" inputmode="numeric" style="${bad(v)?"border-color:var(--red);color:#ff8a8a":""}" onchange="LEDEDIT.bm[${k}]=+this.value;ledRefresh()"><button class="sbtn red" onclick="LEDEDIT.bm.splice(${k},1);ledRefresh()" aria-label="LED entfernen">✕</button></div>`);
     if(!E.bm.length) h+=`<p class="help" style="margin:8px 0">Keine Rundumleuchte zugeordnet.</p>`;
+    const BXF=[["Drehlicht",1],["Abwechselnd faden",2],["Doppelblitz",1],["Wechselblitz",2],["Lauflicht",2],["Dauerlicht",1]];
+    if(E.bm.length) h+=`<div class="f"><label>Muster${E.bm.length<2?"<small>weitere Muster ab 2 LEDs</small>":""}</label><select onchange="LEDEDIT.bfx=+this.value" aria-label="Muster Rundumleuchte">${BXF.map(([n,m],k)=>`<option value="${k}" ${E.bfx===k?"selected":""} ${E.bm.length<m?"disabled":""}>${n}</option>`).join("")}</select></div>`;
     h+=`<div class="f"><label>Farbe & Helligkeit</label><input type="color" value="${E.bcol}" oninput="LEDEDIT.bcol=this.value"><input type="range" min="10" max="100" value="${E.blvl}" style="width:30%" oninput="LEDEDIT.blvl=+this.value"></div>
       ${E.bm.length<4?`<button class="btn" style="width:100%;margin:10px 0 12px;padding:11px" onclick="beaconAdd()">+ LED hinzufügen</button>`:""}</div>`;
     // Farben je Zustand
@@ -776,8 +805,9 @@ function renderTab(){
       h+=`<div class="f" style="flex-wrap:wrap;row-gap:8px">
         <span class="sw-dot" id="lcd${i}" style="background:${E.col[i]};opacity:${.25+.75*E.lvl[i]/100}"></span>
         <label style="min-width:130px">${n}<small>${d}</small></label>
-        <input type="color" value="${E.col[i]}" oninput="ledCol(${i},'col',this.value)" aria-label="Farbe ${n}">
+        <input type="color" id="lcc${i}" value="${E.col[i]}" oninput="ledCol(${i},'col',this.value)" aria-label="Farbe ${n}">
         <select onchange="ledCol(${i},'fx',+this.value)" aria-label="Effekt ${n}">${FX.map((f,k)=>`<option value="${k}" ${E.fx[i]===k?"selected":""}>${f}</option>`).join("")}</select>
+        <div class="rgb">${["R","G","B"].map((c,k)=>`<label>${c}<input type="number" id="lr${i}_${k}" min="0" max="255" inputmode="numeric" value="${parseInt(E.col[i].slice(1+2*k,3+2*k),16)}" oninput="ledRgb(${i})"></label>`).join("")}</div>
         <div style="display:flex;align-items:center;gap:8px;width:100%"><span style="font-size:12px;color:var(--mute);width:62px">Helligkeit</span><input type="range" min="0" max="100" value="${E.lvl[i]}" style="flex:1" oninput="ledCol(${i},'lvl',+this.value)"><span id="lcl${i}" style="width:46px;text-align:right;font-size:13px;white-space:nowrap">${E.lvl[i]} %</span><button class="sbtn" onclick="ledPrev(${i})">Vorschau</button></div>
       </div>`;
     });
@@ -869,6 +899,10 @@ function renderTab(){
   }
   if(curTab==="sys"){
     const cl=(ST&&ST.clean)||{shots:0,days:-1,due:false};
+    const ss=ST&&ST.stat&&ST.stat.ss;
+    h+=`<div class="card" id="statCard"><h3>Zähler</h3><div class="stats" id="statVals">${statValsHtml()}</div>
+      <p class="help" style="margin-top:0">Gezählt wird jedes fertig eingeschenkte Glas, die Menge nach Gewicht.${ss?` Session läuft seit ${new Date(ss*1000).toLocaleDateString("de-AT")}.`:""}</p>
+      <div style="display:flex;gap:10px;margin:8px 0 12px"><button class="btn" style="flex:1" onclick="askReset('ses')">Session zurücksetzen</button><button class="btn" style="flex:1" onclick="askReset('all')">Alles zurücksetzen</button></div></div>`;
     h+=`<div class="card" id="cleanCard"><h3>Reinigung</h3>
       <div class="f"><label>Seit der letzten Reinigung<small>${cl.due?'<b style="color:var(--gold2)">Reinigung fällig</b>':"alles gut"}</small></label><span>${cl.shots} Gläser${cl.days>=0?` · ${cl.days} Tage`:""}</span></div>
       <div class="f"><label>Position zum Reinigen<small>Rohr fährt dorthin – großen Becher hinstellen, kein Stamperl!</small></label><select id="cl_p" style="max-width:50%" onchange="CFG.cleanPos=+this.value;$('#cl_pl').textContent=this.selectedOptions[0].text">${["Parkposition",1,2,3,4,5,6].map((t,i)=>`<option value="${i}" ${(CFG.cleanPos??0)==i?"selected":""}>${i?"Glas "+t:t}</option>`).join("")}</select></div>
@@ -1551,10 +1585,13 @@ window.beaconAdd=()=>{ const e=$("#lc_n"); if(e) LEDEDIT.n=Math.max(1,Math.min(6
 window.ledTestGlass=i=>{ if(!LEDEDIT.map[i].length){ toast("Glas "+(i+1)+" hat keine LED"); return; } send({c:"ledTest",leds:LEDEDIT.map[i]}); };
 window.ledSave=()=>{ const e=$("#lc_n"); if(e) LEDEDIT.n=Math.max(1,Math.min(64,+e.value||1));
   const E=LEDEDIT;
-  send({c:"setCfg",cfg:{ledCount:E.n,ledMap:E.map,beaconMap:E.bm,beaconCol:E.bcol.toUpperCase(),beaconLvl:E.blvl,ledCol:E.col.map(c=>c.toUpperCase()),ledLvl:E.lvl,ledFx:E.fx,btnFx:E.bfx,btnBright:E.bb}}); LEDEDIT=null; };
+  send({c:"setCfg",cfg:{ledCount:E.n,ledMap:E.map,beaconMap:E.bm,beaconCol:E.bcol.toUpperCase(),beaconLvl:E.blvl,beaconFx:(E.bm.length<2&&[1,3,4].includes(E.bfx))?0:E.bfx,ledCol:E.col.map(c=>c.toUpperCase()),ledLvl:E.lvl,ledFx:E.fx,btnFx:E.bfx,btnBright:E.bb}}); LEDEDIT=null; };
 window.ledCol=(i,k,v)=>{ const E=LEDEDIT; E[k][i]=v;
   const d=$("#lcd"+i); if(d){ d.style.background=E.col[i]; d.style.opacity=.25+.75*E.lvl[i]/100; }
-  if(k==="lvl") $("#lcl"+i).textContent=v+" %"; };
+  if(k==="lvl") $("#lcl"+i).textContent=v+" %";
+  if(k==="col") for(let c=0;c<3;c++){const e=$(`#lr${i}_${c}`); if(e) e.value=parseInt(v.slice(1+2*c,3+2*c),16);} };
+window.ledRgb=i=>{ const h="#"+[0,1,2].map(c=>{const e=$(`#lr${i}_${c}`);let v=Math.round(+e.value||0);v=Math.max(0,Math.min(255,v));return v.toString(16).padStart(2,"0")}).join("").toUpperCase();
+  LEDEDIT.col[i]=h; const p=$("#lcc"+i); if(p) p.value=h.toLowerCase(); const d=$("#lcd"+i); if(d) d.style.background=h; };
 window.ledPrev=i=>{ const E=LEDEDIT; send({c:"ledPreview",col:E.col[i],lvl:E.lvl[i],fx:E.fx[i]}); };
 document.addEventListener("change",e=>{ if(e.target&&e.target.id==="lc_n") ledRefresh(); });
 
@@ -1566,9 +1603,9 @@ window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAug
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,autoTune:true,pumpDriver:0,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,autoTune:true,pumpDriver:0,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,dripMs:800,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
-    ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
+    stat:{sn:7,sml:140,tn:412,tml:8240,ss:Math.floor(Date.now()/1000)-7200},ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
        const im=localStorage.getItem("lh_demo_img"); if(im){ demoImg=URL.createObjectURL(dataURLToBlob(im)); }
        const vd=localStorage.getItem("lh_demo_vid"); if(vd){ demoVid=URL.createObjectURL(dataURLToBlob(vd)); } }catch(e){}
@@ -1583,6 +1620,7 @@ function demoCmd(o){
   if(o.c==="aim"&&!S.cur){S.aim=o.p;S.tgt=o.p?S.cfg.ang[o.p-1]:S.cfg.angPark}
   if(o.c==="servo")S.tgt=o.a;
   if(["cleanRinse","cleanDry"].includes(o.c)){if(o.p!=null)SIM.cfg.cleanPos=o.p;{const q=o.p||0;SIM.aim=q;SIM.tgt=q?SIM.cfg.ang[q-1]:SIM.cfg.angPark}toast("Demo: Pumpe läuft ("+o.c+")");return}
+  if(o.c==="statsReset"){if(o.confirm!=="reset")return;S.stat.sn=0;S.stat.sml=0;S.stat.ss=Math.floor(Date.now()/1000);if(o.w==="all"){S.stat.tn=0;S.stat.tml=0}toast(o.w==="all"?"Alle Zähler zurückgesetzt":"Session zurückgesetzt");return}
   if(o.c==="cleanDone"){S.cfg.shotsSinceClean=0;toast("Reinigung erledigt");return}
   if(o.c==="ledPreview"){toast("Demo: Vorschau "+o.col);return}
   if(o.c==="ledTest"){toast("Demo: LED "+o.leds.join(", ")+" blinkt");return}
@@ -1600,12 +1638,12 @@ function simTick(){
     const p=S.pl[S.cur.p];
     if(S.ph==="move"&&S.ang===S.tgt){S.ph="fast";S.start=p.w}
     if(S.ph==="fast"||S.ph==="slow"){S.pump=S.ph==="fast"?100:35;p.w+=S.pump/100*2.2*dt*3;S.got=(p.w-S.start)/.95;if(S.ph==="fast"&&S.got>=S.tgtMl-3)S.ph="slow";if(S.got>=S.tgtMl-.3){S.ph="drip";S.pump=0;S.t=0}}
-    if(S.ph==="drip"&&++S.t>5){p.s=2;S.cfg.shotsSinceClean++;onMsg({t:"ev",e:"pour_done",p:S.cur.p+1,ml:S.got});const a=S.cur.auto;S.cur=null;S.ph="idle";if(!S.jobs.length&&(a||S.cfg.parkAfter)){S.aim=0;S.tgt=S.cfg.angPark}}
+    if(S.ph==="drip"&&++S.t>5){p.s=2;S.cfg.shotsSinceClean++;S.stat.sn++;S.stat.tn++;S.stat.sml+=S.got;S.stat.tml+=S.got;onMsg({t:"ev",e:"pour_done",p:S.cur.p+1,ml:S.got});const a=S.cur.auto;S.cur=null;S.ph="idle";if(!S.jobs.length&&(a||S.cfg.parkAfter)){S.aim=0;S.tgt=S.cfg.angPark}}
   }
   onMsg({t:"st",aim:S.aim,ang:S.ang,ph:S.ph,pp:S.cur?S.cur.p+1:0,tgt:S.tgtMl,got:S.got,q:S.jobs.length,busy:!!S.cur||S.jobs.length>0,pump:S.pump,
     pl:S.pl.map(p=>({s:p.s,ok:true,en:true,g:p.w,raw:Math.round(p.w*420),ml:p.s?Math.max(0,(p.w-p.tare)/.95):0,err:false})),
     wifi:{sta:true,ssid:"Heimnetz",ip:"192.168.1.42",rssi:-55,ap:false,apSsid:"LiquidHarvest-A1B2",host:"liquidharvest"},up:S.up,
-    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1}});
+    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});
 }
 
 staticScene(); requestAnimationFrame(drawAuger); connect();

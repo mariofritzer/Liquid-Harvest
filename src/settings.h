@@ -30,6 +30,7 @@ struct Settings {
   uint32_t noFlowMs    = 3000;    // Abbruch, wenn Gewicht so lange nicht steigt
   uint32_t maxPourMs   = 30000;   // absolute Höchstdauer pro Glas
   uint32_t settleMs    = 400;     // Wartezeit nach Servo-Bewegung
+  uint16_t dripMs      = 800;     // Pause nach dem Einfüllen, bevor das Rohr schwenkt (Nachtropfen)
   bool     parkAfter   = true;    // nach Web-Befehl zurück in Parkposition
 
   // --- Glaserkennung ---
@@ -62,6 +63,7 @@ struct Settings {
   uint8_t  beaconMap[4] = {0, 0, 0, 0};         // LED-Nummern (ab 1)
   uint32_t beaconCol = 0xFF8C00;
   uint8_t  beaconLvl = 100;
+  uint8_t  beaconFx  = 0;    // 0 Drehlicht, 1 abwechselnd faden, 2 Doppelblitz, 3 Wechselblitz, 4 Lauflicht, 5 Dauerlicht
   uint8_t  ledMapN[NUM_PLACES] = {1, 1, 1, 1, 1, 1};                       // Anzahl LEDs je Glas
   uint8_t  ledMap[NUM_PLACES][MAX_LEDS_PER_GLASS] = {{1}, {2}, {3}, {4}, {5}, {6}};  // LED-Nummern (ab 1)
   uint8_t  encDiv      = 4;       // Flanken pro Raste (KY-040: meist 4, manche 2)

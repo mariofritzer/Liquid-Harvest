@@ -39,17 +39,18 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | | |
 |---|---|
 | **Glaserkennung** | Schwelle einstellbar ab 0,1 g (Standard 1,5 g, auch Plastikstamperl), Gewicht muss 0,5 s ruhig sein, Drift-Kompensation, Nullung beim Einschalten |
-| **Dosierung** | nach Gewicht: schnell → langsam (PWM) → Stopp vor dem Ziel (Nachlauf) → Nachtropfzeit · **Nachlauf lernt sich selbst ein** (korrigiert „Stopp vorher“ nach jedem Glas) |
+| **Dosierung** | nach Gewicht: schnell → langsam (PWM) → Stopp vor dem Ziel (Nachlauf) → Nachtropfzeit · **Nachlauf lernt sich selbst ein** (korrigiert „Stopp vorher“ nach jedem Glas) · einstellbare Pause nach dem Einfüllen, damit Tropfen noch ins Glas fallen, bevor das Rohr schwenkt |
 | **Pumpentreiber** | wählbar: MOSFET-Modul (D4184) oder **H-Brücke** (DRV8871, BTS7960, L298N) – mit H-Brücke saugt die Pumpe nach dem Einschenken kurz zurück, kein Nachtropfen beim Schwenken |
 | **Reinigung** | geführtes Spülprogramm (Spülen → Leer pumpen → fertig) an wählbarer Position (Park oder Glas 1–6), Erinnerung nach X Gläsern oder Y Tagen (Uhrzeit per NTP aus dem Heimnetz) |
-| **Rundumleuchte** | 1–4 zusätzliche WS2812B am Ende der LED-Kette blitzen als Rundumleuchte, solange das Rohr fährt oder die Pumpe läuft; Farbe/Helligkeit einstellbar |
+| **Rundumleuchte** | 1–4 zusätzliche WS2812B am Ende der LED-Kette blitzen als Rundumleuchte, solange das Rohr fährt oder die Pumpe läuft; Muster (Drehlicht, abwechselnd faden, Doppelblitz, Wechselblitz, Lauflicht, Dauerlicht), Farbe und Helligkeit einstellbar |
+| **Zähler** | Stamperl und Liter für die aktuelle Session und insgesamt, auf der Startseite und unter ⚙️ System; Zurücksetzen nur nach Eintippen von „reset“ |
 | **Sicherheit** | Glas weg = sofort Stopp · kein Durchfluss nach X s = Abbruch (einstellbar) · Pumpe nur bei stehendem Rohr · Höchstdauer pro Glas · Taster = Notstopp |
 | **Offline** | Encoder schwenkt das Rohr, Taster schenkt ein, Auto-Fill aus der Parkposition |
 | **Online** | isometrische 3D-Ansicht am Handy, Gläser poppen live auf, Klick → Menge wählen → einschenken |
 | **WLAN** | Heimnetz mit `http://liquidharvest.local`, Hotspot als Rückfall bzw. Party-Modus, Captive Portal |
 | **Eigenes Drescher-Bild** | eigenes Foto oder **STL-3D-Modell** hochladen (wird im Browser isometrisch gerendert), Hintergrund automatisch freistellen, Position einstellen – das Abtankrohr schwenkt live darüber |
 | **Rohr-Video** | eigenes Video (Rohr fährt Park → Glas 1 … 6) hochladen – Haltepunkte, Rohrspitzen und Parkposition werden erkannt, Hintergrund freigestellt, Gläser automatisch unter den Auslauf gesetzt; die App zeigt immer das Bild zum echten Servo-Winkel |
-| **Glas-LEDs** | Anzahl der LEDs in der Kette und Zuordnung frei einstellbar (beliebig viele LEDs pro Glas), mit Test-Knopf; Farbe, Helligkeit und Effekt je Zustand einstellbar, mit Vorschau |
+| **Glas-LEDs** | Anzahl der LEDs in der Kette und Zuordnung frei einstellbar (beliebig viele LEDs pro Glas), mit Test-Knopf; Farbe (Farbwähler oder R/G/B-Werte 0–255), Helligkeit und Effekt je Zustand einstellbar, mit Vorschau |
 | **Taster-LED** | zeigt den Zustand (bereit, Rohr über Glas, schenkt ein, Fehler, alle gefüllt …) – Effekt je Zustand wählbar, kurzes Aus quittiert jeden Klick |
 | **Servo** | Drehrichtung umkehrbar, jede Position per „Anfahren“ testbar; nach Erreichen der Position stromlos – kein Brummen/Zittern, schont Servo und Waagen |
 | **Untergrund** | Holzscheibe, Holzplatte, Stoppelfeld, Wiese, Acker, Schiefer, Beton oder ohne – realistische Texturen, im Browser erzeugt |

@@ -29,6 +29,8 @@ static void clampAll() {
   cfg.noFlowMs   = constrain(cfg.noFlowMs, (uint32_t)500, (uint32_t)30000);
   cfg.maxPourMs  = constrain(cfg.maxPourMs, (uint32_t)2000, (uint32_t)120000);
   cfg.settleMs   = constrain(cfg.settleMs, (uint32_t)0, (uint32_t)3000);
+  cfg.dripMs     = min(cfg.dripMs, (uint16_t)10000);
+  if (cfg.beaconFx > 5) cfg.beaconFx = 0;
   cfg.glassMin   = constrain(cfg.glassMin, 0.1f, 200.0f);
   cfg.stableMs   = constrain(cfg.stableMs, (uint32_t)100, (uint32_t)5000);
   cfg.angPark    = constrain(cfg.angPark, 0.0f, 180.0f);
@@ -83,9 +85,9 @@ void settingsToJson(JsonObject o) {
   o["cleanShots"] = cfg.cleanShots; o["cleanDays"] = cfg.cleanDays; o["cleanRinseS"] = cfg.cleanRinseS; o["cleanDryS"] = cfg.cleanDryS; o["cleanPos"] = cfg.cleanPos;
   o["shotsSinceClean"] = cfg.shotsSinceClean; o["lastClean"] = cfg.lastClean;
   { JsonArray bm = o["beaconMap"].to<JsonArray>(); for (int k = 0; k < cfg.beaconN; k++) bm.add(cfg.beaconMap[k]);
-    char hex[8]; snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.beaconCol); o["beaconCol"] = hex; o["beaconLvl"] = cfg.beaconLvl; }
+    char hex[8]; snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.beaconCol); o["beaconCol"] = hex; o["beaconLvl"] = cfg.beaconLvl; o["beaconFx"] = cfg.beaconFx; }
   o["noFlowMs"] = cfg.noFlowMs;   o["maxPourMs"] = cfg.maxPourMs;
-  o["settleMs"] = cfg.settleMs;   o["parkAfter"] = cfg.parkAfter;
+  o["settleMs"] = cfg.settleMs; o["dripMs"] = cfg.dripMs;   o["parkAfter"] = cfg.parkAfter;
   o["glassMin"] = cfg.glassMin;   o["stableMs"] = cfg.stableMs;
   o["angPark"] = cfg.angPark;
   JsonArray a = o["ang"].to<JsonArray>();
@@ -132,9 +134,9 @@ void settingsFromJson(JsonObjectConst o) {
   { JsonArrayConst bm = o["beaconMap"];
     if (!bm.isNull()) { cfg.beaconN = 0; for (JsonVariantConst v : bm) { int n = v.as<int>(); if (n >= 1 && n <= MAX_LEDS && cfg.beaconN < 4) cfg.beaconMap[cfg.beaconN++] = n; } }
     const char* h = o["beaconCol"] | ""; if (h[0] == '#') cfg.beaconCol = strtoul(h + 1, nullptr, 16);
-    rd(o, "beaconLvl", cfg.beaconLvl); }
+    rd(o, "beaconLvl", cfg.beaconLvl); rd(o, "beaconFx", cfg.beaconFx); }
   rd(o, "noFlowMs", cfg.noFlowMs);   rd(o, "maxPourMs", cfg.maxPourMs);
-  rd(o, "settleMs", cfg.settleMs);   rd(o, "parkAfter", cfg.parkAfter);
+  rd(o, "settleMs", cfg.settleMs); rd(o, "dripMs", cfg.dripMs);   rd(o, "parkAfter", cfg.parkAfter);
   rd(o, "glassMin", cfg.glassMin);   rd(o, "stableMs", cfg.stableMs);
   rd(o, "angPark", cfg.angPark);
   JsonArrayConst a = o["ang"];
