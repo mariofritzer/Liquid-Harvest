@@ -59,6 +59,7 @@ static int   aimIdx = 0;            // 0 = Park, 1..6 = Glas
 static float servoCur = 0, servoTgt = 0;
 static uint8_t pumpPct = 0;
 static uint32_t btnErrUntil = 0;
+static uint32_t btnAckUntil = 0;   // Taster-LED kurz aus = Klick angenommen
 static volatile bool otaRunning = false;
 static uint32_t rebootAt = 0;
 static bool fsOk = false;
@@ -143,9 +144,11 @@ static void sendCfg() {
 // ---------------------------------------------------------------------
 //  Aktoren
 // ---------------------------------------------------------------------
+static bool servoPowered = true;
 static void servoWrite(float deg) {
   float us = cfg.servoMinUs + (cfg.servoMaxUs - cfg.servoMinUs) * (deg / 180.0f);
   ledcWrite(CH_SERVO, (uint32_t)(us * 65535.0f / 20000.0f));
+  servoPowered = true;
 }
 
 static float angleFor(int idx) { return idx <= 0 ? cfg.angPark : cfg.ang[idx - 1]; }
@@ -167,7 +170,19 @@ static void servoLoop() {
   float diff = servoTgt - servoCur;
   if (fabsf(diff) <= step) servoCur = servoTgt;
   else servoCur += diff > 0 ? step : -step;
-  if (fabsf(servoCur - written) >= 0.1f) { servoWrite(servoCur); written = servoCur; }
+  if (fabsf(servoCur - written) >= 0.1f || (!servoPowered && servoCur != servoTgt)) { servoWrite(servoCur); written = servoCur; }
+
+  // An der Zielposition: kurz halten, dann Impulse abschalten -> Servo stromlos, kein Brummen/Zittern
+  static uint32_t arrivedAt = 0;
+  static float lastTgt = -1;
+  if (servoTgt != lastTgt) { lastTgt = servoTgt; arrivedAt = 0; if (!servoPowered) { servoWrite(servoCur); written = servoCur; } }
+  if (servoCur == servoTgt) {
+    if (!arrivedAt) arrivedAt = millis();
+    if (cfg.servoRelease && servoPowered && millis() - arrivedAt > cfg.servoHoldMs) {
+      ledcWrite(CH_SERVO, 0);
+      servoPowered = false;
+    }
+  } else arrivedAt = 0;
 }
 
 static void pumpSet(uint8_t pct) {
@@ -443,8 +458,9 @@ static void inputLoop() {
 
   if (btn.clickResult && !pourBusy()) {
     float ml = btn.clickResult >= 2 ? cfg.doubleMl : cfg.shotMl;
-    if (aimIdx == 0) autofill(ml);
-    else if (!enqueue(aimIdx - 1, ml, SRC_BUTTON)) btnErrUntil = millis() + 1200;
+    bool ok = aimIdx == 0 ? autofill(ml) > 0 : enqueue(aimIdx - 1, ml, SRC_BUTTON);
+    if (ok) btnAckUntil = millis() + 140;
+    else btnErrUntil = millis() + 1200;
   }
   if (btn.longResult && aimIdx == 0 && !pourBusy()) startPrime(15000, true);  // halten = entlüften
 
@@ -472,14 +488,29 @@ static uint32_t scaleColor(float r, float g, float b, float k) {
   return strip.Color((uint8_t)(r * k), (uint8_t)(g * k), (uint8_t)(b * k));
 }
 
+// Farbe für einen LED-Zustand mit Effekt (0 an, 1 pulsieren, 2 schnell pulsieren, 3 blinken)
+static uint32_t fxColor(uint32_t col, uint8_t lvl, uint8_t fx, uint32_t now) {
+  float k = lvl / 100.0f * cfg.ledBright / 100.0f;
+  if (fx == 1) k *= 0.3f + 0.7f * (0.5f + 0.5f * sinf(now * 2 * PI / 1400.0f));
+  else if (fx == 2) k *= 0.3f + 0.7f * (0.5f + 0.5f * sinf(now * 2 * PI / 450.0f));
+  else if (fx == 3 && (now / 150) % 2) k = 0;
+  uint32_t r = (col >> 16) & 255, g = (col >> 8) & 255, b = col & 255;
+  if (lvl && k > 0 && fx != 3) {   // sehr schwache Einstellungen nicht ganz verschwinden lassen
+    r = r ? max<uint32_t>(1, r * k) : 0; g = g ? max<uint32_t>(1, g * k) : 0; b = b ? max<uint32_t>(1, b * k) : 0;
+    return strip.Color(r, g, b);
+  }
+  return strip.Color(r * k, g * k, b * k);
+}
+static uint32_t stateColor(int s, uint32_t now) { return fxColor(cfg.ledCol[s], cfg.ledLvl[s], cfg.ledFx[s], now); }
+static uint32_t ledPrevUntil = 0, ledPrevCol = 0;
+static uint8_t ledPrevLvl = 100, ledPrevFx = 0;
+
 static void ledsLoop() {
   static uint32_t last = 0;
   uint32_t now = millis();
   if (now - last < 20) return;
   last = now;
 
-  float slowPulse = 0.35f + 0.65f * (0.5f + 0.5f * sinf(now * 2 * PI / 1400.0f));
-  float fastPulse = 0.35f + 0.65f * (0.5f + 0.5f * sinf(now * 2 * PI / 450.0f));
   bool blink = (now / 150) % 2;
 
   uint32_t placeCol[NUM_PLACES];
@@ -487,13 +518,14 @@ static void ledsLoop() {
     const Place& pl = places[i];
     uint32_t c;
     if (!(cfg.enabledMask & (1 << i)))       c = 0;
-    else if (now < pl.errUntil)               c = blink ? scaleColor(255, 0, 0, 1) : 0;
-    else if (!Scales::ok(i))                  c = blink ? scaleColor(120, 0, 120, 0.3f) : 0;   // Waage defekt
-    else if (pourActiveOn(i))                 c = scaleColor(255, 110, 0, fastPulse);           // schenkt ein
-    else if (aimIdx == i + 1 && !pourBusy())  c = scaleColor(255, 150, 0, slowPulse);           // Rohr zielt
-    else if (pl.st == P_GLASS)                c = scaleColor(0, 60, 255, 1);                     // bereit
-    else if (pl.st == P_FILLED)               c = scaleColor(0, 255, 40, 1);                     // fertig
-    else                                       c = strip.Color(max(2, 10 * cfg.ledBright / 100), 0, 0); // Orientierung
+    else if (now < ledPrevUntil)              c = fxColor(ledPrevCol, ledPrevLvl, ledPrevFx, now);   // Farbvorschau
+    else if (now < pl.errUntil)               c = stateColor(5, now);   // Fehler
+    else if (!Scales::ok(i))                  c = stateColor(6, now);   // Waage defekt
+    else if (pourActiveOn(i))                 c = stateColor(3, now);   // schenkt ein
+    else if (aimIdx == i + 1 && !pourBusy())  c = stateColor(2, now);   // Rohr zielt
+    else if (pl.st == P_GLASS)                c = stateColor(1, now);   // bereit
+    else if (pl.st == P_FILLED)               c = stateColor(4, now);   // fertig
+    else                                       c = stateColor(0, now);   // kein Glas
     placeCol[i] = c;
   }
   // Jede LED bekommt die Farbe ihres Glases; nicht zugeordnete LEDs bleiben aus
@@ -512,13 +544,28 @@ static void ledsLoop() {
   }
   strip.show();
 
-  // Taster-Beleuchtung
-  uint8_t duty;
-  if (now < btnErrUntil)      duty = ((now / 100) % 2) ? 255 : 0;
-  else if (pourBusy())        duty = ((now / 125) % 2) ? 255 : 30;
-  else if ((aimIdx == 0) || (aimIdx > 0 && places[aimIdx - 1].st != P_NONE)) duty = 255;
-  else                        duty = (uint8_t)(20 + 120 * (0.5f + 0.5f * sinf(now * 2 * PI / 3000.0f)));
-  ledcWrite(CH_BTN_LED, duty);
+  // Taster-Beleuchtung: Zustand bestimmen, Effekt aus den Einstellungen
+  int bs;
+  if (now < btnErrUntil) bs = 5;                                   // Fehler
+  else if (pourBusy()) bs = 4;                                     // schenkt ein (Drücken = Stopp)
+  else if (aimIdx > 0) bs = places[aimIdx - 1].st != P_NONE ? 2 : 3; // Rohr über Glas / leerem Platz
+  else {
+    int empty = 0, full = 0;
+    for (int i = 0; i < NUM_PLACES; i++) { if (places[i].st == P_GLASS) empty++; else if (places[i].st == P_FILLED) full++; }
+    bs = empty ? 0 : (full ? 6 : 1);                               // bereit / alle gefüllt / keine Gläser
+  }
+  float d;
+  switch (cfg.btnFx[bs]) {
+    case 0:  d = 0; break;                                                         // aus
+    case 2:  d = 0.18f; break;                                                     // gedimmt
+    case 3:  d = 0.08f + 0.92f * (0.5f + 0.5f * sinf(now * 2 * PI / 3000.0f)); break;  // atmen
+    case 4:  d = 0.12f + 0.88f * (0.5f + 0.5f * sinf(now * 2 * PI / 500.0f)); break;   // pulsieren
+    case 5:  d = ((now / 120) % 2) ? 1 : 0; break;                                 // blinken
+    case 6: { uint32_t t = now % 2000; d = (t < 90 || (t > 220 && t < 310)) ? 1 : 0.06f; break; }  // Doppelblitz
+    default: d = 1;                                                                // an
+  }
+  if (now < btnAckUntil) d = 0;   // Klick quittiert: kurz aus
+  ledcWrite(CH_BTN_LED, (uint32_t)(d * 255 * cfg.btnBright / 100));
 }
 
 // ---------------------------------------------------------------------
@@ -754,6 +801,12 @@ static void handleCmd(const String& msg) {
     rebootAt = millis() + 1500;
   } else if (c == "scan") {
     if (!scanPending) { WiFi.scanNetworks(true); scanPending = true; }
+  } else if (c == "ledPreview") {       // {"c":"ledPreview","col":"#FF0000","lvl":80,"fx":1}
+    const char* h = d["col"] | "#FFFFFF";
+    ledPrevCol = strtoul(h + (h[0] == '#'), nullptr, 16) & 0xFFFFFF;
+    ledPrevLvl = constrain((int)(d["lvl"] | 100), 0, 100);
+    ledPrevFx = constrain((int)(d["fx"] | 0), 0, 3);
+    ledPrevUntil = millis() + 3000;
   } else if (c == "ledTest") {          // {"c":"ledTest","leds":[2,3]} – LEDs kurz weiß blinken lassen
     ledTestN = 0;
     for (JsonVariant v : d["leds"].as<JsonArray>()) if (ledTestN < sizeof(ledTest)) ledTest[ledTestN++] = v.as<int>();

@@ -27,12 +27,22 @@ struct Settings {
   float    angPark     = 0.0f;
   float    ang[NUM_PLACES] = {18.3f, 36.7f, 55.0f, 73.3f, 91.7f, 110.0f};  // Park 0°, ausgefahren 110°
   float    servoSpeed  = 120.0f;  // °/s
+  bool     servoRelease = true;   // Servo nach Erreichen der Position stromlos schalten (kein Brummen/Zittern)
+  uint16_t servoHoldMs  = 700;    // so lange nach dem Ankommen noch halten
   uint16_t servoMinUs  = 500;     // Impuls bei 0°
   uint16_t servoMaxUs  = 2400;    // Impuls bei 180°
 
   // --- LEDs / Bedienung ---
   uint8_t  ledBright   = 60;      // %
   uint8_t  ledCount    = 6;       // LEDs in der Kette
+  // Glas-LEDs je Zustand: 0 kein Glas, 1 bereit, 2 Rohr zielt, 3 schenkt ein, 4 fertig, 5 Fehler, 6 Waage defekt
+  uint32_t ledCol[7] = {0xFF0000, 0x003CFF, 0xFF9600, 0xFF6E00, 0x00FF28, 0xFF0000, 0x780078};
+  uint8_t  ledLvl[7] = {10, 100, 100, 100, 100, 100, 30};   // Helligkeit %
+  uint8_t  ledFx[7]  = {0, 0, 1, 2, 0, 3, 3};               // 0 an, 1 pulsieren, 2 schnell pulsieren, 3 blinken
+  // Taster-LED je Zustand: 0 bereit (Auto-Fill), 1 keine Gläser, 2 Rohr über Glas, 3 Rohr über leerem Platz,
+  //                        4 schenkt ein, 5 Fehler, 6 alle Gläser gefüllt
+  uint8_t  btnFx[7]  = {1, 3, 1, 2, 4, 5, 6};   // 0 aus, 1 an, 2 gedimmt, 3 atmen, 4 pulsieren, 5 blinken, 6 Doppelblitz
+  uint8_t  btnBright = 100;                     // %
   uint8_t  ledMapN[NUM_PLACES] = {1, 1, 1, 1, 1, 1};                       // Anzahl LEDs je Glas
   uint8_t  ledMap[NUM_PLACES][MAX_LEDS_PER_GLASS] = {{1}, {2}, {3}, {4}, {5}, {6}};  // LED-Nummern (ab 1)
   uint8_t  encDiv      = 4;       // Flanken pro Raste (KY-040: meist 4, manche 2)

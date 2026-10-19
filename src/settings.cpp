@@ -34,6 +34,14 @@ static void clampAll() {
   cfg.ledBright  = constrain(cfg.ledBright, (uint8_t)1, (uint8_t)100);
   cfg.encDiv     = constrain(cfg.encDiv, (uint8_t)1, (uint8_t)8);
   cfg.ledCount   = constrain(cfg.ledCount, (uint8_t)1, (uint8_t)MAX_LEDS);
+  cfg.servoHoldMs = constrain(cfg.servoHoldMs, (uint16_t)100, (uint16_t)5000);
+  cfg.btnBright  = constrain(cfg.btnBright, (uint8_t)5, (uint8_t)100);
+  for (int i = 0; i < 7; i++) {
+    cfg.ledCol[i] &= 0xFFFFFF;
+    cfg.ledLvl[i] = min(cfg.ledLvl[i], (uint8_t)100);
+    cfg.ledFx[i]  = min(cfg.ledFx[i], (uint8_t)3);
+    cfg.btnFx[i]  = min(cfg.btnFx[i], (uint8_t)6);
+  }
   for (int i = 0; i < NUM_PLACES; i++) {          // ungültige Nummern entfernen
     uint8_t n = 0;
     for (int k = 0; k < cfg.ledMapN[i] && k < MAX_LEDS_PER_GLASS; k++) {
@@ -72,6 +80,12 @@ void settingsToJson(JsonObject o) {
   o["servoMinUs"] = cfg.servoMinUs; o["servoMaxUs"] = cfg.servoMaxUs;
   o["ledBright"] = cfg.ledBright; o["encDiv"] = cfg.encDiv;
   o["ledCount"] = cfg.ledCount;
+  o["servoRelease"] = cfg.servoRelease; o["servoHoldMs"] = cfg.servoHoldMs; o["btnBright"] = cfg.btnBright;
+  JsonArray lc = o["ledCol"].to<JsonArray>(), ll = o["ledLvl"].to<JsonArray>(), lf = o["ledFx"].to<JsonArray>(), bf = o["btnFx"].to<JsonArray>();
+  for (int i = 0; i < 7; i++) {
+    char hex[8]; snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.ledCol[i]);
+    lc.add(hex); ll.add(cfg.ledLvl[i]); lf.add(cfg.ledFx[i]); bf.add(cfg.btnFx[i]);
+  }
   JsonArray lm = o["ledMap"].to<JsonArray>();
   for (int i = 0; i < NUM_PLACES; i++) {
     JsonArray g = lm.add<JsonArray>();
@@ -107,6 +121,14 @@ void settingsFromJson(JsonObjectConst o) {
   rd(o, "servoMinUs", cfg.servoMinUs); rd(o, "servoMaxUs", cfg.servoMaxUs);
   rd(o, "ledBright", cfg.ledBright);   rd(o, "encDiv", cfg.encDiv);
   rd(o, "ledCount", cfg.ledCount);
+  rd(o, "servoRelease", cfg.servoRelease); rd(o, "servoHoldMs", cfg.servoHoldMs); rd(o, "btnBright", cfg.btnBright);
+  JsonArrayConst lc = o["ledCol"], ll = o["ledLvl"], lf = o["ledFx"], bf = o["btnFx"];
+  for (int i = 0; i < 7; i++) {
+    if (!lc.isNull() && i < (int)lc.size()) { const char* h = lc[i] | ""; if (h[0] == '#') cfg.ledCol[i] = strtoul(h + 1, nullptr, 16); }
+    if (!ll.isNull() && i < (int)ll.size()) cfg.ledLvl[i] = ll[i].as<int>();
+    if (!lf.isNull() && i < (int)lf.size()) cfg.ledFx[i] = lf[i].as<int>();
+    if (!bf.isNull() && i < (int)bf.size()) cfg.btnFx[i] = bf[i].as<int>();
+  }
   JsonArrayConst lm = o["ledMap"];
   if (!lm.isNull()) {
     for (int i = 0; i < NUM_PLACES; i++) {

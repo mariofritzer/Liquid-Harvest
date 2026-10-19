@@ -39,6 +39,8 @@ details.fold>summary::after{content:"";width:8px;height:8px;border-right:2px sol
 details.fold[open]>summary{color:var(--txt);border-bottom:1px solid var(--line)}
 details.fold[open]>summary::after{transform:rotate(-135deg);margin-bottom:-4px}
 details.fold[open]{padding-bottom:12px}
+.sw-dot{width:22px;height:22px;border-radius:50%;flex:none;box-shadow:0 0 10px currentColor,inset 0 0 0 1px #fff3}
+.card select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px;color:var(--txt);font-size:14px}
 .surf{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;padding:12px 0 4px}
 .surf button{background:var(--bg2);border:2px solid var(--line);border-radius:14px;padding:10px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;font-weight:650;color:var(--mute)}
 .surf button i{width:52px;height:30px;border-radius:50%;display:block;box-shadow:inset 0 -5px 0 #0004}
@@ -524,15 +526,16 @@ function buildPlaces(){
 }
 function rebuildPlaces(){$("#glasses").innerHTML="";buildPlaces()}
 
-const LEDC={0:"#ff2a2a",1:"#2f7bff",2:"#2ee86a"};
+const LED_DEF={ledCol:["#FF0000","#003CFF","#FF9600","#FF6E00","#00FF28","#FF0000","#780078"],ledLvl:[10,100,100,100,100,100,30],ledFx:[0,0,1,2,0,3,3],btnFx:[1,3,1,2,4,5,6],btnBright:100};
+const ledCfg=k=>(CFG&&CFG[k])||LED_DEF[k];
+const FXCLS=["","pulse","pulse fast","blink"];
 function placeColor(i){
   const p=ST.pl[i];
   if(!p.en) return ["#000",0];
-  if(p.err) return ["#ff2a2a","blink"];
-  if(!p.ok) return ["#b030b0","blink"];
-  if(ST.busy&&ST.pp===i+1&&ST.ph!=="idle") return ["#ff8a00","pulse fast"];
-  if(ST.aim===i+1&&!ST.busy) return ["#ffb000","pulse"];
-  return [LEDC[p.s],p.s===0?"dim":""];
+  const st=p.err?5:!p.ok?6:(ST.busy&&ST.pp===i+1&&ST.ph!=="idle")?3:(ST.aim===i+1&&!ST.busy)?2:p.s===1?1:p.s===2?4:0;
+  const col=ledCfg("ledCol")[st]||"#ffffff", lvl=ledCfg("ledLvl")[st]??100, fx=ledCfg("ledFx")[st]||0;
+  if(st===0||lvl<35) return [col,"dim"];
+  return [col,FXCLS[fx]];
 }
 
 function render(){
@@ -696,6 +699,8 @@ const FIELDS={
       ["encReverse","Drehrichtung umkehren","","bool"]]]],
   servo:[["Bewegung",[
       ["servoSpeed","Geschwindigkeit","","°/s",10,720,5],
+      ["servoRelease","Nach Erreichen stromlos","kein Brummen/Zittern – schont Servo und Waagen","bool"],
+      ["servoHoldMs","Halten vor dem Abschalten","Zeit an der Position, bevor die Impulse aufhören","ms",100,5000,50],
       ["servoMinUs","Impuls bei 0°","","µs",300,1500,10],
       ["servoMaxUs","Impuls bei 180°","","µs",1500,2800,10]]]]
 };
@@ -730,7 +735,8 @@ function renderTab(){
     h+=`<p class="help">Ablauf: Pumpe läuft mit <b>schnell</b>, schaltet „Langsam ab“ Gramm vor dem Ziel auf <b>langsam</b> und stoppt „Stopp vorher“ Gramm vor dem Ziel – der Rest läuft aus dem Schlauch nach. Zu viel im Glas → „Stopp vorher“ erhöhen.</p>`;
   }
   if(curTab==="leds"){
-    if(!LEDEDIT) LEDEDIT={n:CFG.ledCount||6,map:(CFG.ledMap||[[1],[2],[3],[4],[5],[6]]).map(a=>[...a])};
+    if(!LEDEDIT) LEDEDIT={n:CFG.ledCount||6,map:(CFG.ledMap||[[1],[2],[3],[4],[5],[6]]).map(a=>[...a]),
+      col:[...ledCfg("ledCol")],lvl:[...ledCfg("ledLvl")],fx:[...ledCfg("ledFx")],bfx:[...ledCfg("btnFx")],bb:CFG.btnBright??100};
     const E=LEDEDIT, cnt={}; E.map.flat().forEach(v=>cnt[v]=(cnt[v]||0)+1);
     const bad=v=>!(v>=1&&v<=E.n)||cnt[v]>1;
     h+=`<div class="card"><h3>LED-Kette</h3>
@@ -742,6 +748,27 @@ function renderTab(){
       if(!leds.length) h+=`<p class="help" style="margin:8px 0">Keine LED – dieses Glas zeigt keinen Status.</p>`;
       h+=`<button class="btn" style="width:100%;margin:10px 0 12px;padding:11px" onclick="ledAdd(${i})">+ LED hinzufügen</button></div>`;
     });
+    // Farben je Zustand
+    const SN=[["Kein Glas","Orientierungslicht"],["Glas bereit","leeres Glas erkannt"],["Rohr zielt","Rohr steht über dem Glas"],["Schenkt ein","Pumpe läuft"],["Fertig","wartet auf Entnahme"],["Fehler","Glas weg, kein Durchfluss …"],["Waage defekt","keine Messwerte"]];
+    const FX=["Leuchtet","Pulsiert","Pulsiert schnell","Blinkt"];
+    h+=`<div class="card"><h3>Farben der Glas-LEDs</h3>`;
+    SN.forEach(([n,d],i)=>{
+      h+=`<div class="f" style="flex-wrap:wrap;row-gap:8px">
+        <span class="sw-dot" id="lcd${i}" style="background:${E.col[i]};opacity:${.25+.75*E.lvl[i]/100}"></span>
+        <label style="min-width:130px">${n}<small>${d}</small></label>
+        <input type="color" value="${E.col[i]}" oninput="ledCol(${i},'col',this.value)" aria-label="Farbe ${n}">
+        <select onchange="ledCol(${i},'fx',+this.value)" aria-label="Effekt ${n}">${FX.map((f,k)=>`<option value="${k}" ${E.fx[i]===k?"selected":""}>${f}</option>`).join("")}</select>
+        <div style="display:flex;align-items:center;gap:8px;width:100%"><span style="font-size:12px;color:var(--mute);width:62px">Helligkeit</span><input type="range" min="0" max="100" value="${E.lvl[i]}" style="flex:1" oninput="ledCol(${i},'lvl',+this.value)"><span id="lcl${i}" style="width:46px;text-align:right;font-size:13px;white-space:nowrap">${E.lvl[i]} %</span><button class="sbtn" onclick="ledPrev(${i})">Vorschau</button></div>
+      </div>`;
+    });
+    h+=`<p class="help">„Vorschau“ zeigt die Einstellung 3 Sekunden lang auf allen Glas-LEDs. Die Gesamthelligkeit stellst du unter Dosierung → LEDs & Bedienung ein.</p></div>`;
+    // Taster-LED
+    const BN=[["Bereit","Rohr parkt, leere Gläser da – Klick = Auto-Fill"],["Keine Gläser","nichts zum Einschenken"],["Rohr über Glas","Klick schenkt ein"],["Rohr über leerem Platz","Klick hat keine Wirkung"],["Schenkt ein","Klick = Notstopp"],["Fehler","z. B. kein Durchfluss"],["Alle Gläser gefüllt","Prost!"]];
+    const BF=["Aus","An","Gedimmt","Atmen","Pulsieren","Blinken","Doppelblitz"];
+    h+=`<div class="card"><h3>Taster-LED</h3>
+      <div class="f"><label>Helligkeit</label><input type="range" min="5" max="100" value="${E.bb}" style="width:45%" oninput="LEDEDIT.bb=+this.value;$('#lbb').textContent=this.value+' %'"><span id="lbb" style="width:50px;text-align:right;white-space:nowrap">${E.bb} %</span></div>
+      ${BN.map(([n,d],i)=>`<div class="f"><label>${n}<small>${d}</small></label><select onchange="LEDEDIT.bfx[${i}]=+this.value" aria-label="Taster-LED ${n}">${BF.map((f,k)=>`<option value="${k}" ${E.bfx[i]===k?"selected":""}>${f}</option>`).join("")}</select></div>`).join("")}
+      <p class="help">Nach jedem angenommenen Klick geht die LED kurz aus – so siehst du, dass der Druck erkannt wurde.</p></div>`;
     const errs=E.map.flat().filter(bad);
     h+=errs.length?`<p class="help" style="color:#ff8a8a">Rot markiert: Nummer doppelt vergeben oder größer als die Anzahl LEDs.</p>`:"";
     h+=`<button class="btn primary save" onclick="ledSave()" ${errs.length?"disabled":""}>Speichern</button>
@@ -1474,7 +1501,12 @@ window.ledAdd=i=>{ const e=$("#lc_n"); if(e) LEDEDIT.n=Math.max(1,Math.min(64,+e
   LEDEDIT.map[i].push(v); ledRefresh(); };
 window.ledTestGlass=i=>{ if(!LEDEDIT.map[i].length){ toast("Glas "+(i+1)+" hat keine LED"); return; } send({c:"ledTest",leds:LEDEDIT.map[i]}); };
 window.ledSave=()=>{ const e=$("#lc_n"); if(e) LEDEDIT.n=Math.max(1,Math.min(64,+e.value||1));
-  send({c:"setCfg",cfg:{ledCount:LEDEDIT.n,ledMap:LEDEDIT.map}}); LEDEDIT=null; };
+  const E=LEDEDIT;
+  send({c:"setCfg",cfg:{ledCount:E.n,ledMap:E.map,ledCol:E.col.map(c=>c.toUpperCase()),ledLvl:E.lvl,ledFx:E.fx,btnFx:E.bfx,btnBright:E.bb}}); LEDEDIT=null; };
+window.ledCol=(i,k,v)=>{ const E=LEDEDIT; E[k][i]=v;
+  const d=$("#lcd"+i); if(d){ d.style.background=E.col[i]; d.style.opacity=.25+.75*E.lvl[i]/100; }
+  if(k==="lvl") $("#lcl"+i).textContent=v+" %"; };
+window.ledPrev=i=>{ const E=LEDEDIT; send({c:"ledPreview",col:E.col[i],lvl:E.lvl[i],fx:E.fx[i]}); };
 document.addEventListener("change",e=>{ if(e.target&&e.target.id==="lc_n") ledRefresh(); });
 
 /* ---------------- Toast ---------------- */
@@ -1485,7 +1517,7 @@ window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAug
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoRelease:true,servoHoldMs:700,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
@@ -1501,6 +1533,7 @@ function demoCmd(o){
   if(o.c==="stop"){S.jobs=[];S.cur=null;S.pump=0;S.ph="idle";toast("Gestoppt")}
   if(o.c==="aim"&&!S.cur){S.aim=o.p;S.tgt=o.p?S.cfg.ang[o.p-1]:S.cfg.angPark}
   if(o.c==="servo")S.tgt=o.a;
+  if(o.c==="ledPreview"){toast("Demo: Vorschau "+o.col);return}
   if(o.c==="ledTest"){toast("Demo: LED "+o.leds.join(", ")+" blinkt");return}
   if(o.c==="setCfg"){Object.assign(S.cfg,o.cfg);try{localStorage.setItem("lh_demo_cfg",JSON.stringify(S.cfg))}catch(e){};onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});toast("Gespeichert")}
   if(o.c==="getCfg")onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});
