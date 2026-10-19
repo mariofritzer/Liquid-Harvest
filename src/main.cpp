@@ -145,8 +145,11 @@ static void sendCfg() {
 //  Aktoren
 // ---------------------------------------------------------------------
 static bool servoPowered = true;
+static uint32_t servoArrivedAt = 0;
 static void servoWrite(float deg) {
+  if (cfg.servoReverse) deg = 180.0f - deg;   // Drehrichtung umkehren
   float us = cfg.servoMinUs + (cfg.servoMaxUs - cfg.servoMinUs) * (deg / 180.0f);
+  servoArrivedAt = 0;
   ledcWrite(CH_SERVO, (uint32_t)(us * 65535.0f / 20000.0f));
   servoPowered = true;
 }
@@ -173,16 +176,15 @@ static void servoLoop() {
   if (fabsf(servoCur - written) >= 0.1f || (!servoPowered && servoCur != servoTgt)) { servoWrite(servoCur); written = servoCur; }
 
   // An der Zielposition: kurz halten, dann Impulse abschalten -> Servo stromlos, kein Brummen/Zittern
-  static uint32_t arrivedAt = 0;
   static float lastTgt = -1;
-  if (servoTgt != lastTgt) { lastTgt = servoTgt; arrivedAt = 0; if (!servoPowered) { servoWrite(servoCur); written = servoCur; } }
+  if (servoTgt != lastTgt) { lastTgt = servoTgt; servoArrivedAt = 0; if (!servoPowered) { servoWrite(servoCur); written = servoCur; } }
   if (servoCur == servoTgt) {
-    if (!arrivedAt) arrivedAt = millis();
-    if (cfg.servoRelease && servoPowered && millis() - arrivedAt > cfg.servoHoldMs) {
+    if (!servoArrivedAt) servoArrivedAt = millis();
+    if (cfg.servoRelease && servoPowered && millis() - servoArrivedAt > cfg.servoHoldMs) {
       ledcWrite(CH_SERVO, 0);
       servoPowered = false;
     }
-  } else arrivedAt = 0;
+  } else servoArrivedAt = 0;
 }
 
 static void pumpSet(uint8_t pct) {
@@ -787,6 +789,7 @@ static void handleCmd(const String& msg) {
     settingsFromJson(o);
     settingsSave();
     applyLedCount();
+    servoWrite(servoCur);          // z. B. geänderte Drehrichtung sofort übernehmen
     if (!pourBusy()) aim(aimIdx);
     sendCfg();
     toast("Gespeichert");

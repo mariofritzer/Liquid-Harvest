@@ -699,6 +699,7 @@ const FIELDS={
       ["encReverse","Drehrichtung umkehren","","bool"]]]],
   servo:[["Bewegung",[
       ["servoSpeed","Geschwindigkeit","","°/s",10,720,5],
+      ["servoReverse","Drehrichtung umkehren","0° liegt dann auf der anderen Seite (nach Speichern)","bool"],
       ["servoRelease","Nach Erreichen stromlos","kein Brummen/Zittern – schont Servo und Waagen","bool"],
       ["servoHoldMs","Halten vor dem Abschalten","Zeit an der Position, bevor die Impulse aufhören","ms",100,5000,50],
       ["servoMinUs","Impuls bei 0°","","µs",300,1500,10],
@@ -783,10 +784,11 @@ function renderTab(){
       <p class="help"><b>Kalibrieren:</b> Waage leer lassen → <b>Tara</b>. Dann ein bekanntes Gewicht (z. B. 100-g-Gewicht oder 100 ml Wasser) auflegen, Gewicht eintragen → <b>Kalibrieren</b>. Nicht angeschlossene Waagen hier ausschalten.</p>`;
   }
   if(curTab==="servo"){
-    const row=(id,l,v)=>`<div class="f"><label>${l}</label><input type="range" min="0" max="180" step="1" value="${v}" id="${id}" style="width:45%" oninput="$('#${id}v').value=this.value;send({c:'servo',a:+this.value})"><input type="number" id="${id}v" value="${v}" style="width:64px" onchange="$('#${id}').value=this.value;send({c:'servo',a:+this.value})"><span class="u">°</span></div>`;
+    const row=(id,l,v)=>`<div class="f" style="flex-wrap:wrap;row-gap:6px"><label>${l}</label><input type="number" id="${id}v" value="${v}" step="0.1" style="width:72px" onchange="$('#${id}').value=this.value;send({c:'servo',a:+this.value})"><span class="u">°</span><button class="sbtn gold" onclick="send({c:'servo',a:+$('#${id}v').value})">Anfahren</button>
+      <input type="range" min="0" max="180" step="0.1" value="${v}" id="${id}" style="width:100%" oninput="$('#${id}v').value=this.value;send({c:'servo',a:+this.value})"></div>`;
     h+=`<div class="card"><h3>Positionen</h3>${row("a_p","Parkposition",CFG.angPark)}${CFG.ang.map((a,i)=>row("a_"+i,"Glas "+(i+1),a)).join("")}</div>`;
     FIELDS.servo.forEach(([t,fs])=>h+=`<div class="card"><h3>${t}</h3>${fs.map(fieldHtml).join("")}</div>`);
-    h+=saveBtn("servo")+`<p class="help">Regler bewegen das Rohr live. Position so einstellen, dass der Auslauf mittig über dem Glas steht, dann speichern.</p>`;
+    h+=saveBtn("servo")+`<p class="help"><b>Anfahren</b> fährt das Rohr auf den eingetragenen Winkel, die Regler bewegen es live. Position so einstellen, dass der Auslauf mittig über dem Glas steht, dann speichern.</p>`;
   }
   if(curTab==="wifi"){
     const w=ST?ST.wifi:{};
@@ -1517,7 +1519,7 @@ window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAug
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoRelease:true,servoHoldMs:700,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));

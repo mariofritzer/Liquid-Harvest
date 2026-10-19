@@ -27,6 +27,7 @@ struct Settings {
   float    angPark     = 0.0f;
   float    ang[NUM_PLACES] = {18.3f, 36.7f, 55.0f, 73.3f, 91.7f, 110.0f};  // Park 0°, ausgefahren 110°
   float    servoSpeed  = 120.0f;  // °/s
+  bool     servoReverse = false;  // Drehrichtung umkehren (0° liegt dann auf der anderen Seite)
   bool     servoRelease = true;   // Servo nach Erreichen der Position stromlos schalten (kein Brummen/Zittern)
   uint16_t servoHoldMs  = 700;    // so lange nach dem Ankommen noch halten
   uint16_t servoMinUs  = 500;     // Impuls bei 0°

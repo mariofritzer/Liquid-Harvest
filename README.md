@@ -48,7 +48,7 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | **Rohr-Video** | eigenes Video (Rohr fährt Park → Glas 1 … 6) hochladen – Haltepunkte, Rohrspitzen und Parkposition werden erkannt, Hintergrund freigestellt, Gläser automatisch unter den Auslauf gesetzt; die App zeigt immer das Bild zum echten Servo-Winkel |
 | **Glas-LEDs** | Anzahl der LEDs in der Kette und Zuordnung frei einstellbar (beliebig viele LEDs pro Glas), mit Test-Knopf; Farbe, Helligkeit und Effekt je Zustand einstellbar, mit Vorschau |
 | **Taster-LED** | zeigt den Zustand (bereit, Rohr über Glas, schenkt ein, Fehler, alle gefüllt …) – Effekt je Zustand wählbar, kurzes Aus quittiert jeden Klick |
-| **Servo** | wird nach Erreichen der Position stromlos geschaltet – kein Brummen/Zittern, schont Servo und Waagen |
+| **Servo** | Drehrichtung umkehrbar, jede Position per „Anfahren“ testbar; nach Erreichen der Position stromlos – kein Brummen/Zittern, schont Servo und Waagen |
 | **Untergrund** | Holzscheibe, Holzplatte, Stoppelfeld, Wiese, Acker, Schiefer, Beton oder ohne – realistische Texturen, im Browser erzeugt |
 | **Standard-Einrichtung** | Export aus der App als `setup/default-setup.json` ins Repo → wird beim Flashen mitinstalliert; jeder Build prüft das Image und startet es testweise im ESP32-Emulator |
 | **Updates** | Web-Installer per USB oder OTA über die Weboberfläche |
