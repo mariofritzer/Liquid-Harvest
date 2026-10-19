@@ -1,3 +1,3 @@
 #pragma once
 #define FW_NAME    "Liquid Harvest"
-#define FW_VERSION "1.4.1"
+#define FW_VERSION "1.4.2"

@@ -21,7 +21,7 @@ static void clampAll() {
   cfg.noFlowMs   = constrain(cfg.noFlowMs, (uint32_t)500, (uint32_t)30000);
   cfg.maxPourMs  = constrain(cfg.maxPourMs, (uint32_t)2000, (uint32_t)120000);
   cfg.settleMs   = constrain(cfg.settleMs, (uint32_t)0, (uint32_t)3000);
-  cfg.glassMin   = constrain(cfg.glassMin, 0.5f, 200.0f);
+  cfg.glassMin   = constrain(cfg.glassMin, 0.1f, 200.0f);
   cfg.stableMs   = constrain(cfg.stableMs, (uint32_t)100, (uint32_t)5000);
   cfg.angPark    = constrain(cfg.angPark, 0.0f, 180.0f);
   for (int i = 0; i < NUM_PLACES; i++) {
