@@ -10,6 +10,7 @@
 #include <Update.h>
 #include <LittleFS.h>
 #include <Preferences.h>
+#include <time.h>
 #include <ArduinoJson.h>
 #include <Adafruit_NeoPixel.h>
 #include <vector>
@@ -187,9 +188,21 @@ static void servoLoop() {
   } else servoArrivedAt = 0;
 }
 
+static uint8_t pumpRev = 0;          // H-Brücke: Rückwärts-Leistung (Zurücksaugen)
+static uint32_t retractUntil = 0;
+// Vorwärts mit pct %. MOSFET-Modul: nur PWM an IN/Gate. H-Brücke: IN1 = PWM, IN2 = 0 (Freilauf in den Pausen).
 static void pumpSet(uint8_t pct) {
-  pumpPct = pct;
+  pumpPct = pct; pumpRev = 0; retractUntil = 0;
+  ledcWrite(CH_PUMP2, 0);
   ledcWrite(CH_PUMP, (uint32_t)pct * 255 / 100);
+}
+// Rückwärts (nur H-Brücke): IN1 = 0, IN2 = PWM
+static void pumpReverse(uint8_t pct, uint32_t ms) {
+  if (cfg.pumpDriver != 1 || !ms) return;
+  ledcWrite(CH_PUMP, 0);
+  pumpPct = 0; pumpRev = pct;
+  ledcWrite(CH_PUMP2, (uint32_t)pct * 255 / 100);
+  retractUntil = millis() + ms;
 }
 
 // ---------------------------------------------------------------------
@@ -251,20 +264,21 @@ static void stopAll(const char* reason) {
   if (was) toast("Gestoppt");
 }
 
-static void startPrime(uint32_t ms, bool byButton) {
+static void startPrime(uint32_t ms, bool byButton, uint8_t pos = 0) {
   if (pourBusy()) return;
-  aim(0);
+  aim(pos);   // 0 = Park, 1..6 = über Glas
   pour.ph = PH_PRIME;
   pour.primeRunning = false;
   pour.primeByButton = byButton;
-  pour.primeUntil = ms;   // Dauer, Start erst in Parkposition
+  pour.primeUntil = ms;   // Dauer, Start erst wenn das Rohr steht
 }
 
 static void pourLoop(bool btnHeld) {
   uint32_t now = millis();
 
   // Sicherheitsnetz: Pumpe nie während einer Servo-Fahrt
-  if (pumpPct && !servoArrived()) pumpSet(0);
+  if ((pumpPct || pumpRev) && !servoArrived()) pumpSet(0);
+  if (retractUntil && now >= retractUntil) pumpSet(0);   // Zurücksaugen beendet
 
   switch (pour.ph) {
     case PH_IDLE:
@@ -309,6 +323,7 @@ static void pourLoop(bool btnHeld) {
       if (now - pour.t0 > cfg.maxPourMs) { abortPour("timeout", true); break; }
       if (pour.got >= pour.target - cfg.stopBefore) {
         pumpSet(0);
+        pumpReverse(cfg.retractPwm, cfg.retractMs);   // H-Brücke: Schlauchende leersaugen, damit nichts nachtropft
         pour.ph = PH_DRIP;
         pour.tPhase = now;
       } else if (pour.ph == PH_FAST && pour.got >= pour.target - cfg.slowBefore) {
@@ -319,11 +334,19 @@ static void pourLoop(bool btnHeld) {
     }
 
     case PH_DRIP:
-      if (now - pour.tPhase >= 800) {
+      if (now - pour.tPhase >= max<uint32_t>(800, (cfg.pumpDriver == 1 ? cfg.retractMs : 0) + 400)) {
         int p = pour.p;
         pour.got = Scales::gs(p) - pour.startW;
         places[p].st = P_FILLED;
         places[p].lastMl = pour.got / cfg.density;
+        // Nachlauf selbst nachstellen: zu viel im Glas -> früher stoppen, zu wenig -> später
+        float err = pour.got - pour.target;
+        if (cfg.autoTune && pour.target >= 4.0f && fabsf(err) < 6.0f) {
+          cfg.stopBefore = constrain(cfg.stopBefore + 0.5f * err, 0.0f, 10.0f);
+          Serial.printf("[Dosierung] Abweichung %+.2f g -> Stopp vorher %.2f g\n", err, cfg.stopBefore);
+        }
+        if (cfg.shotsSinceClean < 60000) cfg.shotsSinceClean++;
+        settingsSave();
         event("pour_done", p, places[p].lastMl);
         finishJob();
       }
@@ -535,6 +558,16 @@ static void ledsLoop() {
   for (int i = 0; i < NUM_PLACES; i++)
     for (int k = 0; k < cfg.ledMapN[i]; k++)
       if (cfg.ledMap[i][k] >= 1 && cfg.ledMap[i][k] <= strip.numPixels()) strip.setPixelColor(cfg.ledMap[i][k] - 1, placeCol[i]);
+  // Rundumleuchte: blinkt wie ein drehendes Warnlicht, solange gefahren oder gepumpt wird
+  bool working = pourBusy() || servoCur != servoTgt || pumpPct > 0 || pumpRev > 0;
+  for (int k = 0; k < cfg.beaconN; k++) {
+    float ph = (now % 900) / 900.0f + (float)k / max(1, (int)cfg.beaconN);
+    float f = working ? powf(max(0.0f, cosf(ph * 2 * PI)), 6) : 0;
+    uint32_t c = cfg.beaconCol;
+    float kk = f * cfg.beaconLvl / 100.0f * cfg.ledBright / 100.0f;
+    if (cfg.beaconMap[k] >= 1 && cfg.beaconMap[k] <= strip.numPixels())
+      strip.setPixelColor(cfg.beaconMap[k] - 1, strip.Color(((c >> 16) & 255) * kk, ((c >> 8) & 255) * kk, (c & 255) * kk));
+  }
   if (now < ledTestUntil) {    // Test aus den Einstellungen: gewählte LEDs blinken weiß
     uint32_t w = blink ? strip.Color(255, 255, 255) : strip.Color(40, 40, 40);
     for (int k = 0; k < ledTestN; k++) if (ledTest[k] >= 1 && ledTest[k] <= strip.numPixels()) strip.setPixelColor(ledTest[k] - 1, w);
@@ -645,6 +678,8 @@ static void wifiBegin() {
 
 static void wifiLoop() {
   uint32_t now = millis();
+  static bool ntpStarted = false;   // Uhrzeit für die Reinigungs-Erinnerung
+  if (!ntpStarted && WiFi.status() == WL_CONNECTED) { configTime(0, 0, "pool.ntp.org", "time.google.com"); ntpStarted = true; }
   if (apActive) dns.processNextRequest();
 
   switch (wstate) {
@@ -770,6 +805,15 @@ static void handleCmd(const String& msg) {
     if (!pourBusy()) servoTgt = constrain((float)(d["a"] | 90.0f), 0.0f, 180.0f);
   } else if (c == "prime") {
     startPrime((uint32_t)((d["s"] | 3.0f) * 1000), false);
+  } else if (c == "cleanRinse" || c == "cleanDry") {
+    if (d["p"].is<int>()) { cfg.cleanPos = constrain((int)d["p"], 0, NUM_PLACES); settingsSave(); }
+    startPrime((uint32_t)(c == "cleanRinse" ? cfg.cleanRinseS : cfg.cleanDryS) * 1000, false, cfg.cleanPos);
+  } else if (c == "cleanDone") {
+    cfg.shotsSinceClean = 0;
+    time_t t = time(nullptr);
+    cfg.lastClean = t > 1700000000 ? (uint32_t)t : 0;
+    settingsSave(); sendCfg();
+    toast("Reinigung erledigt");
   } else if (c == "tare") {
     if (p >= 1 && p <= NUM_PLACES) Scales::tare(p - 1);
     else for (int i = 0; i < NUM_PLACES; i++) if (places[i].st == P_NONE) Scales::tare(i);
@@ -844,12 +888,21 @@ static void buildState(String& out) {
   d["aim"] = aimIdx;
   d["ang"] = roundf(servoCur * 10) / 10;
   d["ph"] = PHASE_NAMES[pour.ph];
+  {
+    time_t t = time(nullptr);
+    int days = (t > 1700000000 && cfg.lastClean) ? (int)((t - cfg.lastClean) / 86400) : -1;
+    bool due = (cfg.cleanShots && cfg.shotsSinceClean >= cfg.cleanShots) || (cfg.cleanDays && days >= cfg.cleanDays);
+    JsonObject cl = d["clean"].to<JsonObject>();
+    cl["due"] = due; cl["shots"] = cfg.shotsSinceClean; cl["days"] = days;
+    d["stopB"] = roundf(cfg.stopBefore * 100) / 100;
+  }
   d["pp"] = pour.p + 1;
   d["tgt"] = roundf(pour.ml * 10) / 10;
   d["got"] = roundf(pour.got / cfg.density * 10) / 10;
   d["q"] = jobs.size();
   d["busy"] = pourBusy();
   d["pump"] = pumpPct;
+  d["rev"] = pumpRev;
   JsonArray a = d["pl"].to<JsonArray>();
   uint32_t now = millis();
   for (int i = 0; i < NUM_PLACES; i++) {
@@ -1020,7 +1073,7 @@ static void webBegin() {
     [](AsyncWebServerRequest*, const String&, size_t index, uint8_t* data, size_t len, bool final) {
       if (!index) {
         otaRunning = true;
-        ledcWrite(CH_PUMP, 0);
+        ledcWrite(CH_PUMP, 0); ledcWrite(CH_PUMP2, 0);
         Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH);
       }
       if (!Update.hasError()) Update.write(data, len);
@@ -1076,6 +1129,8 @@ void setup() {
   // Pumpe zuerst sicher aus
   pinMode(PIN_PUMP, OUTPUT);
   digitalWrite(PIN_PUMP, LOW);
+  pinMode(PIN_PUMP2, OUTPUT);
+  digitalWrite(PIN_PUMP2, LOW);
 
   Serial.begin(115200);
   delay(50);
@@ -1091,8 +1146,12 @@ void setup() {
   Serial.printf("[Setup] Standard-Einrichtung: %s | Darstellung %u Zeichen | Park %.1f°, Glas 1 %.1f°, Glas 6 %.1f°\n",
                 setupInfo.c_str(), (unsigned)cfg.ui.length(), cfg.angPark, cfg.ang[0], cfg.ang[NUM_PLACES - 1]);
 
+  pinMode(PIN_PUMP2, OUTPUT);
+  digitalWrite(PIN_PUMP2, LOW);
   ledcSetup(CH_PUMP, 1000, 8);
   ledcAttachPin(PIN_PUMP, CH_PUMP);
+  ledcSetup(CH_PUMP2, 1000, 8);
+  ledcAttachPin(PIN_PUMP2, CH_PUMP2);
   pumpSet(0);
 
   ledcSetup(CH_SERVO, 50, 16);

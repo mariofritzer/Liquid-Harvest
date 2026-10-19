@@ -39,7 +39,10 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | | |
 |---|---|
 | **Glaserkennung** | Schwelle einstellbar ab 0,1 g (Standard 1,5 g, auch Plastikstamperl), Gewicht muss 0,5 s ruhig sein, Drift-Kompensation, Nullung beim Einschalten |
-| **Dosierung** | nach Gewicht: schnell → langsam (PWM) → Stopp vor dem Ziel (Nachlauf) → Nachtropfzeit |
+| **Dosierung** | nach Gewicht: schnell → langsam (PWM) → Stopp vor dem Ziel (Nachlauf) → Nachtropfzeit · **Nachlauf lernt sich selbst ein** (korrigiert „Stopp vorher“ nach jedem Glas) |
+| **Pumpentreiber** | wählbar: MOSFET-Modul (D4184) oder **H-Brücke** (DRV8871, BTS7960, L298N) – mit H-Brücke saugt die Pumpe nach dem Einschenken kurz zurück, kein Nachtropfen beim Schwenken |
+| **Reinigung** | geführtes Spülprogramm (Spülen → Leer pumpen → fertig) an wählbarer Position (Park oder Glas 1–6), Erinnerung nach X Gläsern oder Y Tagen (Uhrzeit per NTP aus dem Heimnetz) |
+| **Rundumleuchte** | 1–4 zusätzliche WS2812B am Ende der LED-Kette blitzen als Rundumleuchte, solange das Rohr fährt oder die Pumpe läuft; Farbe/Helligkeit einstellbar |
 | **Sicherheit** | Glas weg = sofort Stopp · kein Durchfluss nach X s = Abbruch (einstellbar) · Pumpe nur bei stehendem Rohr · Höchstdauer pro Glas · Taster = Notstopp |
 | **Offline** | Encoder schwenkt das Rohr, Taster schenkt ein, Auto-Fill aus der Parkposition |
 | **Online** | isometrische 3D-Ansicht am Handy, Gläser poppen live auf, Klick → Menge wählen → einschenken |
@@ -90,21 +93,24 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | HX711 SCK (alle 6 gemeinsam) | **4** | |
 | HX711 DT Glas 1…6 | **36, 39, 34, 35, 32, 33** | liegen alle im Register `GPIO_IN1` → 6 Waagen werden mit einem Zugriff gleichzeitig gelesen |
 | Servo MG90S | **13** | |
-| Pumpe (D4184 Gate) | **27** | PWM 1 kHz |
+| Pumpe: MOSFET-Modul PWM **bzw.** H-Brücke IN1 | **27** | PWM 1 kHz, vorwärts |
+| H-Brücke IN2 (nur H-Brücke) | **19** | PWM 1 kHz, rückwärts (Zurücksaugen) |
 | WS2812B Data-In | **23** | LED 1 = Glas 1 |
 | Taster | **25** | gegen GND (interner Pull-up) |
 | Taster-LED | **26** | PWM |
 | KY-040 CLK / DT / SW | **16 / 17 / 18** | |
 
-**Warum so?** Keine Strapping-Pins (0, 2, 5, 12, 15), keine Flash-Pins, und die reinen Eingänge 34–39 werden sinnvoll für die HX711-Datenleitungen genutzt. Frei bleiben u. a. GPIO 19, 21, 22 (I²C z. B. für ein OLED) und 14.
+**Warum so?** Keine Strapping-Pins (0, 2, 5, 12, 15), keine Flash-Pins, und die reinen Eingänge 34–39 werden sinnvoll für die HX711-Datenleitungen genutzt. Frei bleiben u. a. GPIO 21, 22 (I²C z. B. für ein OLED) und 14.
 
-> ⚠️ Bei einem **ESP32-WROVER** sind GPIO 16/17 durch den PSRAM belegt – dann Encoder auf 19/21 legen (`src/pins.h`).
+> ⚠️ Bei einem **ESP32-WROVER** sind GPIO 16/17 durch den PSRAM belegt – dann Encoder auf 21/22 legen (`src/pins.h`).
 
 ## Verdrahtungs-Tipps
 
 - **Servo:** 470–1000 µF Elko direkt an 5 V/GND des Servos.
 - **Pumpe:** Freilaufdiode 1N5819 antiparallel zur Pumpe ist Pflicht – das D4184-Modul (2 × AOD4184A) hat keine. 10 kΩ Pulldown PWM→GND, damit die Pumpe beim Booten sicher aus ist.
 - **Taster-LED** (5–12 V, Vorwiderstand eingebaut): „+“ an +12 V, „−“ über NPN-Transistor (BC547, 1 kΩ an der Basis) nach GND – GPIO 26 schaltet bzw. dimmt.
+- **H-Brücke statt MOSFET:** in der App unter ⚙️ Dosierung → Pumpentreiber auswählen, dort steht auch die Pinbelegung. **DRV8871** empfohlen (IN1→27, IN2→19, VM→+12 V, OUT1/OUT2→Pumpe). **BTS7960:** RPWM→27, LPWM→19, R_EN und L_EN an 3,3 V. **L298N:** IN1→27, IN2→19, Jumper auf ENA stecken lassen. Die Freilaufdiode D1 entfällt (Brücke hat eigene).
+- **Rundumleuchte:** einfach eine weitere WS2812B ans Ende der Kette hängen und im LED-Reiter ihre Nummer eintragen.
 - **Masse:** sternförmig führen, Pumpen-/Servostrom nicht über die HX711-Masse.
 - **HX711:** RATE-Pin auf GND (10 Messungen/s, rauschärmer). Nicht angeschlossene Waagen in den Einstellungen deaktivieren.
 - Schlauch und Rohr **lebensmittelecht** (Silikon, alkoholbeständig).

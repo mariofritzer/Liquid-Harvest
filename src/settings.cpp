@@ -18,6 +18,14 @@ static void clampAll() {
   cfg.pwmSlow    = constrain(cfg.pwmSlow, (uint8_t)5, (uint8_t)100);
   cfg.slowBefore = constrain(cfg.slowBefore, 0.0f, 30.0f);
   cfg.stopBefore = constrain(cfg.stopBefore, 0.0f, 10.0f);
+  cfg.cleanDays  = min(cfg.cleanDays, (uint8_t)60);
+  cfg.pumpDriver = min(cfg.pumpDriver, (uint8_t)1);
+  cfg.retractMs  = min(cfg.retractMs, (uint16_t)2000);
+  cfg.retractPwm = constrain(cfg.retractPwm, (uint8_t)10, (uint8_t)100);
+  cfg.cleanRinseS = constrain(cfg.cleanRinseS, (uint16_t)3, (uint16_t)120);
+  cfg.cleanDryS  = constrain(cfg.cleanDryS, (uint16_t)3, (uint16_t)120);
+  if (cfg.cleanPos > NUM_PLACES) cfg.cleanPos = 0;
+  cfg.beaconCol &= 0xFFFFFF; cfg.beaconLvl = min(cfg.beaconLvl, (uint8_t)100);
   cfg.noFlowMs   = constrain(cfg.noFlowMs, (uint32_t)500, (uint32_t)30000);
   cfg.maxPourMs  = constrain(cfg.maxPourMs, (uint32_t)2000, (uint32_t)120000);
   cfg.settleMs   = constrain(cfg.settleMs, (uint32_t)0, (uint32_t)3000);
@@ -70,6 +78,12 @@ void settingsToJson(JsonObject o) {
   o["density"] = cfg.density;     o["pwmFast"] = cfg.pwmFast;
   o["pwmSlow"] = cfg.pwmSlow;     o["slowBefore"] = cfg.slowBefore;
   o["stopBefore"] = cfg.stopBefore;
+  o["autoTune"] = cfg.autoTune;
+  o["pumpDriver"] = cfg.pumpDriver; o["retractMs"] = cfg.retractMs; o["retractPwm"] = cfg.retractPwm;
+  o["cleanShots"] = cfg.cleanShots; o["cleanDays"] = cfg.cleanDays; o["cleanRinseS"] = cfg.cleanRinseS; o["cleanDryS"] = cfg.cleanDryS; o["cleanPos"] = cfg.cleanPos;
+  o["shotsSinceClean"] = cfg.shotsSinceClean; o["lastClean"] = cfg.lastClean;
+  { JsonArray bm = o["beaconMap"].to<JsonArray>(); for (int k = 0; k < cfg.beaconN; k++) bm.add(cfg.beaconMap[k]);
+    char hex[8]; snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.beaconCol); o["beaconCol"] = hex; o["beaconLvl"] = cfg.beaconLvl; }
   o["noFlowMs"] = cfg.noFlowMs;   o["maxPourMs"] = cfg.maxPourMs;
   o["settleMs"] = cfg.settleMs;   o["parkAfter"] = cfg.parkAfter;
   o["glassMin"] = cfg.glassMin;   o["stableMs"] = cfg.stableMs;
@@ -111,6 +125,14 @@ void settingsFromJson(JsonObjectConst o) {
   rd(o, "density", cfg.density);     rd(o, "pwmFast", cfg.pwmFast);
   rd(o, "pwmSlow", cfg.pwmSlow);     rd(o, "slowBefore", cfg.slowBefore);
   rd(o, "stopBefore", cfg.stopBefore);
+  rd(o, "autoTune", cfg.autoTune);
+  rd(o, "pumpDriver", cfg.pumpDriver); rd(o, "retractMs", cfg.retractMs); rd(o, "retractPwm", cfg.retractPwm);
+  rd(o, "cleanShots", cfg.cleanShots); rd(o, "cleanDays", cfg.cleanDays); rd(o, "cleanRinseS", cfg.cleanRinseS); rd(o, "cleanDryS", cfg.cleanDryS); rd(o, "cleanPos", cfg.cleanPos);
+  rd(o, "shotsSinceClean", cfg.shotsSinceClean); rd(o, "lastClean", cfg.lastClean);
+  { JsonArrayConst bm = o["beaconMap"];
+    if (!bm.isNull()) { cfg.beaconN = 0; for (JsonVariantConst v : bm) { int n = v.as<int>(); if (n >= 1 && n <= MAX_LEDS && cfg.beaconN < 4) cfg.beaconMap[cfg.beaconN++] = n; } }
+    const char* h = o["beaconCol"] | ""; if (h[0] == '#') cfg.beaconCol = strtoul(h + 1, nullptr, 16);
+    rd(o, "beaconLvl", cfg.beaconLvl); }
   rd(o, "noFlowMs", cfg.noFlowMs);   rd(o, "maxPourMs", cfg.maxPourMs);
   rd(o, "settleMs", cfg.settleMs);   rd(o, "parkAfter", cfg.parkAfter);
   rd(o, "glassMin", cfg.glassMin);   rd(o, "stableMs", cfg.stableMs);

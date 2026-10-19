@@ -25,7 +25,8 @@ constexpr int PIN_HX_DT[NUM_PLACES] = {36, 39, 34, 35, 32, 33};  // Glas 1..6
 
 // Aktoren
 constexpr int PIN_SERVO = 13;     // MG90S Signal
-constexpr int PIN_PUMP  = 27;     // D4184 Gate (PWM)
+constexpr int PIN_PUMP  = 27;     // MOSFET-Modul: PWM · H-Brücke: IN1 (vorwärts)
+constexpr int PIN_PUMP2 = 19;     // H-Brücke: IN2 (rückwärts) – beim MOSFET-Modul unbenutzt
 constexpr int PIN_LEDS  = 23;     // WS2812B Data-In (LED 1 = Glas 1)
 
 // Bedienung
@@ -38,4 +39,5 @@ constexpr int PIN_ENC_SW  = 18;   // KY-040 SW (Taster gegen GND)
 // LEDC-Kanäle (Kanal n nutzt Timer n/2)
 constexpr int CH_SERVO   = 0;     // Timer 0, 50 Hz
 constexpr int CH_PUMP    = 2;     // Timer 1, 1 kHz
+constexpr int CH_PUMP2   = 3;     // Timer 1, 1 kHz (H-Brücke rückwärts)
 constexpr int CH_BTN_LED = 4;     // Timer 2, 5 kHz

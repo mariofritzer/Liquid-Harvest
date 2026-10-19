@@ -14,6 +14,19 @@ struct Settings {
   uint8_t  pwmSlow     = 35;      // Pumpenleistung Feindosierung [%]
   float    slowBefore  = 3.0f;    // so viele g vor Ziel auf langsam schalten
   float    stopBefore  = 0.3f;    // so viele g vor Ziel stoppen (Nachlauf)
+  bool     autoTune    = true;    // Nachlauf nach jedem Glas selbst nachstellen
+  uint8_t  pumpDriver  = 0;       // 0 = MOSFET-Modul (D4184), 1 = H-Brücke (DRV8871, BTS7960, L298N …)
+  uint16_t retractMs   = 300;     // H-Brücke: nach dem Einschenken so lange rückwärts (gegen Nachtropfen), 0 = aus
+  uint8_t  retractPwm  = 80;      // Leistung beim Zurücksaugen [%]
+
+  // --- Reinigung ---
+  uint16_t cleanShots  = 50;      // Erinnerung nach so vielen Gläsern (0 = aus)
+  uint8_t  cleanDays   = 7;       // … oder nach so vielen Tagen (0 = aus, braucht Uhrzeit aus dem Heimnetz)
+  uint16_t cleanRinseS = 20;      // Spülen mit Wasser [s]
+  uint16_t cleanDryS   = 10;      // Leerpumpen [s]
+  uint8_t  cleanPos    = 0;       // Reinigungsposition: 0 = Park, 1..6 = Glas
+  uint16_t shotsSinceClean = 0;
+  uint32_t lastClean   = 0;       // Unix-Zeit der letzten Reinigung (0 = unbekannt)
   uint32_t noFlowMs    = 3000;    // Abbruch, wenn Gewicht so lange nicht steigt
   uint32_t maxPourMs   = 30000;   // absolute Höchstdauer pro Glas
   uint32_t settleMs    = 400;     // Wartezeit nach Servo-Bewegung
@@ -44,6 +57,11 @@ struct Settings {
   //                        4 schenkt ein, 5 Fehler, 6 alle Gläser gefüllt
   uint8_t  btnFx[7]  = {1, 3, 1, 2, 4, 5, 6};   // 0 aus, 1 an, 2 gedimmt, 3 atmen, 4 pulsieren, 5 blinken, 6 Doppelblitz
   uint8_t  btnBright = 100;                     // %
+  // Rundumleuchte: zusätzliche WS2812B in der Kette, blinkt solange der Drescher arbeitet
+  uint8_t  beaconN = 0;
+  uint8_t  beaconMap[4] = {0, 0, 0, 0};         // LED-Nummern (ab 1)
+  uint32_t beaconCol = 0xFF8C00;
+  uint8_t  beaconLvl = 100;
   uint8_t  ledMapN[NUM_PLACES] = {1, 1, 1, 1, 1, 1};                       // Anzahl LEDs je Glas
   uint8_t  ledMap[NUM_PLACES][MAX_LEDS_PER_GLASS] = {{1}, {2}, {3}, {4}, {5}, {6}};  // LED-Nummern (ab 1)
   uint8_t  encDiv      = 4;       // Flanken pro Raste (KY-040: meist 4, manche 2)
