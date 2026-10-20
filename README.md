@@ -55,7 +55,7 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | **Servo** | Schwenkbereich einlernen: mit −/+ an den Anschlag fahren → „Hier ist Min“ (= 0°) bzw. „Hier ist Max“ – das Rohr fährt danach nie mehr darüber hinaus, auch nicht über Regler, Encoder oder Ausschank · Drehrichtung umkehrbar, jede Position per „Anfahren“ testbar · nach Erreichen der Position stromlos (kein Brummen), beim Einschenken aber angesteuert, damit ein Stoß das Rohr nicht vom Glas wegdreht |
 | **Untergrund** | Holzscheibe, Holzplatte, Stoppelfeld, Wiese, Acker, Schiefer, Beton oder ohne – realistische Texturen, im Browser erzeugt |
 | **Standard-Einrichtung** | Export aus der App als `setup/default-setup.json` ins Repo → wird beim Flashen mitinstalliert; jeder Build prüft das Image und startet es testweise im ESP32-Emulator |
-| **Updates** | **Online-Update per Klick** (ab 1.8.0): der Drescher prüft beim Start und alle 12 h bei GitHub, ob es eine neue Version gibt, und zeigt dann einen Hinweis auf der Startseite. Unter ⚙️ System lässt sich jede veröffentlichte Version auswählen und installieren – nur wenn GitHub erreichbar ist, über eine gesicherte Verbindung (eingebaute Root-Zertifikate). Daneben weiterhin Web-Installer per USB oder Update aus Datei |
+| **Updates** | **Online-Update per Klick** (ab 1.8.1): der Drescher prüft beim Start und alle 12 h bei GitHub, ob es eine neue Version gibt, und zeigt dann einen Hinweis auf der Startseite. Unter ⚙️ System lässt sich jede veröffentlichte Version auswählen und installieren – nur wenn GitHub erreichbar ist, über eine gesicherte Verbindung (eingebaute Root-Zertifikate). Daneben weiterhin Web-Installer per USB oder Update aus Datei |
 | **API** | REST für Home Assistant & Co. |
 
 ## Bedienung am Gerät

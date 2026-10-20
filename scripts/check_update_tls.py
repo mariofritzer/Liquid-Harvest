@@ -1,5 +1,5 @@
 # Prüft den Weg des Online-Updates genau so, wie ihn der ESP32 geht – aber vom CI-Runner aus:
-#  1. api.github.com/repos/<repo>/releases per HTTP/1.0 (wie die Firmware) – nur mit den Root-Zertifikaten aus src/ca_roots.h
+#  1. api.github.com/repos/<repo>/releases per HTTP/1.1 (wie die Firmware) – nur mit den Root-Zertifikaten aus src/ca_roots.h
 #  2. Release mit liquid-harvest-ota.bin finden
 #  3. Datei über github.com/.../releases/download/... laden (Weiterleitung auf release-assets.githubusercontent.com),
 #     wieder nur mit diesen Wurzeln, und prüfen, dass es ein ESP32-App-Image ist
@@ -23,9 +23,8 @@ def main(tag=None):
         note("warning", f"FW_REPO in src/version.h ist {repo}, gebaut wird aber {os.environ['GITHUB_REPOSITORY']} – Geräte suchen Updates in {repo}.")
     ctx = ssl.create_default_context(cadata=pem)   # NUR die eingebetteten Wurzeln
 
-    # 1. Release-Liste wie der ESP32: HTTP/1.0, kein Chunked-Encoding
+    # 1. Release-Liste wie der ESP32 (HTTP/1.1; die Firmware dekodiert "chunked" selbst)
     c = http.client.HTTPSConnection("api.github.com", context=ctx, timeout=20)
-    c._http_vsn, c._http_vsn_str = 10, "HTTP/1.0"
     try:
         c.request("GET", f"/repos/{repo}/releases?per_page=15",
                   headers={"User-Agent": "LiquidHarvest-CI", "Accept": "application/vnd.github+json"})
@@ -35,11 +34,9 @@ def main(tag=None):
         note("error", f"api.github.com lässt sich mit den eingebetteten Root-Zertifikaten nicht prüfen: {e}")
         return 1
     if r.status != 200:
-        note("warning", f"api.github.com antwortet {r.status} – Prüfung übersprungen")
-        return 0
-    if (r.getheader("Transfer-Encoding") or "").lower() == "chunked":
-        note("error", "api.github.com antwortet trotz HTTP/1.0 chunked – die Firmware könnte die Liste nicht lesen")
+        note("error", f"api.github.com antwortet {r.status} – so findet die Firmware keine Updates")
         return 1
+    te = (r.getheader("Transfer-Encoding") or "Content-Length").lower()
     rels = [x for x in json.loads(body) if not x.get("draft") and any(a["name"] == ASSET for a in x.get("assets", []))]
     if tag:
         rels = [x for x in rels if x["tag_name"] == tag] or rels
@@ -63,7 +60,7 @@ def main(tag=None):
     if len(data) != size or data[:1] != b"\xe9":
         note("error", f"{rel['tag_name']}/{ASSET}: {len(data)} Bytes statt {size} oder kein ESP32-Image")
         return 1
-    note("notice", f"Online-Update geprüft: {len(rels)} Version(en), {rel['tag_name']} lädt über {host} ({size // 1024} kB) – Zertifikate passen")
+    note("notice", f"Online-Update geprüft: {len(rels)} Version(en) ({te}), {rel['tag_name']} lädt über {host} ({size // 1024} kB) – Zertifikate passen")
     return 0
 
 

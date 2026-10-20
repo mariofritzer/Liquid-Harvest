@@ -39,6 +39,31 @@ int cmpVersion(const char* a, const char* b) {
   return 0;
 }
 
+// Liest einen HTTP-Body mit "Transfer-Encoding: chunked" als normalen Datenstrom (für ArduinoJson)
+class ChunkedStream : public Stream {
+  Stream& s; long left = 0; bool done = false;
+  bool next() {
+    if (done) return false;
+    String line = s.readStringUntil('\n'); line.trim();
+    if (!line.length()) { line = s.readStringUntil('\n'); line.trim(); }
+    left = strtol(line.c_str(), nullptr, 16);
+    if (left <= 0) { done = true; left = 0; return false; }
+    return true;
+  }
+ public:
+  explicit ChunkedStream(Stream& src) : s(src) {}
+  int available() override { if (!left && !next()) return 0; int a = s.available(); return a < left ? a : (int)left; }
+  int read() override {
+    if (!left && !next()) return -1;
+    uint8_t c;
+    if (s.readBytes(&c, 1) != 1) return -1;
+    if (--left == 0) { uint8_t crlf[2]; s.readBytes(crlf, 2); }   // CRLF nach jedem Block
+    return c;
+  }
+  int peek() override { if (!left && !next()) return -1; return s.peek(); }
+  size_t write(uint8_t) override { return 0; }
+};
+
 static bool timeValid() { return time(nullptr) > 1700000000; }
 
 // ---------------------------------------------------------------- Releases abfragen
@@ -51,7 +76,7 @@ static void doCheck() {
     cl.setCACert(CA_ROOTS);
     cl.setTimeout(15);
     HTTPClient h;
-    h.useHTTP10(true);                       // kein Chunked-Encoding -> JSON direkt aus dem Stream lesen
+    h.setReuse(false);
     h.setTimeout(15000);
     h.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     h.setUserAgent("LiquidHarvest/" FW_VERSION);
@@ -65,7 +90,12 @@ static void doCheck() {
         f["tag_name"] = true; f["published_at"] = true; f["prerelease"] = true; f["draft"] = true;
         f["assets"][0]["name"] = true; f["assets"][0]["size"] = true;
         JsonDocument d;
-        DeserializationError de = deserializeJson(d, h.getStream(), DeserializationOption::Filter(filter));
+        // GitHub antwortet meist "chunked" (getSize() < 0) – dann über den Decoder lesen
+        WiFiClient& raw = h.getStream();
+        ChunkedStream ch(raw);
+        DeserializationError de = h.getSize() < 0
+          ? deserializeJson(d, ch, DeserializationOption::Filter(filter))
+          : deserializeJson(d, raw, DeserializationOption::Filter(filter));
         if (de) e = String("Antwort von GitHub unlesbar (") + de.c_str() + ")";
         else for (JsonObject r : d.as<JsonArray>()) {
           if (r["draft"] | false) continue;
