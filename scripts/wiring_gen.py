@@ -2,7 +2,8 @@
 # Aufruf: python3 scripts/wiring_gen.py docs/images/wiring.svg
 import sys
 
-W, H = 1760, 1240
+W, H = 1760, 1452
+DY = 212   # rechte Spalte unter dem Pumpenblock nach unten versetzt
 BG, WIRE, COMP, FILL = "#FAF8F2", "#008400", "#840000", "#FFFFC2"
 PINNAME, PINNUM, REF, NC = "#006464", "#A90000", "#006464", "#0000C8"
 FONT = "'DejaVu Sans Mono','Liberation Mono',Consolas,'Courier New',monospace"
@@ -145,7 +146,7 @@ t(EX, EY - 10, "U3", 12, REF); t(EX + EW, EY - 10, "ESP32 DevKit V1 (30 Pin)", 1
 t(EX + 100, EY + EH / 2, "ESP32-WROOM-32", 12, PINNAME, "middle", "bold", rot=-90)
 left = [("EN", None), ("IO36/VP", "DT1"), ("IO39/VN", "DT2"), ("IO34", "DT3"), ("IO35", "DT4"), ("IO32", "DT5"), ("IO33", "DT6"),
         ("IO25", "BTN"), ("IO26", "BTN_LED"), ("IO27", "PUMP_PWM"), ("IO14", None), ("IO12", None), ("IO13", "SERVO"), ("GND", "GND"), ("VIN", "+5V")]
-right = [("IO23", "LED_DIN"), ("IO22", None), ("TX0", None), ("RX0", None), ("IO21", None), ("IO19", None), ("IO18", "ENC_SW"), ("IO5", None),
+right = [("IO23", "LED_DIN"), ("IO22", None), ("TX0", None), ("RX0", None), ("IO21", None), ("IO19", "PUMP_IN2"), ("IO18", "ENC_SW"), ("IO5", None),
          ("TX2/IO17", "ENC_DT"), ("RX2/IO16", "ENC_CLK"), ("IO4", "HX_SCK"), ("IO2", None), ("IO15", None), ("GND", "GND"), ("3V3", "+3V3")]
 for i, (n, net) in enumerate(left):
     y = EY + 40 + i * SP
@@ -215,7 +216,9 @@ t(410, 968, "D8  Taster-LED", 11, REF); t(410, 982, "(5–12 V, Vorwiderstand im
 pwr(376, 940, "+12V")
 
 # ---------------------------------------------------------------- Pumpe
-section(1150, 54, 1724, 336, "Pumpe")
+section(1150, 54, 1724, 552, "Pumpe – Variante A oder B bestücken")
+t(1170, 96, "A", 22, COMP, weight="bold"); t(1170, 114, "MOSFET-", 11, "#222"); t(1170, 128, "Modul", 11, "#222")
+line(1160, 345, 1714, 345, COMP, 1, 'stroke-dasharray="3 4" opacity=".6"')
 wire((1260, 190), (1340, 190)); label(1260, 190, "PUMP_PWM", "r")
 dot(1300, 190); res_v(1300, 190, 260, "R2", "10 kΩ", "l"); gnd(1300, 260)
 box(1360, 130, 130, 150)
@@ -238,7 +241,25 @@ t(1640, 216, "M", 16, COMP, "middle", "bold")
 t(1672, 204, "M2", 11, REF); t(1672, 218, "Pumpe", 11, REF); t(1672, 232, "12 V", 11, REF)
 t(1170, 315, "D1 zwingend – das Modul hat keine Freilaufdiode.", 11, "#555", italic=True); t(1170, 329, "U10: 2 × AOD4184A, Last 5–36 V, Steuerung 3,3–20 V, PWM bis 20 kHz", 11, "#555", italic=True)
 
+# Variante B: H-Brücke – vorwärts (IN1) und rückwärts zum Zurücksaugen (IN2), beide per PWM
+t(1170, 376, "B", 22, COMP, weight="bold"); t(1170, 394, "H-Brücke", 11, "#222")
+wire((1260, 420), (1340, 420)); label(1260, 420, "PUMP_PWM", "r")
+wire((1260, 450), (1340, 450)); label(1260, 450, "PUMP_IN2", "r")
+box(1360, 392, 130, 116)
+t(1360, 384, "U11", 12, REF); t(1425, 470, "DRV8871 o. ä.", 11, REF, "middle", "bold")
+pin(1360, 420, "l", "IN1", 1); pin(1360, 450, "l", "IN2", 2)
+p = pin(1360, 486, "l", "GND", 3); wire(p, (1330, 486)); gnd(1330, 486)
+pin(1425, 392, "u", "VM", 4); pwr(1425, 372, "+12V")
+a = pin(1490, 420, "r", "OUT1", 5); b = pin(1490, 480, "r", "OUT2", 6)
+wire(a, (1640, 420), (1640, 426)); wire(b, (1640, 480), (1640, 474))
+o.append(f'<circle cx="1640" cy="450" r="24" fill="{FILL}" stroke="{COMP}" stroke-width="1.6"/>')
+t(1640, 456, "M", 16, COMP, "middle", "bold")
+t(1672, 444, "M2", 11, REF); t(1672, 458, "Pumpe", 11, REF); t(1672, 472, "12 V", 11, REF)
+t(1170, 528, "Kein D1/R2 nötig. BTS7960: RPWM = IN1, LPWM = IN2, R_EN + L_EN an +3V3.", 11, "#555", italic=True)
+t(1170, 542, "L298N: Jumper auf ENA stecken lassen. App: Dosierung → Pumpentreiber.", 11, "#555", italic=True)
+
 # ---------------------------------------------------------------- Glas-LEDs
+shift_from = len(o)
 section(1150, 360, 1724, 540, "Glas-LEDs – WS2812B, LED 1 = Glas 1")
 wire((1250, 460), (1262, 460)); label(1250, 460, "LED_DIN", "l")
 wire((1160, 460), (1250, 460))
@@ -258,7 +279,7 @@ for i in range(6):
 wire((1318, 460), (1328, 460))
 wire((1300, 412), (x + 5 * 62 + 21, 412))
 wire((1300, 510), (x + 5 * 62 + 21, 510)); gnd(1300, 510)
-nc(x + 5 * 62 + 52, 460)
+wire((x + 5 * 62 + 52, 460), (x + 5 * 62 + 66, 460)); t(x + 5 * 62 + 54, 452, "→D9", 9, "#000")
 t(1340, 532, "VDD oben · DIN → DOUT → DIN … · VSS unten", 10, "#555", italic=True)
 
 # ---------------------------------------------------------------- Drehencoder
@@ -305,28 +326,51 @@ for k, s in enumerate([
     "6. Ungenutzte Pins (×) frei lassen; IO0, 2, 5, 12, 15 sind Boot-Pins."]):
     t(1162, 942 + k * 21, s, 11, "#222")
 
+o[shift_from:] = [f'<g transform="translate(0,{DY})">'] + o[shift_from:] + ["</g>"]
+
+# ---------------------------------------------------------------- Rundumleuchte
+section(50, 1120, 660, 1416, "Rundumleuchte (optional) – am Ende der LED-Kette")
+wire((150, 1236), (210, 1236)); label(150, 1236, "BEACON_DIN", "r")
+pwr(190, 1188, "+5V"); gnd(190, 1290)
+for i in range(4):
+    bx = 230 + i * 92
+    dash = i > 0
+    o.append(f'<rect x="{bx}" y="{1206}" width="46" height="62" fill="{FILL}" stroke="{COMP}" stroke-width="1.6"{' stroke-dasharray="5 3"' if dash else ''}/>')
+    t(bx + 23, 1232, f"D{9+i}", 11, REF, "middle", "bold"); t(bx + 23, 1248, f"LED {7+i}", 9, PINNAME, "middle")
+    line(bx - 20, 1236, bx, 1236); line(bx + 46, 1236, bx + 66, 1236) if i < 3 else None
+    line(bx + 23, 1206, bx + 23, 1188); line(bx + 23, 1268, bx + 23, 1290)
+    dot(bx + 23, 1188) if i < 3 else None; dot(bx + 23, 1290) if i < 3 else None
+wire((190, 1188), (230 + 3 * 92 + 23, 1188)); wire((190, 1290), (230 + 3 * 92 + 23, 1290))
+wire((210, 1236), (230, 1236))
+nc(230 + 3 * 92 + 56, 1236)
+t(64, 1330, "D9 sitzt am DOUT von D7 (Glas 6). D10–D12 (gestrichelt) nach Bedarf – max. 4.", 11, "#222")
+t(64, 1352, "App: LEDs → LED-Anzahl erhöhen (z. B. 8) → Rundumleuchte → LED Nr. 7, 8 eintragen.", 11, "#222")
+t(64, 1374, "Muster wählbar: Drehlicht, abwechselnd faden, Doppelblitz, Wechselblitz,", 11, "#222")
+t(64, 1392, "Lauflicht, Dauerlicht. Leuchtet, solange das Rohr fährt oder die Pumpe läuft.", 11, "#222")
+
 # ---------------------------------------------------------------- Stückliste
-section(670, 990, 1130, 1204, "Stückliste")
+section(670, 1010, 1130, 1416, "Stückliste")
 rows = [("U1", "PDC004 USB-C PD-Trigger, 12 V", "1"), ("U2", "Step-Down 12 V → 5 V, ≥ 15 W", "1"), ("U3", "ESP32 DevKit V1 (WROOM-32)", "1"),
-        ("U4–U9", "HX711-Modul", "6"), ("LC1–LC6", "Wägezelle 1 kg", "6"), ("U10", "D4184 MOSFET-Modul", "1"), ("M1 / M2", "Servo MG90S / Pumpe 12 V", "1/1"),
-        ("D1", "1N5819 (Freilauf)", "1"), ("D2–D7", "WS2812B", "6"), ("ENC1 / SW1", "KY-040 / Taster mit LED", "1/1"),
-        ("Q1, R1–R3, C1", "BC547 · 330 Ω · 10 kΩ · 1 kΩ · 1000 µF", "")]
-y = 1026
+        ("U4–U9", "HX711-Modul", "6"), ("LC1–LC6", "Wägezelle 1 kg", "6"), ("U10", "D4184 MOSFET-Modul (Variante A)", "1"), ("U11", "H-Brücke DRV8871 (Variante B)", "(1)"), ("M1 / M2", "Servo MG90S / Pumpe 12 V", "1/1"),
+        ("D1", "1N5819 (nur Variante A)", "1"), ("D2–D7", "WS2812B Glas-LEDs", "6"), ("D9–D12", "WS2812B Rundumleuchte", "1–4"), ("ENC1 / SW1", "KY-040 / Taster mit LED", "1/1"),
+        ("Q1, R1–R3, C1", "BC547 · 330 Ω · 10 kΩ · 1 kΩ · 1000 µF", ""),
+        ("", "R2 nur bei Variante A", "")]
+y = 1046
 for r in rows:
     t(682, y, r[0], 11, PINNUM); t(800, y, r[1], 11, "#222"); t(1118, y, r[2], 11, "#222", "end")
-    line(678, y + 5, 1122, y + 5, COMP, .5, 'opacity=".4"'); y += 16
+    line(678, y + 5, 1122, y + 5, COMP, .5, 'opacity=".4"'); y += 22
 
 # ---------------------------------------------------------------- Schriftfeld
-X1, Y1, X2, Y2 = 1150, 1092, 1724, 1204
+X1, Y1, X2, Y2 = 1150, 1092 + DY, 1724, 1204 + DY
 o.append(f'<rect x="{X1}" y="{Y1}" width="{X2-X1}" height="{Y2-Y1}" fill="none" stroke="{COMP}" stroke-width="1.4"/>')
 line(X1, Y1 + 46, X2, Y1 + 46, COMP, 1); line(X1, Y1 + 80, X2, Y1 + 80, COMP, 1)
 line(X1 + 290, Y1 + 46, X1 + 290, Y2, COMP, 1); line(X1 + 430, Y1 + 46, X1 + 430, Y2, COMP, 1)
 t(X1 + 10, Y1 + 18, "Titel", 9, COMP); t(X1 + 10, Y1 + 38, "Liquid Harvest – Verdrahtung", 18, "#000", weight="bold")
 t(X1 + 10, Y1 + 58, "Datei", 9, COMP); t(X1 + 10, Y1 + 74, "docs/images/wiring.svg", 11, "#000")
-t(X1 + 300, Y1 + 58, "Rev.", 9, COMP); t(X1 + 300, Y1 + 74, "1.2.9", 11, "#000")
+t(X1 + 300, Y1 + 58, "Rev.", 9, COMP); t(X1 + 300, Y1 + 74, "1.6.0", 11, "#000")
 t(X1 + 440, Y1 + 58, "Blatt", 9, COMP); t(X1 + 440, Y1 + 74, "1 / 1", 11, "#000")
 t(X1 + 10, Y1 + 92, "Projekt", 9, COMP); t(X1 + 10, Y1 + 108, "github.com/mariofritzer/Liquid-Harvest", 11, "#000")
-t(X1 + 300, Y1 + 92, "Datum", 9, COMP); t(X1 + 300, Y1 + 108, "2026-10-16", 11, "#000")
+t(X1 + 300, Y1 + 92, "Datum", 9, COMP); t(X1 + 300, Y1 + 108, "2026-10-20", 11, "#000")
 t(X1 + 440, Y1 + 92, "Format", 9, COMP); t(X1 + 440, Y1 + 108, "A3", 11, "#000")
 
 svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" font-family="{FONT}">'
