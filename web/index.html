@@ -43,6 +43,8 @@ details.fold[open]{padding-bottom:12px}
 .card select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px;color:var(--txt);font-size:14px}
 .teachAng{text-align:center;margin:8px 0 12px}.teachAng b{display:block;font-size:40px;font-variant-numeric:tabular-nums}.teachAng small{color:var(--mute);font-size:13px}
 .jog{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.jog .btn{padding:14px 0;font-size:16px;touch-action:none;user-select:none;-webkit-user-select:none}
+.sub{border-bottom:1px solid var(--line);padding-bottom:4px}.sub .f{border-bottom:none;padding:6px 0}.sub .f:first-child{padding-top:10px}
+.angv{margin-left:auto;margin-right:10px;font-variant-numeric:tabular-nums;color:var(--txt)}
 .rgb{display:flex;gap:8px;width:100%}.rgb label{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);font-weight:650}.rgb input{width:100%!important;min-width:0;box-sizing:border-box;text-align:center;padding-left:4px;padding-right:4px}
 .statBar{display:flex;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 14px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);font-size:13.5px;color:var(--mute);cursor:pointer}.statBar b{color:var(--txt);font-weight:700}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.stats div{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px}.stats small{display:block;color:var(--mute);font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.06em}.stats b{display:block;font-size:26px;margin-top:4px}.stats span{color:var(--mute);font-size:13px}
@@ -630,7 +632,7 @@ function drawAuger(){
 function pop(n){const g=$("#g"+(n-1)); if(!g) return; g.classList.add("off"); requestAnimationFrame(()=>requestAnimationFrame(()=>g.classList.remove("off")))}
 
 /* ---------------- Status / Aktionen ---------------- */
-window.openClean=()=>{ curTab="sys"; openDrawer(); setTimeout(()=>{const c=$("#cleanCard"); if(c) c.scrollIntoView({block:"start"})},150); };
+window.openClean=()=>{ curTab="pump"; openDrawer(); setTimeout(()=>{const c=$("#cleanCard"); if(c) c.scrollIntoView({block:"start"})},150); };
 const fmtL=ml=>(ml/1000).toFixed(2).replace(".",",")+" l";
 window.openStats=()=>{ curTab="sys"; openDrawer(); setTimeout(()=>{const c=$("#statCard"); if(c) c.scrollIntoView({block:"start"})},150); };
 let RST_W="ses";
@@ -747,45 +749,48 @@ function updateSheet(){
 }
 
 /* ---------------- Einstellungen ---------------- */
-const TABS=[["dose","Dosierung"],["scales","Waagen"],["servo","Servo"],["leds","LEDs"],["img","Darstellung"],["wifi","WLAN"],["sys","System"]];
-let curTab="dose";
+const TABS=[["dose","Ausschank"],["pump","Pumpe"],["servo","Servo"],["scales","Waagen"],["leds","LEDs"],["img","Darstellung"],["wifi","WLAN"],["sys","System"]];
+let curTab="dose", POS_EDIT=false, POS_DRAFT=null;
 const FIELDS={
-  dose:[["Ausschank",[
+  dose:[["Menge",[
       ["shotMl","Einfach-Shot","Taster: 1× klicken","ml",1,100,1],
       ["doubleMl","Doppel-Shot","Taster: 2× klicken","ml",1,100,1],
       ["density","Dichte","40 % Schnaps ≈ 0,95","g/ml",.5,1.5,.01]]],
-    ["Pumpe",[
+    ["Dosierung",[
       ["pwmFast","Leistung schnell","Hauptphase","%",10,100,1],
       ["pwmSlow","Leistung langsam","Letzte Gramm tröpfchenweise","%",5,100,1],
       ["slowBefore","Langsam ab","…Gramm vor dem Ziel","g",0,30,.1],
       ["stopBefore","Stopp vorher","Nachlauf im Schlauch – wird bei „lernen“ automatisch nachgestellt","g",0,10,.01],
       ["autoTune","Nachlauf automatisch lernen","passt „Stopp vorher“ nach jedem Glas an","bool"],
       ["dripMs","Pause nach dem Einfüllen","Rohr bleibt so lange über dem Glas, damit Tropfen noch hineinfallen","ms",0,10000,100]]],
-    ["Pumpentreiber",[
-      ["pumpDriver","Verbaut","","select",[[0,"MOSFET-Modul"],[1,"H-Brücke"]]],
-      ["retractMs","Zurücksaugen","nur H-Brücke: nach dem Einschenken rückwärts gegen Nachtropfen, 0 = aus","ms",0,2000,50],
-      ["retractPwm","Leistung Zurücksaugen","","%",10,100,5]]],
-    ["Sicherheit",[
-      ["noFlowMs","Abbruch ohne Durchfluss","Gewicht steigt nicht (Flasche leer?)","s",.5,30,.5,1000],
-      ["maxPourMs","Max. Dauer pro Glas","","s",2,120,1,1000],
-      ["settleMs","Pause nach Schwenken","Rohr beruhigen","ms",0,3000,50],
-      ["parkAfter","Nach Web-Befehl parken","","bool"]]],
     ["Glaserkennung",[
       ["glassMin","Glas erkannt ab","ab 0,1 g – unter 1 g können Vibration oder Drift Fehlerkennungen auslösen","g",.1,200,.1],
       ["stableMs","Gewicht ruhig seit","","ms",100,5000,50]]],
-    ["LEDs & Bedienung",[
-      ["ledBright","LED-Helligkeit","","%",1,100,1],
-      ["encDiv","Encoder-Schritte pro Raste","KY-040 meist 4, manche 2","",1,8,1],
-      ["encReverse","Drehrichtung umkehren","","bool"]]]],
+    ["Sicherheit",[
+      ["noFlowMs","Abbruch ohne Durchfluss","Gewicht steigt nicht (Flasche leer?)","s",.5,30,.5,1000],
+      ["maxPourMs","Max. Dauer pro Glas","","s",2,120,1,1000],
+      ["parkAfter","Nach Web-Befehl parken","","bool"]]]],
+  pump:[["Pumpentreiber",[
+      ["pumpDriver","Verbaut","","select",[[0,"MOSFET-Modul"],[1,"H-Brücke"]]],
+      ["retractMs","Zurücksaugen","nur H-Brücke: nach dem Einschenken rückwärts gegen Nachtropfen, 0 = aus","ms",0,2000,50],
+      ["retractPwm","Leistung Zurücksaugen","","%",10,100,5]]]],
   servo:[["Bewegung",[
       ["servoSpeed","Geschwindigkeit","","°/s",10,720,5],
-      ["servoReverse","Drehrichtung umkehren","0° liegt dann auf der anderen Seite (nach Speichern)","bool"],
+      ["settleMs","Pause nach Schwenken","Rohr beruhigen, bevor gepumpt wird","ms",0,3000,50],
+      ["servoReverse","Drehrichtung umkehren","0° liegt dann auf der anderen Seite (nach Speichern)","bool"]]],
+    ["Halten & Stromsparen",[
       ["servoRelease","Nach Erreichen stromlos","kein Brummen/Zittern – schont Servo und Waagen","bool"],
       ["servoHoldMs","Halten vor dem Abschalten","Zeit an der Position, bevor die Impulse aufhören","ms",100,5000,50],
-      ["servoHoldPour","Beim Einschenken festhalten","Servo bleibt angesteuert, solange gepumpt wird – ein Stoß dreht das Rohr nicht vom Glas weg (brummt dabei leise)","bool"],
+      ["servoHoldPour","Beim Einschenken festhalten","Servo bleibt angesteuert, solange gepumpt wird – ein Stoß dreht das Rohr nicht vom Glas weg (brummt dabei leise)","bool"]]],
+    ["Servo-Impulse",[
       ["servoMinUs","Impuls bei 0°","","µs",300,1500,10],
-      ["servoMaxUs","Impuls bei 180°","","µs",1500,2800,10]]]]
+      ["servoMaxUs","Impuls bei 180°","","µs",1500,2800,10]]]],
+  sys:[["Bedienung am Gerät",[
+      ["encDiv","Encoder-Schritte pro Raste","KY-040 meist 4, manche 2","",1,8,1],
+      ["encReverse","Encoder-Drehrichtung umkehren","","bool"]]]]
 };
+const fieldsCard=([t,fs],extra="")=>`<div class="card"><h3>${t}</h3>${fs.map(fieldHtml).join("")}${extra}</div>`;
+const fieldsFold=([t,fs],k,extra="")=>`<details class="card fold" data-k="${k}"><summary>${t}</summary>${fs.map(fieldHtml).join("")}${extra}</details>`;
 function fieldHtml([k,l,h,u,min,max,step,mul]){
   const v=CFG[k];
   if(u==="select") return `<div class="f"><label for="f_${k}">${l}${h?`<small>${h}</small>`:""}</label><select id="f_${k}" style="max-width:60%;min-width:0" onchange="if(this.id==='f_pumpDriver'){CFG.pumpDriver=+this.value;const d=$('#drvPin');if(d)d.innerHTML=pinoutHtml(+this.value)}">${min.map(([ov,ot])=>`<option value="${ov}" ${(v??0)==ov?"selected":""}>${ot}</option>`).join("")}</select></div>`;
@@ -797,54 +802,73 @@ function collect(tab){
   (FIELDS[tab]||[]).forEach(([_,fs])=>fs.forEach(([k,,, u])=>{const e=$("#f_"+k);if(!e)return;o[k]=u==="bool"?e.checked:u==="select"?+e.value:+e.value*(+e.dataset.mul)}));
   return o;
 }
-function openDrawer(){ LEDEDIT=null; $("#drawer").classList.add("show"); send({c:"getCfg"}); renderTabs(); renderTab(); }
+function openDrawer(){ LEDEDIT=null; POS_EDIT=false; POS_DRAFT=null; $("#drawer").classList.add("show"); send({c:"getCfg"}); renderTabs(); renderTab(); }
 $("#gear").onclick=openDrawer; $("#dClose").onclick=()=>$("#drawer").classList.remove("show");
 function renderTabs(){
   $("#tabs").innerHTML=TABS.map(([k,l])=>`<button data-k="${k}" class="${k===curTab?"on":""}">${l}</button>`).join("");
-  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{curTab=b.dataset.k;LEDEDIT=null;renderTabs();renderTab()});
+  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{curTab=b.dataset.k;LEDEDIT=null;POS_EDIT=false;POS_DRAFT=null;renderTabs();renderTab()});
 }
 function saveBtn(tab){return `<button class="btn primary save" onclick="saveTab('${tab}')">Speichern</button>`}
-window.saveTab=tab=>{
-  const o=collect(tab);
-  if(tab==="servo"){o.angPark=+$("#a_p").value;o.ang=[...Array(N)].map((_,i)=>+$("#a_"+i).value)}
-  send({c:"setCfg",cfg:o});
-};
+window.saveTab=tab=>{ send({c:"setCfg",cfg:collect(tab)}); };
+window.posEdit=on=>{ POS_EDIT=on; POS_DRAFT=on?[CFG.angPark,...CFG.ang]:null; renderTab(); };
+window.posSet=(i,v)=>{ v=clampA(v); POS_DRAFT[i]=v; const n=$("#a_"+i+"v"), r=$("#a_"+i); if(n) n.value=v; if(r) r.value=v; send({c:"servo",a:v}); };
+window.posSave=()=>{ const d=POS_DRAFT; POS_EDIT=false; POS_DRAFT=null; send({c:"setCfg",cfg:{angPark:d[0],ang:d.slice(1)}}); };
+function cleanCardHtml(){
+  const cl=(ST&&ST.clean)||{shots:0,days:-1,due:false}; let h="";
+    h+=`<div class="card" id="cleanCard"><h3>Reinigung</h3>
+      <div class="f"><label>Seit der letzten Reinigung<small>${cl.due?'<b style="color:var(--gold2)">Reinigung fällig</b>':"alles gut"}</small></label><span>${cl.shots} Gläser${cl.days>=0?` · ${cl.days} Tage`:""}</span></div>
+      <div class="f"><label>Position zum Reinigen<small>Rohr fährt dorthin – großen Becher hinstellen, kein Stamperl!</small></label><select id="cl_p" style="max-width:50%" onchange="CFG.cleanPos=+this.value;$('#cl_pl').textContent=this.selectedOptions[0].text">${["Parkposition",1,2,3,4,5,6].map((t,i)=>`<option value="${i}" ${(CFG.cleanPos??0)==i?"selected":""}>${i?"Glas "+t:t}</option>`).join("")}</select></div>
+      <div class="f" style="display:block"><label><b>1.</b> Becher unter den Auslauf (<span id="cl_pl">${(CFG.cleanPos??0)?"Glas "+CFG.cleanPos:"Parkposition"}</span>), Ansaugschlauch in warmes Wasser</label>
+        <button class="btn primary" style="width:100%;margin-top:8px" onclick="send({c:'cleanRinse',p:+$('#cl_p').value})">Spülen (${CFG.cleanRinseS??20} s)</button></div>
+      <div class="f" style="display:block"><label><b>2.</b> Schlauch aus dem Wasser nehmen</label>
+        <button class="btn" style="width:100%;margin-top:8px" onclick="send({c:'cleanDry',p:+$('#cl_p').value})">Leer pumpen (${CFG.cleanDryS??10} s)</button></div>
+      <div class="f" style="display:block"><label><b>3.</b> Schlauch zurück in die Flasche</label>
+        <button class="btn" style="width:100%;margin-top:8px" onclick="send({c:'cleanDone'})">Reinigung erledigt</button></div>
+      <div class="f"><label>Erinnern nach<small>Gläsern, 0 = aus</small></label><input type="number" id="cl_s" min="0" max="999" value="${CFG.cleanShots??50}" style="width:72px"></div>
+      <div class="f"><label>…oder nach<small>Tagen, 0 = aus · Uhrzeit kommt aus dem Heimnetz</small></label><input type="number" id="cl_d" min="0" max="60" value="${CFG.cleanDays??7}" style="width:72px"></div>
+      <div class="f"><label>Spülen / Leerpumpen</label><input type="number" id="cl_r" min="3" max="120" value="${CFG.cleanRinseS??20}" style="width:60px"><span class="u">s</span><input type="number" id="cl_y" min="3" max="120" value="${CFG.cleanDryS??10}" style="width:60px"><span class="u">s</span></div>
+      <button class="btn save" style="margin-top:6px" onclick="send({c:'setCfg',cfg:{cleanShots:+$('#cl_s').value,cleanDays:+$('#cl_d').value,cleanRinseS:+$('#cl_r').value,cleanDryS:+$('#cl_y').value}})">Erinnerung speichern</button></div>`;
+  return h;
+}
 function renderTab(){
   if(!CFG){$("#dbody").innerHTML='<p class="help">Lade Einstellungen…</p>';return}
   const b=$("#dbody"); let h="";
   if(curTab==="dose"){
-    FIELDS.dose.forEach(([t,fs])=>h+=`<div class="card"><h3>${t}</h3>${fs.map(fieldHtml).join("")}</div>`);
-    h+=`<div class="card"><h3>Anschluss Pumpentreiber</h3><div id="drvPin">${pinoutHtml(CFG.pumpDriver||0)}</div></div>`;
+    FIELDS.dose.forEach(g=>h+=fieldsCard(g));
     h+=saveBtn("dose");
     h+=`<p class="help">Ablauf: Pumpe läuft mit <b>schnell</b>, schaltet „Langsam ab“ Gramm vor dem Ziel auf <b>langsam</b> und stoppt „Stopp vorher“ Gramm vor dem Ziel – der Rest läuft aus dem Schlauch nach. Zu viel im Glas → „Stopp vorher“ erhöhen.</p>`;
   }
+  if(curTab==="pump"){
+    h+=fieldsCard(FIELDS.pump[0],`<button class="btn primary" style="width:100%;margin:8px 0 12px" onclick="saveTab('pump')">Speichern</button>`);
+    h+=`<details class="card fold" data-k="pinout"><summary>Anschluss Pumpentreiber</summary><div id="drvPin">${pinoutHtml(CFG.pumpDriver||0)}</div></details>`;
+    h+=`<div class="card"><h3>Schlauch füllen / entlüften</h3><div class="f"><label>Laufzeit<small>Rohr fährt in Parkposition – Auffangbecher hinstellen!</small></label><input type="number" id="pr_s" value="3" style="width:64px"><span class="u">s</span><button class="sbtn gold" onclick="send({c:'prime',s:+$('#pr_s').value})">Start</button></div></div>`;
+    h+=cleanCardHtml();
+  }
   if(curTab==="leds"){
     if(!LEDEDIT) LEDEDIT={n:CFG.ledCount||6,map:(CFG.ledMap||[[1],[2],[3],[4],[5],[6]]).map(a=>[...a]),
-      col:[...ledCfg("ledCol")],lvl:[...ledCfg("ledLvl")],fx:[...ledCfg("ledFx")],bfx:[...ledCfg("btnFx")],bb:CFG.btnBright??100,
-      bm:[...(CFG.beaconMap||[])],bcol:CFG.beaconCol||"#FF8C00",blvl:CFG.beaconLvl??100,bfx:CFG.beaconFx??0};
+      col:[...ledCfg("ledCol")],lvl:[...ledCfg("ledLvl")],fx:[...ledCfg("ledFx")],bfx:[...ledCfg("btnFx")],bb:CFG.btnBright??100,gb:CFG.ledBright??60,
+      bm:[...(CFG.beaconMap||[])],bcol:CFG.beaconCol||"#FF8C00",blvl:CFG.beaconLvl??100,bxf:CFG.beaconFx??0};
     const E=LEDEDIT, cnt={}; [...E.map.flat(),...E.bm].forEach(v=>cnt[v]=(cnt[v]||0)+1);
     const bad=v=>!(v>=1&&v<=E.n)||cnt[v]>1;
-    h+=`<div class="card"><h3>LED-Kette</h3>
+    const ledRow=(v,inp,del)=>`<div class="f"><label>LED Nr.</label><input type="number" min="1" max="64" value="${v}" inputmode="numeric" style="${bad(v)?"border-color:var(--red);color:#ff8a8a":""}" onchange="${inp}"><button class="sbtn" onclick="send({c:'ledTest',leds:[${v}]})">Test</button><button class="sbtn red" onclick="${del}" aria-label="LED entfernen">✕</button></div>`;
+    // Allgemein
+    h+=`<div class="card"><h3>Allgemein</h3>
+      <div class="f"><label>Gesamthelligkeit<small>gilt für alle LEDs der Kette</small></label><input type="range" min="1" max="100" value="${E.gb}" style="width:40%" oninput="LEDEDIT.gb=+this.value;$('#lgb').textContent=this.value+' %'"><span id="lgb" style="width:50px;text-align:right;white-space:nowrap">${E.gb} %</span></div>
       <div class="f"><label>Anzahl LEDs<small>alle WS2812B in der Kette, max. 64</small></label><input type="number" id="lc_n" min="1" max="64" value="${E.n}" inputmode="numeric"></div>
       <div class="f"><label>Nicht zugeordnete LEDs<small>bleiben aus</small></label><span style="color:var(--mute)">${[...Array(E.n)].map((_,i)=>i+1).filter(v=>!cnt[v]).join(", ")||"keine"}</span></div></div>`;
+    // Zuordnung
+    h+=`<details class="card fold" data-k="ledmap"><summary>Zuordnung zu den Gläsern</summary>`;
     E.map.forEach((leds,i)=>{
-      h+=`<div class="card"><div class="f" style="border-bottom:1px solid var(--line)"><label style="font-weight:700">Glas ${i+1}</label><button class="sbtn" onclick="ledTestGlass(${i})">Testen</button></div>`;
-      leds.forEach((v,k)=>h+=`<div class="f"><label>LED Nr.</label><input type="number" min="1" max="64" value="${v}" inputmode="numeric" style="${bad(v)?"border-color:var(--red);color:#ff8a8a":""}" onchange="ledSet(${i},${k},this.value)"><button class="sbtn" onclick="send({c:'ledTest',leds:[${v}]})">Test</button><button class="sbtn red" onclick="ledDel(${i},${k})" aria-label="LED entfernen">✕</button></div>`);
-      if(!leds.length) h+=`<p class="help" style="margin:8px 0">Keine LED – dieses Glas zeigt keinen Status.</p>`;
-      h+=`<button class="btn" style="width:100%;margin:10px 0 12px;padding:11px" onclick="ledAdd(${i})">+ LED hinzufügen</button></div>`;
+      h+=`<div class="sub"><div class="f"><label style="font-weight:700">Glas ${i+1}</label><button class="sbtn" onclick="ledTestGlass(${i})">Testen</button><button class="sbtn" onclick="ledAdd(${i})">+ LED</button></div>`;
+      leds.forEach((v,k)=>h+=ledRow(v,`ledSet(${i},${k},this.value)`,`ledDel(${i},${k})`));
+      if(!leds.length) h+=`<p class="help" style="margin:4px 0 8px">Keine LED – dieses Glas zeigt keinen Status.</p>`;
+      h+=`</div>`;
     });
-    // Rundumleuchte
-    h+=`<div class="card"><div class="f" style="border-bottom:1px solid var(--line)"><label style="font-weight:700">Rundumleuchte<small>zusätzliche WS2812B am Drescher – blinkt, solange er fährt oder pumpt</small></label>${E.bm.length?`<button class="sbtn" onclick="send({c:'ledTest',leds:LEDEDIT.bm})">Testen</button>`:""}</div>`;
-    E.bm.forEach((v,k)=>h+=`<div class="f"><label>LED Nr.</label><input type="number" min="1" max="64" value="${v}" inputmode="numeric" style="${bad(v)?"border-color:var(--red);color:#ff8a8a":""}" onchange="LEDEDIT.bm[${k}]=+this.value;ledRefresh()"><button class="sbtn red" onclick="LEDEDIT.bm.splice(${k},1);ledRefresh()" aria-label="LED entfernen">✕</button></div>`);
-    if(!E.bm.length) h+=`<p class="help" style="margin:8px 0">Keine Rundumleuchte zugeordnet.</p>`;
-    const BXF=[["Drehlicht",1],["Abwechselnd faden",2],["Doppelblitz",1],["Wechselblitz",2],["Lauflicht",2],["Dauerlicht",1]];
-    if(E.bm.length) h+=`<div class="f"><label>Muster${E.bm.length<2?"<small>weitere Muster ab 2 LEDs</small>":""}</label><select onchange="LEDEDIT.bfx=+this.value" aria-label="Muster Rundumleuchte">${BXF.map(([n,m],k)=>`<option value="${k}" ${E.bfx===k?"selected":""} ${E.bm.length<m?"disabled":""}>${n}</option>`).join("")}</select></div>`;
-    h+=`<div class="f"><label>Farbe & Helligkeit</label><input type="color" value="${E.bcol}" oninput="LEDEDIT.bcol=this.value"><input type="range" min="10" max="100" value="${E.blvl}" style="width:30%" oninput="LEDEDIT.blvl=+this.value"></div>
-      ${E.bm.length<4?`<button class="btn" style="width:100%;margin:10px 0 12px;padding:11px" onclick="beaconAdd()">+ LED hinzufügen</button>`:""}</div>`;
+    h+=`<p class="help"><b>Testen</b> lässt die LEDs ein paar Sekunden weiß blinken – so findest du heraus, welche Nummer wo sitzt. Die Nummer zählt ab der ersten LED nach dem ESP32 (LED 1).</p></details>`;
     // Farben je Zustand
     const SN=[["Kein Glas","Orientierungslicht"],["Glas bereit","leeres Glas erkannt"],["Rohr zielt","Rohr steht über dem Glas"],["Schenkt ein","Pumpe läuft"],["Fertig","wartet auf Entnahme"],["Fehler","Glas weg, kein Durchfluss …"],["Waage defekt","keine Messwerte"]];
     const FX=["Leuchtet","Pulsiert","Pulsiert schnell","Blinkt"];
-    h+=`<div class="card"><h3>Farben der Glas-LEDs</h3>`;
+    h+=`<details class="card fold" data-k="ledcol"><summary>Farben der Glas-LEDs</summary>`;
     SN.forEach(([n,d],i)=>{
       h+=`<div class="f" style="flex-wrap:wrap;row-gap:8px">
         <span class="sw-dot" id="lcd${i}" style="background:${E.col[i]};opacity:${.25+.75*E.lvl[i]/100}"></span>
@@ -855,18 +879,26 @@ function renderTab(){
         <div style="display:flex;align-items:center;gap:8px;width:100%"><span style="font-size:12px;color:var(--mute);width:62px">Helligkeit</span><input type="range" min="0" max="100" value="${E.lvl[i]}" style="flex:1" oninput="ledCol(${i},'lvl',+this.value)"><span id="lcl${i}" style="width:46px;text-align:right;font-size:13px;white-space:nowrap">${E.lvl[i]} %</span><button class="sbtn" onclick="ledPrev(${i})">Vorschau</button></div>
       </div>`;
     });
-    h+=`<p class="help">„Vorschau“ zeigt die Einstellung 3 Sekunden lang auf allen Glas-LEDs. Die Gesamthelligkeit stellst du unter Dosierung → LEDs & Bedienung ein.</p></div>`;
+    h+=`<p class="help">„Vorschau“ zeigt die Einstellung 3 Sekunden lang auf allen Glas-LEDs.</p></details>`;
+    // Rundumleuchte
+    const BXF=[["Drehlicht",1],["Abwechselnd faden",2],["Doppelblitz",1],["Wechselblitz",2],["Lauflicht",2],["Dauerlicht",1]];
+    h+=`<details class="card fold" data-k="beacon"><summary>Rundumleuchte</summary>
+      <div class="f"><label>Zusätzliche WS2812B am Drescher<small>blinkt, solange er fährt oder pumpt</small></label>${E.bm.length?`<button class="sbtn" onclick="send({c:'ledTest',leds:LEDEDIT.bm})">Testen</button>`:""}</div>`;
+    E.bm.forEach((v,k)=>h+=ledRow(v,`LEDEDIT.bm[${k}]=+this.value;ledRefresh()`,`LEDEDIT.bm.splice(${k},1);ledRefresh()`));
+    if(!E.bm.length) h+=`<p class="help" style="margin:8px 0">Keine Rundumleuchte zugeordnet.</p>`;
+    if(E.bm.length) h+=`<div class="f"><label>Muster${E.bm.length<2?"<small>weitere Muster ab 2 LEDs</small>":""}</label><select onchange="LEDEDIT.bxf=+this.value" aria-label="Muster Rundumleuchte">${BXF.map(([n,m],k)=>`<option value="${k}" ${E.bxf===k?"selected":""} ${E.bm.length<m?"disabled":""}>${n}</option>`).join("")}</select></div>
+      <div class="f"><label>Farbe & Helligkeit</label><input type="color" value="${E.bcol}" oninput="LEDEDIT.bcol=this.value"><input type="range" min="10" max="100" value="${E.blvl}" style="width:30%" oninput="LEDEDIT.blvl=+this.value"></div>`;
+    h+=`${E.bm.length<4?`<button class="btn" style="width:100%;margin:10px 0 0;padding:11px" onclick="beaconAdd()">+ LED hinzufügen</button>`:""}</details>`;
     // Taster-LED
     const BN=[["Bereit","Rohr parkt, leere Gläser da – Klick = Auto-Fill"],["Keine Gläser","nichts zum Einschenken"],["Rohr über Glas","Klick schenkt ein"],["Rohr über leerem Platz","Klick hat keine Wirkung"],["Schenkt ein","Klick = Notstopp"],["Fehler","z. B. kein Durchfluss"],["Alle Gläser gefüllt","Prost!"]];
     const BF=["Aus","An","Gedimmt","Atmen","Pulsieren","Blinken","Doppelblitz"];
-    h+=`<div class="card"><h3>Taster-LED</h3>
+    h+=`<details class="card fold" data-k="btnled"><summary>Taster-LED</summary>
       <div class="f"><label>Helligkeit</label><input type="range" min="5" max="100" value="${E.bb}" style="width:45%" oninput="LEDEDIT.bb=+this.value;$('#lbb').textContent=this.value+' %'"><span id="lbb" style="width:50px;text-align:right;white-space:nowrap">${E.bb} %</span></div>
       ${BN.map(([n,d],i)=>`<div class="f"><label>${n}<small>${d}</small></label><select onchange="LEDEDIT.bfx[${i}]=+this.value" aria-label="Taster-LED ${n}">${BF.map((f,k)=>`<option value="${k}" ${E.bfx[i]===k?"selected":""}>${f}</option>`).join("")}</select></div>`).join("")}
-      <p class="help">Nach jedem angenommenen Klick geht die LED kurz aus – so siehst du, dass der Druck erkannt wurde.</p></div>`;
+      <p class="help">Nach jedem angenommenen Klick geht die LED kurz aus – so siehst du, dass der Druck erkannt wurde.</p></details>`;
     const errs=[...E.map.flat(),...E.bm].filter(bad);
     h+=errs.length?`<p class="help" style="color:#ff8a8a">Rot markiert: Nummer doppelt vergeben oder größer als die Anzahl LEDs.</p>`:"";
-    h+=`<button class="btn primary save" onclick="ledSave()" ${errs.length?"disabled":""}>Speichern</button>
-      <p class="help"><b>Testen</b> lässt die LEDs ein paar Sekunden weiß blinken – so findest du heraus, welche Nummer wo sitzt. Die Nummer zählt ab der ersten LED nach dem ESP32 (LED 1).</p>`;
+    h+=`<button class="btn primary save" onclick="ledSave()" ${errs.length?"disabled":""}>Speichern</button>`;
   }
   if(curTab==="scales"){
     h+=`<div class="card"><h3>Waagen</h3>`;
@@ -877,13 +909,19 @@ function renderTab(){
       <p class="help"><b>Kalibrieren:</b> Waage leer lassen → <b>Tara</b>. Dann ein bekanntes Gewicht (z. B. 100-g-Gewicht oder 100 ml Wasser) auflegen, Gewicht eintragen → <b>Kalibrieren</b>. Nicht angeschlossene Waagen hier ausschalten.</p>`;
   }
   if(curTab==="servo"){
-    const lo=0, hi=CFG.angMax??180;
-    const row=(id,l,v)=>`<div class="f" style="flex-wrap:wrap;row-gap:6px"><label>${l}</label><input type="number" id="${id}v" value="${v}" min="${lo}" max="${hi}" step="0.1" style="width:72px" onchange="this.value=clampA(this.value);$('#${id}').value=this.value;send({c:'servo',a:+this.value})"><span class="u">°</span><button class="sbtn gold" onclick="const e=$('#${id}v');e.value=clampA(e.value);$('#${id}').value=e.value;send({c:'servo',a:+e.value})">Anfahren</button>
-      <input type="range" min="${lo}" max="${hi}" step="0.1" value="${v}" id="${id}" style="width:100%" oninput="$('#${id}v').value=this.value;send({c:'servo',a:+this.value})"></div>`;
+    const hi=CFG.angMax??180, P=POS_EDIT?POS_DRAFT:[CFG.angPark,...CFG.ang], f=v=>(+v).toFixed(1).replace(".",",");
+    const go=i=>`<button class="sbtn gold" onclick="send({c:'servo',a:${POS_EDIT?`POS_DRAFT[${i}]`:P[i]}})">Anfahren</button>`;
+    const row=(i,l)=>POS_EDIT
+      ? `<div class="f" style="flex-wrap:wrap;row-gap:6px"><label>${l}</label><input type="number" id="a_${i}v" value="${P[i]}" min="0" max="${hi}" step="0.1" style="width:72px" onchange="posSet(${i},this.value)"><span class="u">°</span>${go(i)}
+          <input type="range" min="0" max="${hi}" step="0.1" value="${P[i]}" id="a_${i}" style="width:100%" oninput="posSet(${i},this.value)"></div>`
+      : `<div class="f"><label>${l}</label><span class="angv">${f(P[i])}°</span>${go(i)}</div>`;
     h+=`<div class="card" id="teachCard">${teachHtml()}</div>`;
-    h+=`<div class="card"><h3>Positionen</h3>${row("a_p","Parkposition",CFG.angPark)}${CFG.ang.map((a,i)=>row("a_"+i,"Glas "+(i+1),a)).join("")}</div>`;
-    FIELDS.servo.forEach(([t,fs])=>h+=`<div class="card"><h3>${t}</h3>${fs.map(fieldHtml).join("")}</div>`);
-    h+=saveBtn("servo")+`<p class="help"><b>Anfahren</b> fährt das Rohr auf den eingetragenen Winkel, die Regler bewegen es live. Position so einstellen, dass der Auslauf mittig über dem Glas steht, dann speichern.</p>`;
+    h+=`<div class="card"><h3>Positionen</h3>
+      <div class="f"><label>Winkel bearbeiten<small>${POS_EDIT?"Regler bewegen das Rohr live – danach speichern":"erst anhaken, dann lassen sich die Winkel verstellen"}</small></label><input type="checkbox" class="sw" id="posEdit" ${POS_EDIT?"checked":""} onchange="posEdit(this.checked)"></div>
+      ${row(0,"Parkposition")}${CFG.ang.map((_,i)=>row(i+1,"Glas "+(i+1))).join("")}
+      ${POS_EDIT?`<div style="display:flex;gap:10px;margin:10px 0 12px"><button class="btn" style="flex:1" onclick="posEdit(false)">Abbrechen</button><button class="btn primary" style="flex:1" onclick="posSave()">Winkel speichern</button></div>`:""}</div>`;
+    h+=fieldsCard(FIELDS.servo[0])+fieldsCard(FIELDS.servo[1])+fieldsFold(FIELDS.servo[2],"servous",`<p class="help">Nur ändern, wenn der Servo seinen Weg nicht ganz ausnutzt oder am Anschlag brummt.</p>`);
+    h+=saveBtn("servo")+`<p class="help"><b>Anfahren</b> fährt das Rohr auf die gespeicherte Position. Zum Einstellen „Winkel bearbeiten“ anhaken, den Auslauf mittig über das Glas stellen und „Winkel speichern“.</p>`;
   }
   if(curTab==="wifi"){
     const w=ST?ST.wifi:{};
@@ -944,26 +982,13 @@ function renderTab(){
       `;
   }
   if(curTab==="sys"){
-    const cl=(ST&&ST.clean)||{shots:0,days:-1,due:false};
     const ss=ST&&ST.stat&&ST.stat.ss;
     h+=`<div class="card" id="statCard"><h3>Zähler</h3><div class="stats" id="statVals">${statValsHtml()}</div>
       <p class="help" style="margin-top:0">Gezählt wird jedes fertig eingeschenkte Glas, die Menge nach Gewicht.${ss?` Session läuft seit ${new Date(ss*1000).toLocaleDateString("de-AT")}.`:""}</p>
       <div style="display:flex;gap:10px;margin:8px 0 12px"><button class="btn" style="flex:1" onclick="askReset('ses')">Session zurücksetzen</button><button class="btn" style="flex:1" onclick="askReset('all')">Alles zurücksetzen</button></div></div>`;
-    h+=`<div class="card" id="cleanCard"><h3>Reinigung</h3>
-      <div class="f"><label>Seit der letzten Reinigung<small>${cl.due?'<b style="color:var(--gold2)">Reinigung fällig</b>':"alles gut"}</small></label><span>${cl.shots} Gläser${cl.days>=0?` · ${cl.days} Tage`:""}</span></div>
-      <div class="f"><label>Position zum Reinigen<small>Rohr fährt dorthin – großen Becher hinstellen, kein Stamperl!</small></label><select id="cl_p" style="max-width:50%" onchange="CFG.cleanPos=+this.value;$('#cl_pl').textContent=this.selectedOptions[0].text">${["Parkposition",1,2,3,4,5,6].map((t,i)=>`<option value="${i}" ${(CFG.cleanPos??0)==i?"selected":""}>${i?"Glas "+t:t}</option>`).join("")}</select></div>
-      <div class="f" style="display:block"><label><b>1.</b> Becher unter den Auslauf (<span id="cl_pl">${(CFG.cleanPos??0)?"Glas "+CFG.cleanPos:"Parkposition"}</span>), Ansaugschlauch in warmes Wasser</label>
-        <button class="btn primary" style="width:100%;margin-top:8px" onclick="send({c:'cleanRinse',p:+$('#cl_p').value})">Spülen (${CFG.cleanRinseS??20} s)</button></div>
-      <div class="f" style="display:block"><label><b>2.</b> Schlauch aus dem Wasser nehmen</label>
-        <button class="btn" style="width:100%;margin-top:8px" onclick="send({c:'cleanDry',p:+$('#cl_p').value})">Leer pumpen (${CFG.cleanDryS??10} s)</button></div>
-      <div class="f" style="display:block"><label><b>3.</b> Schlauch zurück in die Flasche</label>
-        <button class="btn" style="width:100%;margin-top:8px" onclick="send({c:'cleanDone'})">Reinigung erledigt</button></div>
-      <div class="f"><label>Erinnern nach<small>Gläsern, 0 = aus</small></label><input type="number" id="cl_s" min="0" max="999" value="${CFG.cleanShots??50}" style="width:72px"></div>
-      <div class="f"><label>…oder nach<small>Tagen, 0 = aus · Uhrzeit kommt aus dem Heimnetz</small></label><input type="number" id="cl_d" min="0" max="60" value="${CFG.cleanDays??7}" style="width:72px"></div>
-      <div class="f"><label>Spülen / Leerpumpen</label><input type="number" id="cl_r" min="3" max="120" value="${CFG.cleanRinseS??20}" style="width:60px"><span class="u">s</span><input type="number" id="cl_y" min="3" max="120" value="${CFG.cleanDryS??10}" style="width:60px"><span class="u">s</span></div>
-      <button class="btn save" style="margin-top:6px" onclick="send({c:'setCfg',cfg:{cleanShots:+$('#cl_s').value,cleanDays:+$('#cl_d').value,cleanRinseS:+$('#cl_r').value,cleanDryS:+$('#cl_y').value}})">Erinnerung speichern</button></div>`;
-    h+=`<div class="card"><h3>Pumpe</h3><div class="f"><label>Schlauch füllen / entlüften<small>Rohr fährt in Parkposition – Auffangbecher hinstellen!</small></label><input type="number" id="pr_s" value="3" style="width:64px"><span class="u">s</span><button class="sbtn gold" onclick="send({c:'prime',s:+$('#pr_s').value})">Start</button></div></div>
-      <div class="card" id="updCard">${updHtml()}</div>
+    h+=fieldsCard(FIELDS.sys[0],`<button class="btn" style="width:100%;margin:8px 0 12px" onclick="saveTab('sys')">Speichern</button>`);
+    h+=`<div class="card" id="updCard">${updHtml()}</div>`;
+    h+=`
       <div class="card"><h3>Firmware</h3><div class="f"><label>Version</label><span>${VER}</span></div>
       <div class="f"><label>Standard-Einrichtung<small>${SETUPINFO||"–"}</small></label><button class="sbtn" onclick="send({c:'reapplySetup'})">Neu laden</button></div>
       <div class="f"><label>Laufzeit</label><span id="upt">${ST?fmtUp(ST.up):"–"}</span></div>
@@ -972,7 +997,10 @@ function renderTab(){
       <div class="row2"><button class="btn" onclick="send({c:'reboot'})">Neustart</button><button class="btn" style="color:#ff8a8a" onclick="if(confirm('Wirklich alles zurücksetzen (inkl. WLAN & Kalibrierung)?'))send({c:'factory'})">Werkseinstellungen</button></div>`;
   }
   b.innerHTML=h;
-  if(curTab==="img"){ bindFolds(); bindImgTab(); bindStl(); bindVid(); $("#setup_file").onchange=e=>importSetup(e.target.files[0]); if(stlTris) stlUpdate(); }
+  bindFolds();
+  if(curTab==="leds"&&LEDEDIT){ const E=LEDEDIT,c={}; [...E.map.flat(),...E.bm].forEach(v=>c[v]=(c[v]||0)+1); const bad=v=>!(v>=1&&v<=E.n)||c[v]>1;
+    if(E.map.flat().some(bad)) $('details[data-k="ledmap"]').open=true; if(E.bm.some(bad)) $('details[data-k="beacon"]').open=true; }
+  if(curTab==="img"){ bindImgTab(); bindStl(); bindVid(); $("#setup_file").onchange=e=>importSetup(e.target.files[0]); if(stlTris) stlUpdate(); }
   if(curTab==="scales") updateScales();
   const ota=$("#ota"); if(ota) ota.onchange=uploadOta;
 }
@@ -1601,6 +1629,7 @@ function bindFolds(){
   document.querySelectorAll("details.fold").forEach(d=>{
     const k="lh_fold_"+d.dataset.k; let v=null; try{ v=localStorage.getItem(k) }catch(e){}
     d.open=v===null?d.dataset.k==="board":v==="1";
+    if(d.dataset.b) return; d.dataset.b=1;
     d.addEventListener("toggle",()=>{ try{ localStorage.setItem(k,d.open?"1":"0") }catch(e){} });
   });
 }
@@ -1632,7 +1661,7 @@ window.beaconAdd=()=>{ const e=$("#lc_n"); if(e) LEDEDIT.n=Math.max(1,Math.min(6
 window.ledTestGlass=i=>{ if(!LEDEDIT.map[i].length){ toast("Glas "+(i+1)+" hat keine LED"); return; } send({c:"ledTest",leds:LEDEDIT.map[i]}); };
 window.ledSave=()=>{ const e=$("#lc_n"); if(e) LEDEDIT.n=Math.max(1,Math.min(64,+e.value||1));
   const E=LEDEDIT;
-  send({c:"setCfg",cfg:{ledCount:E.n,ledMap:E.map,beaconMap:E.bm,beaconCol:E.bcol.toUpperCase(),beaconLvl:E.blvl,beaconFx:(E.bm.length<2&&[1,3,4].includes(E.bfx))?0:E.bfx,ledCol:E.col.map(c=>c.toUpperCase()),ledLvl:E.lvl,ledFx:E.fx,btnFx:E.bfx,btnBright:E.bb}}); LEDEDIT=null; };
+  send({c:"setCfg",cfg:{ledCount:E.n,ledMap:E.map,beaconMap:E.bm,beaconCol:E.bcol.toUpperCase(),beaconLvl:E.blvl,beaconFx:(E.bm.length<2&&[1,3,4].includes(E.bxf))?0:E.bxf,ledBright:E.gb,ledCol:E.col.map(c=>c.toUpperCase()),ledLvl:E.lvl,ledFx:E.fx,btnFx:E.bfx,btnBright:E.bb}}); LEDEDIT=null; };
 window.ledCol=(i,k,v)=>{ const E=LEDEDIT; E[k][i]=v;
   const d=$("#lcd"+i); if(d){ d.style.background=E.col[i]; d.style.opacity=.25+.75*E.lvl[i]/100; }
   if(k==="lvl") $("#lcl"+i).textContent=v+" %";

@@ -110,7 +110,7 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 - **Servo:** 470–1000 µF Elko direkt an 5 V/GND des Servos.
 - **Pumpe:** Freilaufdiode 1N5819 antiparallel zur Pumpe ist Pflicht – das D4184-Modul (2 × AOD4184A) hat keine. 10 kΩ Pulldown PWM→GND, damit die Pumpe beim Booten sicher aus ist.
 - **Taster-LED** (5–12 V, Vorwiderstand eingebaut): „+“ an +12 V, „−“ über NPN-Transistor (BC547, 1 kΩ an der Basis) nach GND – GPIO 26 schaltet bzw. dimmt.
-- **H-Brücke statt MOSFET:** in der App unter ⚙️ Dosierung → Pumpentreiber auswählen, dort steht auch die Pinbelegung. **DRV8871** empfohlen (IN1→27, IN2→19, VM→+12 V, OUT1/OUT2→Pumpe). **BTS7960:** RPWM→27, LPWM→19, R_EN und L_EN an 3,3 V. **L298N:** IN1→27, IN2→19, Jumper auf ENA stecken lassen. Die Freilaufdiode D1 entfällt (Brücke hat eigene).
+- **H-Brücke statt MOSFET:** in der App unter ⚙️ Pumpe → Pumpentreiber auswählen, darunter steht die Pinbelegung. **DRV8871** empfohlen (IN1→27, IN2→19, VM→+12 V, OUT1/OUT2→Pumpe). **BTS7960:** RPWM→27, LPWM→19, R_EN und L_EN an 3,3 V. **L298N:** IN1→27, IN2→19, Jumper auf ENA stecken lassen. Die Freilaufdiode D1 entfällt (Brücke hat eigene).
 - **Rundumleuchte:** einfach eine weitere WS2812B ans Ende der Kette hängen und im LED-Reiter ihre Nummer eintragen.
 - **Masse:** sternförmig führen, Pumpen-/Servostrom nicht über die HX711-Masse.
 - **HX711:** RATE-Pin auf GND (10 Messungen/s, rauschärmer). Nicht angeschlossene Waagen in den Einstellungen deaktivieren.
@@ -130,13 +130,13 @@ Exportdatei aus der App als `setup/default-setup.json` ins Repo legen – der Bu
 
 1. Firmware über den Web-Installer flashen, WLAN eintragen.
 2. Oberfläche öffnen → ⚙️ **Waagen**: jede Waage leer *Tara*, dann bekanntes Gewicht auflegen → *Kalibrieren*.
-3. ⚙️ **Servo**: Parkposition und die 6 Glaspositionen mit den Reglern live einstellen → *Speichern*.
+3. ⚙️ **Servo**: *Bereich einlernen* (Min/Max), dann *Winkel bearbeiten* anhaken, Parkposition und die 6 Glaspositionen mit den Reglern live einstellen → *Winkel speichern*.
 
    <img src="docs/images/app-servo.png" width="220" alt="Servo-Einstellungen">
 
-4. ⚙️ **System** → *Schlauch füllen* (Becher unter den Auslauf in Parkposition).
-5. Optional ⚙️ **Drescher-Bild**: Foto deines eigenen Modells hochladen (am besten schräg von oben vor einfarbigem Hintergrund) und mit *Position anpassen* ausrichten. Das Bild wird nur auf dem ESP32 gespeichert.
-6. ⚙️ **Dosierung**: Probe-Shot, bei zu viel im Glas „Stopp vorher“ erhöhen.
+4. ⚙️ **Pumpe** → *Schlauch füllen* (Becher unter den Auslauf in Parkposition).
+5. Optional ⚙️ **Darstellung**: Foto deines eigenen Modells hochladen (am besten schräg von oben vor einfarbigem Hintergrund) und mit *Position anpassen* ausrichten. Das Bild wird nur auf dem ESP32 gespeichert.
+6. ⚙️ **Ausschank**: Probe-Shot, bei zu viel im Glas „Stopp vorher“ erhöhen.
 
 ## REST-API
 

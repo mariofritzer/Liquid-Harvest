@@ -256,7 +256,7 @@ o.append(f'<circle cx="1640" cy="450" r="24" fill="{FILL}" stroke="{COMP}" strok
 t(1640, 456, "M", 16, COMP, "middle", "bold")
 t(1672, 444, "M2", 11, REF); t(1672, 458, "Pumpe", 11, REF); t(1672, 472, "12 V", 11, REF)
 t(1170, 528, "Kein D1/R2 nötig. BTS7960: RPWM = IN1, LPWM = IN2, R_EN + L_EN an +3V3.", 11, "#555", italic=True)
-t(1170, 542, "L298N: Jumper auf ENA stecken lassen. App: Dosierung → Pumpentreiber.", 11, "#555", italic=True)
+t(1170, 542, "L298N: Jumper auf ENA stecken lassen. App: Pumpe → Pumpentreiber.", 11, "#555", italic=True)
 
 # ---------------------------------------------------------------- Glas-LEDs
 shift_from = len(o)
