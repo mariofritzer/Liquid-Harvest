@@ -57,6 +57,12 @@ jobs:
       - name: Boot-Test im ESP32-Emulator
         run: bash scripts/qemu_boot_test.sh .pio/build/esp32/firmware-merged.bin
 
+      - name: Update-Absicherung im Emulator (Absturz -> Rücksprung)
+        run: |
+          # Zweite Firmware, die absichtlich abstürzt, in eigenem Build-Ordner
+          PLATFORMIO_BUILD_DIR=.pio/crash PLATFORMIO_BUILD_FLAGS=-DLH_CRASH_TEST pio run -e esp32 > crash.log 2>&1 || { tail -9 crash.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+          bash scripts/qemu_rollback_test.sh .pio/build/esp32/firmware-merged.bin .pio/crash/esp32/firmware.bin
+
       - name: Web-Installer zusammenstellen
         run: |
           VERSION=$(grep -oP 'FW_VERSION\s+"\K[^"]+' src/version.h)

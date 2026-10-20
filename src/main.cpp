@@ -11,6 +11,7 @@
 #include <LittleFS.h>
 #include <Preferences.h>
 #include <time.h>
+#include <esp_ota_ops.h>
 #include <ArduinoJson.h>
 #include <Adafruit_NeoPixel.h>
 #include <vector>
@@ -131,6 +132,67 @@ static void toast(const String& msg) {
   JsonDocument d;
   d["t"] = "toast"; d["m"] = msg;
   wsSend(d);
+}
+
+// ---------------------------------------------------------------------
+//  Absicherung von Updates (Bootloader-Rollback)
+//  Neue Firmware startet als "auf Probe". Erst wenn sie läuft und WLAN oder Hotspot steht,
+//  wird sie bestätigt. Stürzt sie vorher ab oder hängt (Watchdog), startet der Bootloader
+//  beim nächsten Mal automatisch wieder die vorherige Version.
+// ---------------------------------------------------------------------
+static void pumpSet(uint8_t pct);
+extern "C" bool verifyRollbackLater() { return true; }   // Arduino-Core soll die neue App NICHT sofort bestätigen
+static String rbMsg;                          // Hinweis nach einem Rücksprung (bis zur Bestätigung in der App)
+static String updPendingTag;
+
+static void updMarkPending(const String& to) {   // vor dem Neustart nach einem Update
+  Preferences p; p.begin("upd", false);
+  p.putString("from", FW_VERSION); p.putString("to", to);
+  p.end();
+}
+
+static void updBootCheck() {
+  Preferences p; p.begin("upd", false);
+  String from = p.getString("from", ""), to = p.getString("to", "");
+  rbMsg = p.getString("rb", "");
+  const esp_partition_t* run = esp_ota_get_running_partition();
+  esp_ota_img_states_t st = ESP_OTA_IMG_UNDEFINED;
+  esp_ota_get_state_partition(run, &st);
+  if (to.length() && from == FW_VERSION && st != ESP_OTA_IMG_PENDING_VERIFY && esp_ota_get_last_invalid_partition()) {
+    // Wir sind die alte Version und wurden zurückgeholt -> die neue ist nicht sauber gestartet
+    rbMsg = "Update auf " + to + " ist nicht sauber gestartet – zurück auf v" FW_VERSION;
+    p.putString("rb", rbMsg);
+    p.remove("from"); p.remove("to");
+  }
+  p.end();
+  Serial.printf("[Update] Partition %s, Zustand %s%s\n", run ? run->label : "?",
+                st == ESP_OTA_IMG_PENDING_VERIFY ? "auf Probe" : st == ESP_OTA_IMG_VALID ? "bestätigt" : "normal",
+                rbMsg.length() ? (" | " + rbMsg).c_str() : "");
+}
+
+static void updHealthLoop() {
+  static bool done = false;
+  if (done) return;
+  const esp_partition_t* run = esp_ota_get_running_partition();
+  esp_ota_img_states_t st;
+  if (esp_ota_get_state_partition(run, &st) != ESP_OK || st != ESP_OTA_IMG_PENDING_VERIFY) { done = true; return; }
+  static uint32_t netSince = 0;
+  bool net = WiFi.status() == WL_CONNECTED || apActive;
+  if (!net) netSince = 0; else if (!netSince) netSince = millis();
+  if (netSince && millis() - netSince > 15000) {
+    esp_ota_mark_app_valid_cancel_rollback();
+    Preferences p; p.begin("upd", false);
+    String to = p.getString("to", ""); p.remove("from"); p.remove("to"); p.remove("rb");
+    p.end();
+    rbMsg = "";
+    Serial.println("[Update] Neue Firmware läuft – bestätigt");
+    toast("Update auf v" FW_VERSION " erfolgreich");
+    done = true;
+  } else if (millis() > 180000) {
+    Serial.println("[Update] Nach 3 min weder WLAN noch Hotspot – zurück zur vorherigen Firmware");
+    pumpSet(0);
+    esp_ota_mark_app_invalid_rollback_and_reboot();
+  }
 }
 
 static void sendRels() {
@@ -928,6 +990,8 @@ static void handleCmd(const String& msg) {
     } else toast("Kalibrierung fehlgeschlagen – erst tarieren, dann Gewicht auflegen");
   } else if (c == "updCheck") {
     if (!OnlineUpd::requestCheck()) toast("Prüfung läuft schon – kurz warten");
+  } else if (c == "rbAck") {
+    rbMsg = ""; Preferences p; p.begin("upd", false); p.remove("rb"); p.end();
   } else if (c == "updList") {
     sendRels();
   } else if (c == "updInstall") {
@@ -935,7 +999,7 @@ static void handleCmd(const String& msg) {
     if (pourBusy() || teach) { toast("Erst fertig einschenken bzw. Einlernen beenden"); return; }
     if (WiFi.status() != WL_CONNECTED) { toast("Nicht mit dem Heimnetz verbunden"); return; }
     jobs.clear(); pumpSet(0); aim(0);
-    if (OnlineUpd::install(tag, why)) toast("Lade " + tag + " … nicht ausschalten!");
+    if (OnlineUpd::install(tag, why)) { updPendingTag = tag; toast("Lade " + tag + " … nicht ausschalten!"); }
     else toast(why);
   } else if (c == "getCfg") {
     sendCfg();
@@ -1003,6 +1067,7 @@ static void buildState(String& out) {
   d["phys"] = roundf(physAngle() * 10) / 10;
   d["teach"] = teach;
   OnlineUpd::statusJson(d["upd"].to<JsonObject>());
+  if (rbMsg.length()) d["rb"] = rbMsg;
   d["ph"] = PHASE_NAMES[pour.ph];
   {
     time_t t = time(nullptr);
@@ -1186,7 +1251,7 @@ static void webBegin() {
       AsyncWebServerResponse* res = r->beginResponse(ok ? 200 : 500, "text/plain", ok ? "OK" : Update.errorString());
       res->addHeader("Connection", "close");
       r->send(res);
-      if (ok) rebootAt = millis() + 1000;
+      if (ok) { updMarkPending("Datei-Update"); rebootAt = millis() + 1000; }
       otaRunning = false;
     },
     [](AsyncWebServerRequest*, const String&, size_t index, uint8_t* data, size_t len, bool final) {
@@ -1257,6 +1322,13 @@ void setup() {
 
   cmdMutex = xSemaphoreCreateMutex();
   stateMutex = xSemaphoreCreateMutex();
+  updBootCheck();
+#ifdef LH_CRASH_TEST
+  updMarkPending("v9.9.9-test");
+  Serial.println("[Test] absichtlicher Absturz");
+  delay(100);
+  abort();
+#endif
 
   settingsLoad();
   statsLoad();
@@ -1311,11 +1383,12 @@ void loop() {
   }
   if (!teach) inputLoop();
   OnlineUpd::loop(WiFi.status() == WL_CONNECTED, cfg.updAuto);
+  updHealthLoop();
   if (OnlineUpd::takeListChanged()) sendRels();
   {
     static uint32_t restartAt = 0;
     bool ok; String msg;
-    if (OnlineUpd::takeDone(ok, msg)) { toast(msg); if (ok) restartAt = millis() + 1500; }
+    if (OnlineUpd::takeDone(ok, msg)) { toast(msg); if (ok) { updMarkPending(updPendingTag); restartAt = millis() + 1500; } }
     if (restartAt && millis() > restartAt) { pumpSet(0); ESP.restart(); }
   }
   processCmds();

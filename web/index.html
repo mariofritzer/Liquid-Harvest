@@ -49,6 +49,7 @@ details.fold[open]{padding-bottom:12px}
 .statBar{display:flex;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 14px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);font-size:13.5px;color:var(--mute);cursor:pointer}.statBar b{color:var(--txt);font-weight:700}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.stats div{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px}.stats small{display:block;color:var(--mute);font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.06em}.stats b{display:block;font-size:26px;margin-top:4px}.stats span{color:var(--mute);font-size:13px}
 .modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:#000a;padding:16px}.modal.hide{display:none}.modal>div{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;max-width:380px;width:100%}.modal h3{margin:0 0 8px}.modal p{color:var(--mute);font-size:14px;margin:0 0 12px}.modal input{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:16px;color:var(--txt)}.modal .row{display:flex;gap:10px;margin-top:14px}.modal .row .btn{flex:1}
+.cleanBar.warn{background:#ff4d4d1f;border-color:#ff4d4d66}
 .cleanBar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 14px;border-radius:14px;background:#b4c61822;border:1px solid #b4c61866;font-weight:650;font-size:14px}
 .surf{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;padding:12px 0 4px}
 .surf button{background:var(--bg2);border:2px solid var(--line);border-radius:14px;padding:10px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;font-weight:650;color:var(--mute)}
@@ -182,6 +183,7 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
 
   <div class="cleanBar hide" id="cleanBar"><span>🧽 Reinigung fällig</span><button class="sbtn gold" onclick="openClean()">Jetzt spülen</button></div>
 
+  <div class="cleanBar warn hide" id="rbBar"><span id="rbBarT">⚠️</span><button class="sbtn" onclick="send({c:'rbAck'});this.parentNode.classList.add('hide')">OK</button></div>
   <div class="cleanBar hide" id="updBar"><span id="updBarT">⬆️ Neue Version</span><span style="display:flex;gap:6px"><button class="sbtn gold" onclick="openUpd()">Ansehen</button><button class="sbtn" onclick="updDismiss()" aria-label="Ausblenden">✕</button></span></div>
   <div class="statBar hide" id="statBar" onclick="openStats()"><span>🥃 Session: <b id="sbS">0</b></span><span>Gesamt: <b id="sbT">0</b></span></div>
 
@@ -667,7 +669,7 @@ function updHtml(){
     ${dl?`<div class="f" style="display:block"><label id="updPL">Lade ${u.p??0} % – nicht ausschalten!</label><div class="prog" style="margin-top:8px;display:block"><i id="updP" style="width:${u.p??0}%"></i></div></div>`:""}
     <button class="btn primary" id="updGo" style="width:100%;margin:8px 0 10px" onclick="updInstall()" ${updCan(sel)?"":"disabled"}>${dl?"Wird installiert …":"Installieren"}</button>
     <div class="f"><label>Automatisch nach Updates suchen<small>beim Start und alle 12 h · fragt nur GitHub</small></label><input type="checkbox" class="sw" ${CFG.updAuto!==false?"checked":""} onchange="send({c:'setCfg',cfg:{updAuto:this.checked}})"></div>
-    <p class="help" style="margin-top:0">Installieren geht nur, wenn der Drescher GitHub erreicht – geprüft wird über eine gesicherte Verbindung. Einstellungen, Kalibrierung und WLAN bleiben erhalten. Klappt etwas nicht, hilft immer der Web-Installer per USB.</p>`;
+    <p class="help" style="margin-top:0">Installieren geht nur, wenn der Drescher GitHub erreicht – geprüft wird über eine gesicherte Verbindung. Einstellungen, Kalibrierung und WLAN bleiben erhalten. Die neue Version läuft zuerst auf Probe: Stürzt sie ab oder kommt nach 3 Minuten weder WLAN noch Hotspot hoch, startet automatisch wieder die vorherige. Notfalls hilft immer der Web-Installer per USB.</p>`;
 }
 let UPD_SEL=null;
 function updCan(tag){ const u=(ST&&ST.upd)||{}; tag=tag||($("#updSel")&&$("#updSel").value); return !!(u.on&&!u.st&&tag&&verCmp(tag,VER)!==0&&!(ST&&ST.busy)); }
@@ -676,6 +678,7 @@ window.updInstall=()=>{ const tag=$("#updSel")&&$("#updSel").value; if(!updCan(t
   if(!confirm(`${tag} installieren?\n\nDer Drescher lädt die Firmware von GitHub und startet danach neu. Einstellungen bleiben erhalten.${older?"\n\nAchtung: ältere Version – neuere Funktionen fehlen dann.":""}`)) return;
   send({c:"updInstall",tag}); };
 function renderUpd(){
+  const rb=$("#rbBar"); if(rb){ rb.classList.toggle("hide",!(ST&&ST.rb)); if(ST&&ST.rb) $("#rbBarT").textContent="⚠️ "+ST.rb; }
   const u=ST&&ST.upd; if(!u) return;
   let hidden=""; try{hidden=localStorage.getItem("lh_upd_hide")||""}catch(e){}
   const bar=$("#updBar"); bar.classList.toggle("hide",!(u.av&&u.new&&u.new!==hidden)||u.st===2);
