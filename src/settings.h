@@ -3,10 +3,23 @@
 #include <ArduinoJson.h>
 #include "pins.h"
 
+// Getränke-Profil: alles, was vom Getränk abhängt (Menge, Dichte, Pumpe, Nachlauf)
+constexpr int MAX_PROF = 6;
+struct DrinkProfile {
+  String   name = "Schnaps";
+  float    shotMl = 20.0f, doubleMl = 40.0f, density = 0.95f;
+  uint8_t  pwmFast = 100, pwmSlow = 35;
+  float    slowBefore = 3.0f, stopBefore = 0.3f;
+  uint16_t dripMs = 800;
+};
+
 // Alle Einstellungen – werden als JSON im NVS (Preferences) gespeichert
 // und können komplett über die Weboberfläche geändert werden.
 struct Settings {
   // --- Dosierung ---
+  // Die Dosier-Felder unten sind immer die Werte des aktiven Getränks (prof[profIdx])
+  uint8_t  profN = 0, profIdx = 0;
+  DrinkProfile prof[MAX_PROF];
   float    shotMl      = 20.0f;   // Taster Einfach-Klick
   float    doubleMl    = 40.0f;   // Taster Doppel-Klick
   float    density     = 0.95f;   // g/ml (40 % Schnaps ≈ 0,95)
@@ -110,6 +123,10 @@ struct Settings {
 extern Settings cfg;
 
 void settingsLoad();
+void profileSelect(int i);                    // aktives Getränk wechseln (speichert)
+bool profileAdd(const String& name);
+bool profileRename(int i, const String& name);
+bool profileDelete(int i);
 void settingsSave();
 void settingsFactoryReset();
 void settingsToJson(JsonObject o);            // ohne Passwörter

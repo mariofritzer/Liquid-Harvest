@@ -19,6 +19,14 @@ static bool     healthy[NUM_PLACES];
 static uint32_t lastReady[NUM_PLACES];
 static uint32_t nextRetry[NUM_PLACES];
 static uint32_t seqNo = 0;
+// adaptive Glättung + Diagnose
+static float    noiseVar[NUM_PLACES];
+static float    trendSm[NUM_PLACES];
+static uint32_t fastUntil[NUM_PLACES];          // Rauschen (Varianz in g²) um den geglätteten Wert
+static float    ring[NUM_PLACES][16];          // letzte schnelle Werte (Mittelwert für Endmessungen)
+static uint8_t  ringN[NUM_PLACES], ringPos[NUM_PLACES];
+static uint32_t lastSample = 0;
+static float    rateHz = 0;
 
 static constexpr uint32_t SCK_BIT = 1UL << PIN_HX_SCK;
 
@@ -65,19 +73,36 @@ void begin() {
   }
 }
 
-static void process(int i, int32_t raw, uint32_t now) {
+static void process(int i, int32_t raw, uint32_t now, float dt) {
   hist[i][histPos] = raw;
   if (histN[i] < 3) histN[i]++;
-  int32_t med = (histN[i] < 3) ? raw : median3(hist[i][0], hist[i][1], hist[i][2]);
-  if (histN[i] == 1) rawSm[i] = med;
-  else rawSm[i] = rawSm[i] * 0.7f + med * 0.3f;
-
+  int32_t med = (histN[i] < 3) ? raw : median3(hist[i][0], hist[i][1], hist[i][2]);   // Ausreißer weg
   float f = cfg.factor[i];
+  if (histN[i] == 1) { rawSm[i] = trendSm[i] = med; noiseVar[i] = 0.04f; fastUntil[i] = 0; }
+  else {
+    // Adaptiver Filter: in Ruhe stark glätten (τ 2 s), bei echten Änderungen (Glas drauf/weg,
+    // Einschenken) für kurze Zeit schnell folgen. "Echte Änderung" = Sprung über 4σ des gemessenen
+    // Rauschens oder ein schneller Hilfsfilter (τ 0,3 s) läuft davon (Trend).
+    float dg = (med - rawSm[i]) / f;
+    float sigma = sqrtf(noiseVar[i]);
+    trendSm[i] += (med - trendSm[i]) * (1.0f - expf(-dt / 0.3f));
+    bool jump  = fabsf(dg) > max(0.6f, 4.0f * sigma);
+    bool trend = fabsf(trendSm[i] - rawSm[i]) / f > max(0.4f, 1.5f * sigma);
+    if (jump || trend) fastUntil[i] = now + 600;
+    float tau = (int32_t)(now - fastUntil[i]) < 0 ? 0.1f : (int32_t)(now - fastUntil[i]) < 1200 ? 0.4f : 2.0f;
+    rawSm[i] += (med - rawSm[i]) * (1.0f - expf(-dt / tau));
+    if ((int32_t)(now - fastUntil[i]) >= 0) noiseVar[i] += (dg * dg - noiseVar[i]) * 0.03f;   // Rauschen nur in Ruhe schätzen
+  }
   gFast[i]   = (med - cfg.offset[i]) / f;
   gSmooth[i] = (rawSm[i] - cfg.offset[i]) / f;
 
-  float band = 0.3f + 0.002f * fabsf(gFast[i]);
-  if (fabsf(gFast[i] - stabRef[i]) > band) { stabRef[i] = gFast[i]; stabSince[i] = now; }
+  ring[i][ringPos[i]] = gFast[i];
+  ringPos[i] = (ringPos[i] + 1) % 16;
+  if (ringN[i] < 16) ringN[i]++;
+
+  // "ruhig": geglätteter Wert bleibt in einem Band, das sich nach dem gemessenen Rauschen richtet
+  float band = max(0.15f, 1.5f * sqrtf(noiseVar[i])) + 0.002f * fabsf(gSmooth[i]);
+  if (fabsf(gSmooth[i] - stabRef[i]) > band) { stabRef[i] = gSmooth[i]; stabSince[i] = now; }
 }
 
 void loop() {
@@ -101,9 +126,12 @@ void loop() {
   if (ready == wait) {
     uint32_t v[NUM_PLACES];
     readAll(v);
+    float dt = lastSample ? constrain((now - lastSample) / 1000.0f, 0.005f, 0.5f) : 0.1f;
+    if (lastSample) rateHz += (1.0f / dt - rateHz) * 0.05f;
+    lastSample = now;
     for (int i = 0; i < NUM_PLACES; i++) {
       if (!(wait & (1 << i))) continue;
-      process(i, signExtend24(v[i]), now);
+      process(i, signExtend24(v[i]), now, dt);
     }
     histPos = (histPos + 1) % 3;
     seqNo++;
@@ -125,9 +153,19 @@ float    g(int i)         { return gFast[i]; }
 float    gs(int i)        { return gSmooth[i]; }
 int32_t  raw(int i)       { return (int32_t)rawSm[i]; }
 bool     stable(int i)    { return ok(i) && millis() - stabSince[i] >= cfg.stableMs; }
+float    noise(int i)     { return sqrtf(noiseVar[i]); }
+float    hz()             { return rateHz; }
+float    avg(int i, int n) {
+  n = constrain(n, 1, (int)ringN[i]);
+  if (!n) return gSmooth[i];
+  float s = 0;
+  for (int k = 0; k < n; k++) s += ring[i][(ringPos[i] + 16 - 1 - k) % 16];
+  return s / n;
+}
 
 void tare(int i) {
   cfg.offset[i] = (int32_t)rawSm[i];
+  for (int k = 0; k < 16; k++) ring[i][k] = 0;
   gFast[i] = gSmooth[i] = 0;
   stabRef[i] = 0;
   stabSince[i] = millis();

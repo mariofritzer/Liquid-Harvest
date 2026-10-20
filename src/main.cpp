@@ -195,6 +195,24 @@ static void updHealthLoop() {
   }
 }
 
+// Waagen-Diagnose: Live-Messwerte für die App, solange sie die Diagnose offen hat
+static uint32_t diagUntil = 0;
+static void diagLoop() {
+  static uint32_t lastSeq = 0, lastSend = 0;
+  uint32_t now = millis();
+  if (!diagUntil || (int32_t)(now - diagUntil) > 0 || !ws.count()) return;
+  if (Scales::seq() == lastSeq || now - lastSend < 50) return;
+  lastSeq = Scales::seq(); lastSend = now;
+  JsonDocument d;
+  d["t"] = "dg"; d["hz"] = roundf(Scales::hz() * 10) / 10;
+  JsonArray f = d["f"].to<JsonArray>(), sm = d["s"].to<JsonArray>(), n = d["n"].to<JsonArray>(), ok = d["ok"].to<JsonArray>();
+  for (int i = 0; i < NUM_PLACES; i++) {
+    f.add(roundf(Scales::g(i) * 100) / 100); sm.add(roundf(Scales::gs(i) * 100) / 100);
+    n.add(roundf(Scales::noise(i) * 1000) / 1000); ok.add(Scales::ok(i) ? 1 : 0);
+  }
+  wsSend(d);
+}
+
 static void sendRels() {
   JsonDocument d;
   d["t"] = "rels"; d["cur"] = FW_VERSION;
@@ -408,7 +426,7 @@ static void pourLoop(bool btnHeld) {
     case PH_SETTLE:
       if (places[pour.p].st == P_NONE) { abortPour("glass_removed", false); break; }
       if (now - pour.tPhase >= cfg.settleMs) {
-        pour.startW = Scales::gs(pour.p);
+        pour.startW = Scales::avg(pour.p, 8);   // Mittel über ~0,8 s – genauer als ein Einzelwert
         pour.progRef = 0;
         pour.t0 = pour.lastProg = now;
         pour.ph = PH_FAST;
@@ -443,7 +461,7 @@ static void pourLoop(bool btnHeld) {
       // erst zurücksaugen (H-Brücke), dann die eingestellte Pause zum Nachtropfen ins Glas
       if (now - pour.tPhase >= (uint32_t)(cfg.pumpDriver == 1 ? cfg.retractMs : 0) + max<uint32_t>(300, cfg.dripMs)) {
         int p = pour.p;
-        pour.got = Scales::gs(p) - pour.startW;
+        pour.got = Scales::avg(p, 5) - pour.startW;   // Mittel der letzten Messungen nach dem Nachtropfen
         places[p].st = P_FILLED;
         places[p].lastMl = pour.got / cfg.density;
         // Nachlauf selbst nachstellen: zu viel im Glas -> früher stoppen, zu wenig -> später
@@ -990,6 +1008,21 @@ static void handleCmd(const String& msg) {
     } else toast("Kalibrierung fehlgeschlagen – erst tarieren, dann Gewicht auflegen");
   } else if (c == "updCheck") {
     if (!OnlineUpd::requestCheck()) toast("Prüfung läuft schon – kurz warten");
+  } else if (c == "profSel" || c == "profAdd" || c == "profDel") {
+    if (pourBusy()) { toast("Erst fertig einschenken"); return; }
+    int i = d["i"] | -1;
+    String n = d["n"] | "";
+    bool ok = c == "profSel" ? (profileSelect(i), cfg.profIdx == i)
+            : c == "profAdd" ? profileAdd(n.length() ? n : String("Getränk"))
+            : profileDelete(i);
+    sendCfg();
+    if (c == "profSel" && ok) toast("Getränk: " + cfg.prof[cfg.profIdx].name);
+    else if (c == "profAdd") toast(ok ? "„" + cfg.prof[cfg.profIdx].name + "“ angelegt – Werte anpassen und speichern" : "Höchstens " + String(MAX_PROF) + " Getränke");
+    else if (c == "profDel" && !ok) toast("Ein Getränk muss bleiben");
+  } else if (c == "profRen") {
+    if (profileRename(d["i"] | -1, d["n"] | "")) sendCfg();
+  } else if (c == "diag") {
+    diagUntil = (d["on"] | false) ? millis() + 30000 : 0;
   } else if (c == "rbAck") {
     rbMsg = ""; Preferences p; p.begin("upd", false); p.remove("rb"); p.end();
   } else if (c == "updList") {
@@ -1095,7 +1128,11 @@ static void buildState(String& out) {
     o["s"] = pl.st;
     o["ok"] = Scales::ok(i);
     o["en"] = (bool)(cfg.enabledMask & (1 << i));
-    o["g"] = roundf(Scales::gs(i) * 10) / 10;
+    // Anzeige mit Hysterese: letzte Stelle springt nicht bei jedem Rauschen
+    static float shown[NUM_PLACES];
+    float gsv = Scales::gs(i);
+    if (fabsf(gsv - shown[i]) > max(0.1f, 0.6f * Scales::noise(i))) shown[i] = gsv;
+    o["g"] = roundf(shown[i] * 10) / 10;
     o["raw"] = Scales::raw(i);
     float content = pl.st == P_NONE ? 0 : max(0.0f, (Scales::gs(i) - pl.tare) / cfg.density);
     o["ml"] = roundf(content * 10) / 10;
@@ -1384,6 +1421,7 @@ void loop() {
   if (!teach) inputLoop();
   OnlineUpd::loop(WiFi.status() == WL_CONNECTED, cfg.updAuto);
   updHealthLoop();
+  diagLoop();
   if (OnlineUpd::takeListChanged()) sendRels();
   {
     static uint32_t restartAt = 0;

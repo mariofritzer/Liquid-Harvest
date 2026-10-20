@@ -49,6 +49,15 @@ details.fold[open]{padding-bottom:12px}
 .statBar{display:flex;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 14px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);font-size:13.5px;color:var(--mute);cursor:pointer}.statBar b{color:var(--txt);font-weight:700}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.stats div{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px}.stats small{display:block;color:var(--mute);font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.06em}.stats b{display:block;font-size:26px;margin-top:4px}.stats span{color:var(--mute);font-size:13px}
 .modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:#000a;padding:16px}.modal.hide{display:none}.modal>div{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;max-width:380px;width:100%}.modal h3{margin:0 0 8px}.modal p{color:var(--mute);font-size:14px;margin:0 0 12px}.modal input{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:16px;color:var(--txt)}.modal .row{display:flex;gap:10px;margin-top:14px}.modal .row .btn{flex:1}
+.dgrow{padding:12px 0;border-bottom:1px solid var(--line)}.dgrow:last-child{border-bottom:none}
+.dgrow .h{display:flex;align-items:baseline;gap:10px}.dgrow .h b{font-size:15px}.dgrow .h .v{margin-left:auto;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.dgrow canvas{display:block;width:100%;height:64px;margin:8px 0 6px;background:var(--bg);border-radius:10px}
+.dgm{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:12px;color:var(--mute)}.dgm b{display:block;font-size:14px;color:var(--txt);font-variant-numeric:tabular-nums}
+.q-good{color:#7bd88f!important}.q-ok{color:var(--gold2)!important}.q-bad{color:#ff8a8a!important}
+.drinkBar{display:flex;align-items:center;gap:12px;margin-top:10px;padding:8px 8px 8px 14px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);font-size:13.5px;color:var(--mute)}
+.drinkBar select{margin-left:auto;flex:1;max-width:65%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;color:var(--txt);font:inherit;font-size:15px;font-weight:650}
+.prow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.prow input[type=text]{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;color:var(--txt);font:inherit;font-size:15px}
+.prow .badge{font-size:11.5px;font-weight:700;padding:4px 8px;border-radius:8px;background:var(--gold);color:#111;white-space:nowrap}
 .cleanBar.warn{background:#ff4d4d1f;border-color:#ff4d4d66}
 .cleanBar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 14px;border-radius:14px;background:#b4c61822;border:1px solid #b4c61866;font-weight:650;font-size:14px}
 .surf{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;padding:12px 0 4px}
@@ -187,6 +196,7 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
   <div class="cleanBar hide" id="updBar"><span id="updBarT">⬆️ Neue Version</span><span style="display:flex;gap:6px"><button class="sbtn gold" onclick="openUpd()">Ansehen</button><button class="sbtn" onclick="updDismiss()" aria-label="Ausblenden">✕</button></span></div>
   <div class="statBar hide" id="statBar" onclick="openStats()"><span>🥃 Session: <b id="sbS">0</b></span><span>Gesamt: <b id="sbT">0</b></span></div>
 
+  <div class="drinkBar hide" id="drinkBar"><span>Getränk</span><select id="drinkSel" aria-label="Getränk" onchange="send({c:'profSel',i:+this.value})"></select></div>
   <div class="actions">
     <div class="seg" id="amount"></div>
     <button class="btn primary" id="fillAll">Alle leeren Gläser füllen</button>
@@ -217,6 +227,12 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
     <div class="tabs" id="tabs"></div>
   </div>
   <div class="dbody" id="dbody"></div>
+</div>
+
+<!-- Waagen-Diagnose (eigenes Fenster) -->
+<div class="drawer" id="diag" style="z-index:40">
+  <div class="dhead"><div class="top" style="padding-bottom:12px"><button class="iconbtn" onclick="closeDiag()" aria-label="Zurück">←</button><h2>Waagen-Diagnose</h2></div></div>
+  <div class="dbody" id="diagBody"></div>
 </div>
 
 <div class="sheet compact" id="imgAdj">
@@ -288,6 +304,7 @@ function onMsg(m){
   }
   else if(m.t==="toast") toast(m.m);
   else if(m.t==="scan"){netList=m.list;renderTab()}
+  else if(m.t==="dg") onDiag(m);
   else if(m.t==="rels"){RELS=m;UPD_KEY="";renderUpd()}
 }
 
@@ -688,6 +705,62 @@ function renderUpd(){
   if(k!==UPD_KEY){ UPD_KEY=k; c.innerHTML=updHtml(); return; }
   const p=$("#updP"); if(p){ p.style.width=(u.p??0)+"%"; $("#updPL").textContent=`Lade ${u.p??0} % – nicht ausschalten!`; }
 }
+/* ---------------- Waagen-Diagnose ---------------- */
+let DG=null, dgKeep=null;
+const DGN=200;   // ~20 s bei 10 Hz
+window.openDiag=()=>{
+  DG={f:[...Array(N)].map(()=>[]),s:[...Array(N)].map(()=>[]),t:[],last:null};
+  $("#diagBody").innerHTML=`<div class="card"><div class="f"><label>Messrate<small id="dgHzH">–</small></label><b id="dgHz">–</b></div>
+      <div id="dgRows">${[...Array(N)].map((_,i)=>`<div class="dgrow"><div class="h"><b>Waage ${i+1}</b><span id="dgSt${i}" style="font-size:12px;color:var(--mute)"></span><span class="v" id="dgV${i}">–</span></div>
+        <canvas id="dgC${i}" width="700" height="128"></canvas>
+        <div class="dgm"><div>Rauschen<b id="dgN${i}">–</b></div><div>Spanne 10 s<b id="dgR${i}">–</b></div><div>Drift<b id="dgD${i}">–</b></div></div></div>`).join("")}</div></div>
+    <p class="help">Grau = einzelne Messwerte, gelb = geglätteter Wert (was die App anzeigt). <b>Rauschen</b> ist die Streuung der Einzelwerte: unter 0,1 g sehr gut, bis 0,3 g ok, darüber stimmt meist an der Hardware etwas.</p>
+    <details class="card fold" data-k="dgtips"><summary>Woher kommt Rauschen?</summary>
+      <p class="help" style="margin-top:12px"><b>RATE-Pin</b> des HX711 auf GND (10 Messungen/s) – offen misst er 80/s und rauscht etwa 3× mehr. Die Messrate oben zeigt, wie er eingestellt ist.<br><br>
+      <b>Leitungen</b> der Wägezellen kurz halten und die 4 Adern verdrillen, nicht parallel zu Servo- oder Pumpenkabeln führen.<br><br>
+      <b>Masse</b> sternförmig: Pumpen- und Servostrom darf nicht über die GND-Leitung der Waagen fließen. Ein 100-nF-Kondensator direkt am HX711 zwischen VCC und GND hilft.<br><br>
+      <b>Mechanik:</b> Wägezelle fest verschraubt, Plattform darf nirgends anstreifen. Vibrationen vom Servo – „Nach Erreichen stromlos“ einschalten.<br><br>
+      <b>Aufwärmen:</b> In den ersten 1–2 Minuten nach dem Einschalten driften Wägezellen etwas. Das gleicht die Firmware aus, solange kein Glas steht.<br><br>
+      Zeigt nur <b>eine</b> Waage starkes Rauschen, liegt es an ihrer Zelle, Lötstelle oder Leitung. Zeigen <b>alle</b> es gleichzeitig, an der Versorgung oder Masse.</p></details>`;
+  bindFolds();
+  $("#diag").classList.add("show");
+  send({c:"diag",on:true}); clearInterval(dgKeep); dgKeep=setInterval(()=>send({c:"diag",on:true}),10000);
+};
+window.closeDiag=()=>{ $("#diag").classList.remove("show"); clearInterval(dgKeep); dgKeep=null; send({c:"diag",on:false}); DG=null; };
+function onDiag(m){
+  if(!DG) return;
+  const now=performance.now()/1000; DG.t.push(now); if(DG.t.length>DGN) DG.t.shift();
+  for(let i=0;i<N;i++){ DG.f[i].push(m.f[i]); DG.s[i].push(m.s[i]); if(DG.f[i].length>DGN){DG.f[i].shift();DG.s[i].shift();} }
+  DG.last=m;
+  if(DG.raf) return; DG.raf=requestAnimationFrame(()=>{ DG.raf=0; drawDiag(); });
+}
+function drawDiag(){
+  const m=DG&&DG.last; if(!m) return;
+  const fmt=(v,d=2)=>v.toFixed(d).replace(".",",");
+  $("#dgHz").textContent=fmt(m.hz,1)+" /s";
+  $("#dgHzH").innerHTML=m.hz>40?'<span class="q-bad">RATE-Pin offen (80/s) – auf GND legen für weniger Rauschen</span>':m.hz>5?'RATE auf GND – passt':"zu langsam – Verbindung prüfen";
+  const css=getComputedStyle(document.documentElement), gold=css.getPropertyValue("--gold").trim()||"#b4c618", mute=css.getPropertyValue("--mute").trim()||"#888";
+  for(let i=0;i<N;i++){
+    const F=DG.f[i], S=DG.s[i], ok=m.ok[i];
+    $("#dgSt"+i).textContent=ok?"":"keine Daten";
+    $("#dgV"+i).textContent=ok?fmt(m.s[i],2)+" g":"–";
+    const nz=m.n[i]; const q=nz<.1?"q-good":nz<.3?"q-ok":"q-bad";
+    const eN=$("#dgN"+i); eN.textContent=ok?"± "+fmt(nz,2)+" g":"–"; eN.className=ok?q:"";
+    const last=F.slice(-100); const span=last.length?Math.max(...last)-Math.min(...last):0;
+    $("#dgR"+i).textContent=ok?fmt(span,2)+" g":"–";
+    // Drift: Steigung des geglätteten Werts über das Fenster (g/min)
+    let drift=0; if(S.length>=100){ const n=S.length,t=DG.t.slice(-n),mt=t.reduce((a,b)=>a+b)/n,ms=S.reduce((a,b)=>a+b)/n; let num=0,den=0; for(let k=0;k<n;k++){num+=(t[k]-mt)*(S[k]-ms);den+=(t[k]-mt)**2} drift=den?num/den*60:0; }
+    $("#dgD"+i).textContent=ok&&S.length>=100?(drift>=0?"+":"")+fmt(drift,2)+" g/min":"–";
+    const c=$("#dgC"+i); if(!c) continue; const x=c.getContext("2d"), W=c.width, H=c.height; x.clearRect(0,0,W,H);
+    if(!F.length||!ok) continue;
+    const all=F.concat(S), mid=S[S.length-1], half=Math.max(1, ...all.map(v=>Math.abs(v-mid)))*1.15;
+    const Y=v=>H/2-(v-mid)/half*(H/2-6), X=k=>W-(F.length-1-k)*(W/(DGN-1));
+    x.strokeStyle="rgba(128,128,128,.25)"; x.lineWidth=1; x.beginPath(); x.moveTo(0,H/2); x.lineTo(W,H/2); x.stroke();
+    x.fillStyle=mute; x.font="20px sans-serif"; x.fillText("±"+fmt(half,1)+" g",8,24);
+    const line=(A,col,w)=>{ x.strokeStyle=col; x.lineWidth=w; x.beginPath(); A.forEach((v,k)=>k?x.lineTo(X(k),Y(v)):x.moveTo(X(k),Y(v))); x.stroke(); };
+    line(F,"rgba(160,160,160,.75)",2); line(S,gold,4);
+  }
+}
 function renderStatus(){
   renderStats(); renderTeach(); renderUpd();
   $("#cleanBar").classList.toggle("hide",!(ST.clean&&ST.clean.due)||ST.busy);
@@ -711,7 +784,11 @@ function renderStatus(){
   const w=ST.wifi; if(!demo) $("#conn").textContent=w.sta?(w.host+".local"):(w.ap?"Hotspot":"Live");
 }
 
+const esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function buildAmount(){
+  const P=CFG.prof||[];
+  $("#drinkBar").classList.toggle("hide",P.length<2);
+  $("#drinkSel").innerHTML=P.map((p,i)=>`<option value="${i}" ${i===(CFG.profIdx||0)?"selected":""}>${esc(p.n)}</option>`).join("");
   const opts=[[CFG.shotMl,"Einfach"],[CFG.doubleMl,"Doppelt"]];
   if(![CFG.shotMl,CFG.doubleMl].includes(amount)) amount=CFG.shotMl;
   $("#amount").innerHTML=opts.map(([v,l])=>`<button data-v="${v}" class="${v===amount?"on":""}">${l} · ${v/10} cl</button>`).join("");
@@ -837,7 +914,15 @@ function renderTab(){
   if(!CFG){$("#dbody").innerHTML='<p class="help">Lade Einstellungen…</p>';return}
   const b=$("#dbody"); let h="";
   if(curTab==="dose"){
-    FIELDS.dose.forEach(g=>h+=fieldsCard(g));
+    const P=CFG.prof||[{n:"Schnaps"}], ai=CFG.profIdx||0, an=esc((P[ai]||{}).n||"");
+    h+=`<div class="card"><h3>Getränke</h3>
+      ${P.map((p,i)=>`<div class="prow"><input type="text" value="${esc(p.n)}" maxlength="20" aria-label="Name Getränk ${i+1}" onchange="send({c:'profRen',i:${i},n:this.value})">
+        ${i===ai?'<span class="badge">aktiv</span>':`<button class="sbtn gold" onclick="send({c:'profSel',i:${i}})">Wählen</button>`}
+        ${P.length>1?`<button class="sbtn red" aria-label="Löschen" onclick="if(confirm('„'+${JSON.stringify(p.n).replace(/"/g,"&quot;")}+'“ löschen?'))send({c:'profDel',i:${i}})">✕</button>`:""}</div>`).join("")}
+      ${P.length<6?`<div class="prow" style="border-bottom:none"><input type="text" id="pf_new" maxlength="20" placeholder="Neues Getränk, z. B. Likör"><button class="sbtn" onclick="const e=$('#pf_new');send({c:'profAdd',n:e.value.trim()||'Getränk'})">+ Anlegen</button></div>`:""}
+      <p class="help" style="margin-top:6px">Jedes Getränk hat eigene Mengen, Dichte, Pumpenleistung und eigenen gelernten Nachlauf. Ab zwei Getränken erscheint die Auswahl auf der Startseite.</p></div>`;
+    h+=fieldsCard([`Menge · ${an}`,FIELDS.dose[0][1]])+fieldsCard([`Dosierung · ${an}`,FIELDS.dose[1][1]]);
+    FIELDS.dose.slice(2).forEach(g=>h+=fieldsCard([g[0]+" · alle Getränke",g[1]]));
     h+=saveBtn("dose");
     h+=`<p class="help">Ablauf: Pumpe läuft mit <b>schnell</b>, schaltet „Langsam ab“ Gramm vor dem Ziel auf <b>langsam</b> und stoppt „Stopp vorher“ Gramm vor dem Ziel – der Rest läuft aus dem Schlauch nach. Zu viel im Glas → „Stopp vorher“ erhöhen.</p>`;
   }
@@ -909,6 +994,7 @@ function renderTab(){
       <div class="v" id="sc_v${i}">–</div>
       <div class="acts"><button class="sbtn" onclick="send({c:'tare',p:${i+1}})">Tara</button><input id="sc_k${i}" type="number" value="100" inputmode="decimal"> g <button class="sbtn gold" onclick="send({c:'calib',p:${i+1},g:+$('#sc_k${i}').value})">Kalibrieren</button></div></div>`;
     h+=`</div><button class="btn save" onclick="send({c:'tare',p:0})">Alle leeren Waagen tarieren</button>
+      <button class="btn" style="width:100%;margin-top:10px" onclick="openDiag()">📈 Diagnose öffnen</button>
       <p class="help"><b>Kalibrieren:</b> Waage leer lassen → <b>Tara</b>. Dann ein bekanntes Gewicht (z. B. 100-g-Gewicht oder 100 ml Wasser) auflegen, Gewicht eintragen → <b>Kalibrieren</b>. Nicht angeschlossene Waagen hier ausschalten.</p>`;
   }
   if(curTab==="servo"){
@@ -1711,7 +1797,7 @@ window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAug
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,servoHoldPour:true,autoTune:true,pumpDriver:0,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,servoHoldPour:true,autoTune:true,pumpDriver:0,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,prof:[{n:"Schnaps"}],profIdx:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     upd:{st:0,on:true,new:"v1.8.1",av:true,ago:3,p:-1},stat:{sn:7,sml:140,tn:412,tml:8240,ss:Math.floor(Date.now()/1000)-7200},ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
@@ -1732,6 +1818,14 @@ function demoCmd(o){
   if(o.c==="teachMin"&&S.teach){const c=S.cfg,n=S.tgt,dl=(c.angOff||0)-n,pm=(c.angOff||0)+c.angMax;c.angPark+=dl;c.ang=c.ang.map(a=>a+dl);c.angOff=n;c.angMax=Math.max(5,pm-n);simClampAng();onMsg({t:"cfg",cfg:c,ver:"1.8.0-demo"});toast("Min gesetzt (Servo "+n.toFixed(1)+"°)");return}
   if(o.c==="teachMax"&&S.teach){const m=Math.round((S.tgt-(S.cfg.angOff||0))*10)/10;if(m<5){toast("Max muss mindestens 5° über Min liegen");return}S.cfg.angMax=m;simClampAng();onMsg({t:"cfg",cfg:S.cfg,ver:"1.8.0-demo"});toast("Max gesetzt: "+m.toFixed(1)+"°");return}
   if(["cleanRinse","cleanDry"].includes(o.c)){if(o.p!=null)SIM.cfg.cleanPos=o.p;{const q=o.p||0;SIM.aim=q;SIM.tgt=q?SIM.cfg.ang[q-1]:SIM.cfg.angPark}toast("Demo: Pumpe läuft ("+o.c+")");return}
+  if(["profSel","profAdd","profRen","profDel"].includes(o.c)){ const c=S.cfg; c.prof=c.prof||[{n:"Schnaps"}]; const keys=["shotMl","doubleMl","density","pwmFast","pwmSlow","slowBefore","stopBefore","dripMs"], cur=()=>Object.fromEntries(keys.map(k=>[k,c[k]]));
+    Object.assign(c.prof[c.profIdx||0],cur());
+    if(o.c==="profSel"){c.profIdx=o.i;Object.assign(c,Object.fromEntries(keys.map(k=>[k,c.prof[o.i][k]??c[k]])));toast("Getränk: "+c.prof[o.i].n)}
+    if(o.c==="profAdd"&&c.prof.length<6){c.prof.push({...c.prof[c.profIdx||0],n:o.n});c.profIdx=c.prof.length-1;toast("„"+o.n+"“ angelegt")}
+    if(o.c==="profRen")c.prof[o.i].n=o.n;
+    if(o.c==="profDel"&&c.prof.length>1){c.prof.splice(o.i,1);c.profIdx=0;Object.assign(c,Object.fromEntries(keys.map(k=>[k,c.prof[0][k]??c[k]])))}
+    onMsg({t:"cfg",cfg:c,ver:"1.8.0-demo"}); return; }
+  if(o.c==="diag"){ clearInterval(S.dgT); if(o.on){ const nz=[.05,.12,.08,.35,.06,.9]; S.dgT=setInterval(()=>{ const f=S.pl.map((p,i)=>+(p.w+(Math.random()-.5)*2*nz[i]*1.7).toFixed(2)); S.dgS=S.dgS||f.slice(); S.dgS=S.dgS.map((v,i)=>v+(f[i]-v)*.05); onMsg({t:"dg",hz:10,f,s:S.dgS.map(v=>+v.toFixed(2)),n:nz,ok:[1,1,1,1,1,1]}); },100); } return; }
   if(o.c==="updList"){onMsg({t:"rels",cur:"1.8.0",list:[{tag:"v1.8.1",d:"2026-10-24",kb:1195},{tag:"v1.8.0",d:"2026-10-20",kb:1193}]});return}
   if(o.c==="updCheck"){S.upd.st=1;setTimeout(()=>{S.upd.st=0;S.upd.ago=0;demoCmd({c:"updList"})},1200);return}
   if(o.c==="updInstall"){S.upd.st=2;S.upd.p=0;toast("Lade "+o.tag+" … nicht ausschalten!");const t=setInterval(()=>{S.upd.p+=7;if(S.upd.p>=100){clearInterval(t);S.upd.st=0;S.upd.p=-1;toast("Demo: "+o.tag+" wäre jetzt installiert – Neustart")}},150);return}

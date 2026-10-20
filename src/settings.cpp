@@ -1,5 +1,6 @@
 #include "settings.h"
 #include <Preferences.h>
+#include <memory>
 
 Settings cfg;
 static Preferences prefs;
@@ -8,6 +9,20 @@ template <typename T>
 static void rd(JsonObjectConst o, const char* k, T& v) {
   JsonVariantConst x = o[k];
   if (!x.isNull()) v = x.as<T>();
+}
+
+static void profFromCfg(DrinkProfile& p) {
+  p.shotMl = cfg.shotMl; p.doubleMl = cfg.doubleMl; p.density = cfg.density;
+  p.pwmFast = cfg.pwmFast; p.pwmSlow = cfg.pwmSlow; p.slowBefore = cfg.slowBefore; p.stopBefore = cfg.stopBefore; p.dripMs = cfg.dripMs;
+}
+static void profToCfg(const DrinkProfile& p) {
+  cfg.shotMl = p.shotMl; cfg.doubleMl = p.doubleMl; cfg.density = p.density;
+  cfg.pwmFast = p.pwmFast; cfg.pwmSlow = p.pwmSlow; cfg.slowBefore = p.slowBefore; cfg.stopBefore = p.stopBefore; cfg.dripMs = p.dripMs;
+}
+static String cleanName(String n) {
+  n.trim(); n.replace("\"", ""); n.replace("<", ""); n.replace(">", "");
+  if (n.length() > 20) n = n.substring(0, 20);
+  return n;
 }
 
 static void clampAll() {
@@ -75,6 +90,43 @@ static void clampAll() {
   cfg.imgY = constrain(cfg.imgY, -700.0f, 700.0f);
   if (cfg.host.length() == 0) cfg.host = "liquidharvest";
   if (cfg.apPass.length() > 0 && cfg.apPass.length() < 8) cfg.apPass = "prost1234";
+  // Getränke: mindestens eins; das aktive spiegelt immer die aktuellen Dosier-Werte
+  if (cfg.profN < 1 || cfg.profN > MAX_PROF) { cfg.profN = 1; cfg.prof[0].name = "Schnaps"; }
+  if (cfg.profIdx >= cfg.profN) cfg.profIdx = 0;
+  for (int i = 0; i < cfg.profN; i++) if (!cfg.prof[i].name.length()) cfg.prof[i].name = "Getränk " + String(i + 1);
+  profFromCfg(cfg.prof[cfg.profIdx]);
+}
+
+void profileSelect(int i) {
+  if (i < 0 || i >= cfg.profN) return;
+  clampAll();                       // aktuelle Werte ins bisherige Getränk
+  cfg.profIdx = i;
+  profToCfg(cfg.prof[i]);
+  settingsSave();
+}
+bool profileAdd(const String& name) {
+  if (cfg.profN >= MAX_PROF) return false;
+  clampAll();
+  cfg.prof[cfg.profN] = cfg.prof[cfg.profIdx];   // Startwerte vom aktuellen Getränk
+  cfg.prof[cfg.profN].name = cleanName(name);
+  cfg.profN++;
+  profileSelect(cfg.profN - 1);
+  return true;
+}
+bool profileRename(int i, const String& name) {
+  if (i < 0 || i >= cfg.profN || !cleanName(name).length()) return false;
+  cfg.prof[i].name = cleanName(name); settingsSave(); return true;
+}
+bool profileDelete(int i) {
+  if (cfg.profN <= 1 || i < 0 || i >= cfg.profN) return false;
+  clampAll();
+  for (int k = i; k < cfg.profN - 1; k++) cfg.prof[k] = cfg.prof[k + 1];
+  cfg.profN--;
+  int sel = cfg.profIdx == i ? 0 : cfg.profIdx > i ? cfg.profIdx - 1 : cfg.profIdx;
+  cfg.profIdx = sel;
+  profToCfg(cfg.prof[sel]);
+  settingsSave();
+  return true;
 }
 
 void settingsToJson(JsonObject o) {
@@ -82,6 +134,14 @@ void settingsToJson(JsonObject o) {
   o["density"] = cfg.density;     o["pwmFast"] = cfg.pwmFast;
   o["pwmSlow"] = cfg.pwmSlow;     o["slowBefore"] = cfg.slowBefore;
   o["stopBefore"] = cfg.stopBefore;
+  o["profIdx"] = cfg.profIdx;
+  { JsonArray pa = o["prof"].to<JsonArray>();
+    for (int i = 0; i < cfg.profN; i++) {
+      const DrinkProfile& p = cfg.prof[i];
+      JsonObject x = pa.add<JsonObject>();
+      x["n"] = p.name; x["sm"] = p.shotMl; x["dm"] = p.doubleMl; x["d"] = p.density; x["pf"] = p.pwmFast; x["ps"] = p.pwmSlow;
+      x["sb"] = p.slowBefore; x["st"] = p.stopBefore; x["dr"] = p.dripMs;
+    } }
   o["autoTune"] = cfg.autoTune;
   o["pumpDriver"] = cfg.pumpDriver; o["retractMs"] = cfg.retractMs; o["retractPwm"] = cfg.retractPwm;
   o["cleanShots"] = cfg.cleanShots; o["cleanDays"] = cfg.cleanDays; o["cleanRinseS"] = cfg.cleanRinseS; o["cleanDryS"] = cfg.cleanDryS; o["cleanPos"] = cfg.cleanPos;
@@ -125,6 +185,20 @@ void settingsToJson(JsonObject o) {
 }
 
 void settingsFromJson(JsonObjectConst o) {
+  { JsonArrayConst pa = o["prof"];   // komplette Liste (Import, Standard-Einrichtung, gespeicherte Einstellungen)
+    if (!pa.isNull() && pa.size()) {
+      cfg.profN = 0;
+      for (JsonObjectConst x : pa) {
+        if (cfg.profN >= MAX_PROF) break;
+        DrinkProfile& p = cfg.prof[cfg.profN++];
+        p = DrinkProfile();
+        p.name = cleanName(x["n"] | "Getränk"); rd(x, "sm", p.shotMl); rd(x, "dm", p.doubleMl); rd(x, "d", p.density);
+        rd(x, "pf", p.pwmFast); rd(x, "ps", p.pwmSlow); rd(x, "sb", p.slowBefore); rd(x, "st", p.stopBefore); rd(x, "dr", p.dripMs);
+      }
+      rd(o, "profIdx", cfg.profIdx);
+      if (cfg.profIdx >= cfg.profN) cfg.profIdx = 0;
+      profToCfg(cfg.prof[cfg.profIdx]);   // einzeln mitgeschickte Werte unten überschreiben das dann
+    } }
   rd(o, "shotMl", cfg.shotMl);       rd(o, "doubleMl", cfg.doubleMl);
   rd(o, "density", cfg.density);     rd(o, "pwmFast", cfg.pwmFast);
   rd(o, "pwmSlow", cfg.pwmSlow);     rd(o, "slowBefore", cfg.slowBefore);
@@ -204,14 +278,24 @@ void settingsSave() {
   o["apPass"] = cfg.apPass;
   String s;
   serializeJson(d, s);
+  // Als Blob speichern: NVS-Strings sind auf 4000 Bytes begrenzt, Blobs nicht
   prefs.begin("sh", false);
-  prefs.putString("cfg", s);
+  size_t w = prefs.putBytes("cfgb", s.c_str(), s.length());
+  // Zusätzlich als String, solange es passt – so finden ältere Versionen (Downgrade) ihre Einstellungen
+  if (s.length() < 3900) prefs.putString("cfg", s); else prefs.remove("cfg");
   prefs.end();
+  static size_t lastLen = 0;
+  if (w != s.length()) Serial.printf("[Einstellungen] Speichern fehlgeschlagen (%u Bytes)\n", (unsigned)s.length());
+  else if (s.length() / 256 != lastLen / 256) Serial.printf("[Einstellungen] %u Bytes gespeichert\n", (unsigned)s.length());
+  lastLen = s.length();
 }
 
 void settingsLoad() {
   prefs.begin("sh", true);
-  String s = prefs.getString("cfg", "");
+  String s;
+  size_t n = prefs.getBytesLength("cfgb");
+  if (n) { std::unique_ptr<char[]> b(new char[n + 1]); prefs.getBytes("cfgb", b.get(), n); b[n] = 0; s = b.get(); }
+  else s = prefs.getString("cfg", "");               // ältere Versionen
   prefs.end();
   if (s.length()) {
     JsonDocument d;

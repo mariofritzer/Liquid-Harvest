@@ -39,6 +39,8 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | | |
 |---|---|
 | **Glaserkennung** | Schwelle einstellbar ab 0,1 g (Standard 1,5 g, auch Plastikstamperl), Gewicht muss 0,5 s ruhig sein, Drift-Kompensation, Nullung beim Einschalten |
+| **Getränke** | bis zu 6 Getränke (z. B. Schnaps, Likör) mit eigener Menge, Dichte, Pumpenleistung und eigenem gelernten Nachlauf – Auswahl per Dropdown auf der Startseite |
+| **Waagen** | adaptiver Filter: misst das Rauschen jeder Waage, glättet in Ruhe stark und folgt echten Änderungen sofort; Endmessung als Mittelwert · **Diagnose** (⚙️ Waagen → Diagnose öffnen) mit Live-Kurven, Rauschen, Spanne, Drift und Messrate |
 | **Dosierung** | nach Gewicht: schnell → langsam (PWM) → Stopp vor dem Ziel (Nachlauf) → Nachtropfzeit · **Nachlauf lernt sich selbst ein** (korrigiert „Stopp vorher“ nach jedem Glas) · einstellbare Pause nach dem Einfüllen, damit Tropfen noch ins Glas fallen, bevor das Rohr schwenkt |
 | **Pumpentreiber** | wählbar: MOSFET-Modul (D4184) oder **H-Brücke** (DRV8871, BTS7960, L298N) – mit H-Brücke saugt die Pumpe nach dem Einschenken kurz zurück, kein Nachtropfen beim Schwenken |
 | **Reinigung** | geführtes Spülprogramm (Spülen → Leer pumpen → fertig) an wählbarer Position (Park oder Glas 1–6), Erinnerung nach X Gläsern oder Y Tagen (Uhrzeit per NTP aus dem Heimnetz) |
