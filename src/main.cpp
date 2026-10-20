@@ -147,7 +147,13 @@ static void sendCfg() {
 // ---------------------------------------------------------------------
 static bool servoPowered = true;
 static uint32_t servoArrivedAt = 0;
+// Einlernen des Schwenkbereichs: servoCur/servoTgt sind dann echte Servo-Winkel (0…180), sonst App-Winkel (0…angMax)
+static bool teach = false;
+static uint32_t teachLast = 0;
+static float physAngle() { return teach ? servoCur : cfg.angOff + servoCur; }
 static void servoWrite(float deg) {
+  // nie über den eingelernten Schwenkbereich hinaus
+  deg = teach ? constrain(deg, 0.0f, 180.0f) : cfg.angOff + constrain(deg, 0.0f, cfg.angMax);
   if (cfg.servoReverse) deg = 180.0f - deg;   // Drehrichtung umkehren
   float us = cfg.servoMinUs + (cfg.servoMaxUs - cfg.servoMinUs) * (deg / 180.0f);
   servoArrivedAt = 0;
@@ -158,6 +164,7 @@ static void servoWrite(float deg) {
 static float angleFor(int idx) { return idx <= 0 ? cfg.angPark : cfg.ang[idx - 1]; }
 
 static void aim(int idx) {
+  if (teach) return;
   aimIdx = constrain(idx, 0, NUM_PLACES);
   servoTgt = angleFor(aimIdx);
 }
@@ -181,7 +188,10 @@ static void servoLoop() {
   if (servoTgt != lastTgt) { lastTgt = servoTgt; servoArrivedAt = 0; if (!servoPowered) { servoWrite(servoCur); written = servoCur; } }
   if (servoCur == servoTgt) {
     if (!servoArrivedAt) servoArrivedAt = millis();
-    if (cfg.servoRelease && servoPowered && millis() - servoArrivedAt > cfg.servoHoldMs) {
+    // Während eingeschenkt wird (inkl. Nachtropfen, Zurücksaugen, Spülen) bleibt der Servo angesteuert –
+    // so kann ein Stoß das Rohr nicht vom Glas wegdrehen, während die Pumpe läuft
+    bool pouring = pour.ph != PH_IDLE && pour.ph != PH_MOVE;
+    if (cfg.servoRelease && servoPowered && !pouring && millis() - servoArrivedAt > cfg.servoHoldMs) {
       ledcWrite(CH_SERVO, 0);
       servoPowered = false;
     }
@@ -213,6 +223,7 @@ static bool pourActiveOn(int i) { return pour.ph >= PH_MOVE && pour.ph <= PH_DRI
 
 static bool enqueue(int p, float ml, Source src) {
   if (p < 0 || p >= NUM_PLACES) return false;
+  if (teach) { toast("Erst das Einlernen beenden"); return false; }
   if (places[p].st == P_NONE) { toast("Kein Glas auf Platz " + String(p + 1)); return false; }
   if (pour.ph == PH_PRIME) return false;
   if (pourActiveOn(p)) return false;
@@ -289,7 +300,7 @@ static void statsAdd(float ml) {
 }
 
 static void startPrime(uint32_t ms, bool byButton, uint8_t pos = 0) {
-  if (pourBusy()) return;
+  if (pourBusy() || teach) return;
   aim(pos);   // 0 = Park, 1..6 = über Glas
   pour.ph = PH_PRIME;
   pour.primeRunning = false;
@@ -845,7 +856,37 @@ static void handleCmd(const String& msg) {
   } else if (c == "aim") {
     if (!pourBusy()) aim(p);
   } else if (c == "servo") {            // freier Winkel zum Einstellen
-    if (!pourBusy()) servoTgt = constrain((float)(d["a"] | 90.0f), 0.0f, 180.0f);
+    if (!pourBusy() && !teach) servoTgt = constrain((float)(d["a"] | 90.0f), 0.0f, cfg.angMax);
+  } else if (c == "teach") {
+    bool on = d["on"] | false;
+    if (on && !teach) {
+      if (pourBusy()) { toast("Erst fertig einschenken"); return; }
+      teach = true; teachLast = millis();
+      servoCur += cfg.angOff; servoTgt = servoCur;   // gleiche Stellung, jetzt in echten Servo-Grad
+      toast("Einlernen: mit − / + zum Anschlag fahren");
+    } else if (!on && teach) {
+      teach = false;
+      servoCur = constrain(servoCur - cfg.angOff, 0.0f, cfg.angMax);
+      servoTgt = servoCur;
+      aim(aimIdx);
+    }
+  } else if (c == "jog") {
+    if (teach) { servoTgt = constrain(servoTgt + (float)(d["d"] | 0.0f), 0.0f, 180.0f); teachLast = millis(); }
+  } else if (c == "teachMin" && teach) {
+    // Diese Stellung wird 0°. Gespeicherte Positionen bleiben physisch, wo sie waren.
+    float nOff = roundf(servoTgt * 10) / 10, delta = cfg.angOff - nOff, physMax = cfg.angOff + cfg.angMax;
+    cfg.angPark += delta; for (int i = 0; i < NUM_PLACES; i++) cfg.ang[i] += delta;
+    cfg.angOff = nOff;
+    bool needMax = physMax - nOff < 5.0f;
+    cfg.angMax = needMax ? min(5.0f, 180.0f - nOff) : physMax - nOff;
+    settingsSave(); sendCfg(); teachLast = millis();
+    toast(needMax ? String("Min gesetzt – jetzt Max einlernen") : "Min gesetzt (Servo " + String(nOff, 1) + "°)");
+  } else if (c == "teachMax" && teach) {
+    float m = roundf((servoTgt - cfg.angOff) * 10) / 10;
+    if (m < 5.0f) { toast("Max muss mindestens 5° über Min liegen"); return; }
+    cfg.angMax = m;
+    settingsSave(); sendCfg(); teachLast = millis();
+    toast("Max gesetzt: " + String(m, 1) + "°");
   } else if (c == "prime") {
     startPrime((uint32_t)((d["s"] | 3.0f) * 1000), false);
   } else if (c == "cleanRinse" || c == "cleanDry") {
@@ -938,7 +979,9 @@ static void buildState(String& out) {
   JsonDocument d;
   d["t"] = "st";
   d["aim"] = aimIdx;
-  d["ang"] = roundf(servoCur * 10) / 10;
+  d["ang"] = roundf((teach ? servoCur - cfg.angOff : servoCur) * 10) / 10;
+  d["phys"] = roundf(physAngle() * 10) / 10;
+  d["teach"] = teach;
   d["ph"] = PHASE_NAMES[pour.ph];
   {
     time_t t = time(nullptr);
@@ -1242,7 +1285,10 @@ void loop() {
 
   Scales::loop();
   placesLoop();
-  inputLoop();
+  if (teach && millis() - teachLast > 300000) {   // 5 min nichts getan -> Einlernen beenden
+    teach = false; servoCur = constrain(servoCur - cfg.angOff, 0.0f, cfg.angMax); servoTgt = servoCur; aim(aimIdx);
+  }
+  if (!teach) inputLoop();
   processCmds();
   pourLoop(btn.stable);
   servoLoop();

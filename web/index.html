@@ -41,6 +41,8 @@ details.fold[open]>summary::after{transform:rotate(-135deg);margin-bottom:-4px}
 details.fold[open]{padding-bottom:12px}
 .sw-dot{width:22px;height:22px;border-radius:50%;flex:none;box-shadow:0 0 10px currentColor,inset 0 0 0 1px #fff3}
 .card select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px;color:var(--txt);font-size:14px}
+.teachAng{text-align:center;margin:8px 0 12px}.teachAng b{display:block;font-size:40px;font-variant-numeric:tabular-nums}.teachAng small{color:var(--mute);font-size:13px}
+.jog{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.jog .btn{padding:14px 0;font-size:16px;touch-action:none;user-select:none;-webkit-user-select:none}
 .rgb{display:flex;gap:8px;width:100%}.rgb label{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);font-weight:650}.rgb input{width:100%!important;min-width:0;box-sizing:border-box;text-align:center;padding-left:4px;padding-right:4px}
 .statBar{display:flex;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 14px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);font-size:13.5px;color:var(--mute);cursor:pointer}.statBar b{color:var(--txt);font-weight:700}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.stats div{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px}.stats small{display:block;color:var(--mute);font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.06em}.stats b{display:block;font-size:26px;margin-top:4px}.stats span{color:var(--mute);font-size:13px}
@@ -289,6 +291,7 @@ const P=(x,y,z)=>[(x-y)*C,(x+y)*S-z];
 const f1=n=>n.toFixed(1);
 const pts=a=>a.map(p=>P(...p).map(f1).join(",")).join(" ");
 const dir=a=>{const r=a*Math.PI/180,c=Math.cos(r),s=Math.sin(r);return[.7071*c+.7071*s,-.7071*c+.7071*s]};
+const sdir=a=>dir(a+((typeof CFG!=="undefined"&&CFG&&CFG.angOff)||0));
 const poly=(a,fill,extra="")=>`<polygon points="${pts(a)}" fill="${fill}" ${extra}/>`;
 function box(x0,y0,z0,x1,y1,z1,c){
   return poly([[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]],c[0])+
@@ -480,7 +483,7 @@ function glassK(){ const v=V(); return (+v.gs||.7)*(v.w/644); }
 function glassXY(i){
   const b=vidMode()?glassBase(i):null;
   if(b){ let [sx,sy]=vidToScene(b); if(b.tip) sy+=(GH+(+(V().gap??30)))*glassK(); const u=sx/C, w=2*sy; return [(u+w)/2,(w-u)/2]; }
-  const a=CFG?CFG.ang[i]:[18.3,36.7,55,73.3,91.7,110][i],[dx,dy]=dir(a); return [dx*R,dy*R];
+  const a=CFG?CFG.ang[i]:[18.3,36.7,55,73.3,91.7,110][i],[dx,dy]=sdir(a); return [dx*R,dy*R];
 }
 function glassTf(x,y){ const k=vidMode()&&glassBase(0)?glassK():1; if(k===1) return ""; const b=P(x,y,0); return `transform="translate(${f1(b[0])} ${f1(b[1])}) scale(${k}) translate(${f1(-b[0])} ${f1(-b[1])})"`; }
 // Ältere Einrichtungen ohne erkannte Parkstellung: aus den gespeicherten Standbildern nachträglich bestimmen
@@ -500,7 +503,7 @@ async function ensureParkTip(){
 function parkXY(){
   if(vidMode()){ const v=V(); if(!v.ptip){ ensureParkTip(); return null; }
     let [sx,sy]=vidToScene(v.ptip); sy+=(GH+(+(v.gap??30)))*glassK(); const u=sx/C, w=2*sy; return [(u+w)/2,(w-u)/2]; }
-  const [dx,dy]=dir(CFG?CFG.angPark:0); return [dx*R,dy*R];
+  const [dx,dy]=sdir(CFG?CFG.angPark:0); return [dx*R,dy*R];
 }
 function buildPark(){
   const g=$("#parkMark"); if(!g) return;
@@ -583,7 +586,7 @@ function render(){
 
 function drawAuger(){
   if(ST){ if(dispAng===null) dispAng=ST.ang; dispAng+=(ST.ang-dispAng)*.25; }
-  const a=dispAng??(CFG?CFG.angPark:0), [dx,dy]=dir(a), ex=dx*R, ey=dy*R;
+  const a=dispAng??(CFG?CFG.angPark:0), [dx,dy]=sdir(a), ex=dx*R, ey=dy*R;
   if(vidMode()){
     vidFrame(previewAng??a); $("#auger").innerHTML="";
     let st=""; if(ST&&ST.pump>0&&ST.pp>0){const p=ST.pl[ST.pp-1],[gx,gy]=glassXY(ST.pp-1),tz=4+Math.min(GH-8,Math.max(p.ml,ST.got)*1.15),T=P(gx,gy,tz),S1=P(gx,gy,GH+(+(V().gap??30)));
@@ -641,7 +644,7 @@ function renderStats(){
 function statValsHtml(){ const s=(ST&&ST.stat)||{sn:0,sml:0,tn:0,tml:0,ss:0};
   return `<div><small>Session</small><b>${s.sn}</b><span>Stamperl · ${fmtL(s.sml)}</span></div><div><small>Gesamt</small><b>${s.tn}</b><span>Stamperl · ${fmtL(s.tml)}</span></div>`; }
 function renderStatus(){
-  renderStats();
+  renderStats(); renderTeach();
   $("#cleanBar").classList.toggle("hide",!(ST.clean&&ST.clean.due)||ST.busy);
   const st=$("#status"), n=ST.pl.filter(p=>p.s===1).length, f=ST.pl.filter(p=>p.s===2).length;
   st.classList.toggle("busy",ST.busy);
@@ -833,8 +836,10 @@ function renderTab(){
       <p class="help"><b>Kalibrieren:</b> Waage leer lassen → <b>Tara</b>. Dann ein bekanntes Gewicht (z. B. 100-g-Gewicht oder 100 ml Wasser) auflegen, Gewicht eintragen → <b>Kalibrieren</b>. Nicht angeschlossene Waagen hier ausschalten.</p>`;
   }
   if(curTab==="servo"){
-    const row=(id,l,v)=>`<div class="f" style="flex-wrap:wrap;row-gap:6px"><label>${l}</label><input type="number" id="${id}v" value="${v}" step="0.1" style="width:72px" onchange="$('#${id}').value=this.value;send({c:'servo',a:+this.value})"><span class="u">°</span><button class="sbtn gold" onclick="send({c:'servo',a:+$('#${id}v').value})">Anfahren</button>
-      <input type="range" min="0" max="180" step="0.1" value="${v}" id="${id}" style="width:100%" oninput="$('#${id}v').value=this.value;send({c:'servo',a:+this.value})"></div>`;
+    const lo=0, hi=CFG.angMax??180;
+    const row=(id,l,v)=>`<div class="f" style="flex-wrap:wrap;row-gap:6px"><label>${l}</label><input type="number" id="${id}v" value="${v}" min="${lo}" max="${hi}" step="0.1" style="width:72px" onchange="this.value=clampA(this.value);$('#${id}').value=this.value;send({c:'servo',a:+this.value})"><span class="u">°</span><button class="sbtn gold" onclick="const e=$('#${id}v');e.value=clampA(e.value);$('#${id}').value=e.value;send({c:'servo',a:+e.value})">Anfahren</button>
+      <input type="range" min="${lo}" max="${hi}" step="0.1" value="${v}" id="${id}" style="width:100%" oninput="$('#${id}v').value=this.value;send({c:'servo',a:+this.value})"></div>`;
+    h+=`<div class="card" id="teachCard">${teachHtml()}</div>`;
     h+=`<div class="card"><h3>Positionen</h3>${row("a_p","Parkposition",CFG.angPark)}${CFG.ang.map((a,i)=>row("a_"+i,"Glas "+(i+1),a)).join("")}</div>`;
     FIELDS.servo.forEach(([t,fs])=>h+=`<div class="card"><h3>${t}</h3>${fs.map(fieldHtml).join("")}</div>`);
     h+=saveBtn("servo")+`<p class="help"><b>Anfahren</b> fährt das Rohr auf den eingetragenen Winkel, die Regler bewegen es live. Position so einstellen, dass der Auslauf mittig über dem Glas steht, dann speichern.</p>`;
@@ -1341,7 +1346,7 @@ function startVidAdjust(){
   vidBackup=JSON.stringify(V()); aligning=true;
   const v=V();
   if(!Array.isArray(v.gp)||v.gp.some(g=>g&&g.u===undefined)) v.gp=[null,null,null,null,null,null];
-  if(!v.tips) v.tips=[...Array(N)].map((_,i)=>{const a=CFG.ang[i],[dx,dy]=dir(a),b=P(dx*R,dy*R,GH+12);return {u:(b[0]-v.x)/v.w, v:(b[1]-v.y)/(v.w*v.fh/v.fw)}});
+  if(!v.tips) v.tips=[...Array(N)].map((_,i)=>{const a=CFG.ang[i],[dx,dy]=sdir(a),b=P(dx*R,dy*R,GH+12);return {u:(b[0]-v.x)/v.w, v:(b[1]-v.y)/(v.w*v.fh/v.fw)}});
   applyVid();
   [["va_w","w"],["va_x","x"],["va_y","y"],["va_gs","gs"],["va_gdy","gap"]].forEach(([id,k])=>{const e=$("#"+id); e.value=v[k]??({gs:.7,sh:45,gap:30}[k]??0); e.oninput=()=>{v[k]=+e.value; applyVid();};});
   $("#va_auto").onclick=()=>{ v.gp=[null,null,null,null,null,null]; const ok=autoAlign(v); ["w","x","y"].forEach(k=>$("#va_"+k).value=v[k]); applyVid(); selectAlign(alignSel); toast(ok?"Drehpunkt in der Scheibenmitte, Gläser unter den Rohrspitzen":"Gläser stehen wieder unter den erkannten Rohrspitzen"); };
@@ -1590,6 +1595,35 @@ window.ledCol=(i,k,v)=>{ const E=LEDEDIT; E[k][i]=v;
   const d=$("#lcd"+i); if(d){ d.style.background=E.col[i]; d.style.opacity=.25+.75*E.lvl[i]/100; }
   if(k==="lvl") $("#lcl"+i).textContent=v+" %";
   if(k==="col") for(let c=0;c<3;c++){const e=$(`#lr${i}_${c}`); if(e) e.value=parseInt(v.slice(1+2*c,3+2*c),16);} };
+window.clampA=v=>{ const lo=0, hi=CFG.angMax??180; v=parseFloat(String(v).replace(",",".")); if(!isFinite(v)) v=lo; return Math.round(Math.max(lo,Math.min(hi,v))*10)/10; };
+function teachHtml(){
+  const off=CFG.angOff??0, mx=CFG.angMax??180, on=!!(ST&&ST.teach), ph=ST&&ST.phys!=null?ST.phys:off;
+  const f=v=>(+v).toFixed(1).replace(".",",");
+  if(!on) return `<h3>Schwenkbereich</h3>
+    <div class="f"><label>Eingelernt<small>Min = Servo ${f(off)}° · Max = Servo ${f(off+mx)}°</small></label><span>0° – ${f(mx)}°</span></div>
+    <button class="btn" style="width:100%;margin:6px 0 12px" onclick="send({c:'teach',on:true})">Bereich einlernen</button>
+    <p class="help" style="margin-top:0">Das Rohr fährt nie außerhalb dieses Bereichs – auch nicht über Regler, Encoder oder beim Einschenken.</p>`;
+  return `<h3>Schwenkbereich einlernen</h3>
+    <p class="help" style="margin-top:0">Rohr mit − / + an den einen Anschlag fahren → <b>Hier ist Min</b>, dann an den anderen → <b>Hier ist Max</b>. Taste gedrückt halten fährt weiter.</p>
+    <div class="teachAng"><b id="tPhys">${f(ph)}°</b><small>Servo · App: <span id="tRel">${f(ph-off)}</span>°</small></div>
+    <div class="jog">${[[-1,"−1°"],[-.1,"−0,1°"],[.1,"+0,1°"],[1,"+1°"]].map(([d,t])=>`<button class="btn" data-jog="${d}">${t}</button>`).join("")}</div>
+    <div style="display:flex;gap:10px;margin:10px 0"><button class="btn primary" style="flex:1" onclick="send({c:'teachMin'})">Hier ist Min (0°)</button><button class="btn primary" style="flex:1" onclick="send({c:'teachMax'})">Hier ist Max</button></div>
+    <div class="f"><label>Aktuell<small>Min = Servo ${f(off)}°</small></label><span>Max ${f(mx)}°</span></div>
+    <button class="btn" style="width:100%;margin:6px 0 12px" onclick="send({c:'teach',on:false})">Fertig</button>
+    <p class="help" style="margin-top:0">Gespeicherte Glas- und Parkpositionen bleiben, wo sie sind. Liegen sie außerhalb des neuen Bereichs, werden sie an die Grenze gesetzt.</p>`;
+}
+let TEACH_ON=null;
+function renderTeach(){
+  const c=$("#teachCard"); if(!c||!ST) return;
+  if(TEACH_ON!==!!ST.teach||c.dataset.k!==String([CFG.angOff,CFG.angMax])){ TEACH_ON=!!ST.teach; c.dataset.k=String([CFG.angOff,CFG.angMax]); c.innerHTML=teachHtml(); return; }
+  const e=$("#tPhys"); if(e&&ST.phys!=null){ e.textContent=(+ST.phys).toFixed(1).replace(".",",")+"°"; $("#tRel").textContent=(ST.phys-(CFG.angOff??0)).toFixed(1).replace(".",","); }
+}
+// − / + : antippen = ein Schritt, halten = weiterfahren
+let jogT=null;
+document.addEventListener("pointerdown",e=>{ const b=e.target.closest&&e.target.closest("[data-jog]"); if(!b) return; e.preventDefault();
+  const d=+b.dataset.jog; send({c:"jog",d}); clearInterval(jogT); let n=0; jogT=setInterval(()=>{ if(++n>3) send({c:"jog",d}); },120); });
+["pointerup","pointercancel","pointerleave"].forEach(ev=>document.addEventListener(ev,()=>{ clearInterval(jogT); jogT=null; }));
+function simClampAng(){const c=SIM.cfg;c.angOff=Math.max(0,Math.min(175,c.angOff||0));c.angMax=Math.max(5,Math.min(180-c.angOff,c.angMax??120));const k=v=>Math.round(Math.max(0,Math.min(c.angMax,v))*10)/10;c.angPark=k(c.angPark);c.ang=c.ang.map(k)}
 window.ledRgb=i=>{ const h="#"+[0,1,2].map(c=>{const e=$(`#lr${i}_${c}`);let v=Math.round(+e.value||0);v=Math.max(0,Math.min(255,v));return v.toString(16).padStart(2,"0")}).join("").toUpperCase();
   LEDEDIT.col[i]=h; const p=$("#lcc"+i); if(p) p.value=h.toLowerCase(); const d=$("#lcd"+i); if(d) d.style.background=h; };
 window.ledPrev=i=>{ const E=LEDEDIT; send({c:"ledPreview",col:E.col[i],lvl:E.lvl[i],fx:E.fx[i]}); };
@@ -1603,7 +1637,7 @@ window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAug
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,autoTune:true,pumpDriver:0,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,dripMs:800,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,autoTune:true,pumpDriver:0,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     stat:{sn:7,sml:140,tn:412,tml:8240,ss:Math.floor(Date.now()/1000)-7200},ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
@@ -1618,13 +1652,17 @@ function demoCmd(o){
   if(o.c==="autofill"){S.pl.forEach((p,i)=>{if(p.s===1)S.jobs.push({p:i,ml:o.ml,auto:1})})}
   if(o.c==="stop"){S.jobs=[];S.cur=null;S.pump=0;S.ph="idle";toast("Gestoppt")}
   if(o.c==="aim"&&!S.cur){S.aim=o.p;S.tgt=o.p?S.cfg.ang[o.p-1]:S.cfg.angPark}
-  if(o.c==="servo")S.tgt=o.a;
+  if(o.c==="servo"&&!S.teach)S.tgt=Math.max(0,Math.min(S.cfg.angMax??180,o.a));
+  if(o.c==="teach"){const off=S.cfg.angOff||0;if(o.on&&!S.teach){S.teach=true;S.ang+=off;S.tgt=S.ang}else if(!o.on&&S.teach){S.teach=false;S.ang=Math.max(0,Math.min(S.cfg.angMax,S.ang-off));S.tgt=S.aim?S.cfg.ang[S.aim-1]:S.cfg.angPark}return}
+  if(o.c==="jog"&&S.teach){S.tgt=Math.max(0,Math.min(180,Math.round((S.tgt+o.d)*10)/10));return}
+  if(o.c==="teachMin"&&S.teach){const c=S.cfg,n=S.tgt,dl=(c.angOff||0)-n,pm=(c.angOff||0)+c.angMax;c.angPark+=dl;c.ang=c.ang.map(a=>a+dl);c.angOff=n;c.angMax=Math.max(5,pm-n);simClampAng();onMsg({t:"cfg",cfg:c,ver:"1.0.0-demo"});toast("Min gesetzt (Servo "+n.toFixed(1)+"°)");return}
+  if(o.c==="teachMax"&&S.teach){const m=Math.round((S.tgt-(S.cfg.angOff||0))*10)/10;if(m<5){toast("Max muss mindestens 5° über Min liegen");return}S.cfg.angMax=m;simClampAng();onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});toast("Max gesetzt: "+m.toFixed(1)+"°");return}
   if(["cleanRinse","cleanDry"].includes(o.c)){if(o.p!=null)SIM.cfg.cleanPos=o.p;{const q=o.p||0;SIM.aim=q;SIM.tgt=q?SIM.cfg.ang[q-1]:SIM.cfg.angPark}toast("Demo: Pumpe läuft ("+o.c+")");return}
   if(o.c==="statsReset"){if(o.confirm!=="reset")return;S.stat.sn=0;S.stat.sml=0;S.stat.ss=Math.floor(Date.now()/1000);if(o.w==="all"){S.stat.tn=0;S.stat.tml=0}toast(o.w==="all"?"Alle Zähler zurückgesetzt":"Session zurückgesetzt");return}
   if(o.c==="cleanDone"){S.cfg.shotsSinceClean=0;toast("Reinigung erledigt");return}
   if(o.c==="ledPreview"){toast("Demo: Vorschau "+o.col);return}
   if(o.c==="ledTest"){toast("Demo: LED "+o.leds.join(", ")+" blinkt");return}
-  if(o.c==="setCfg"){Object.assign(S.cfg,o.cfg);try{localStorage.setItem("lh_demo_cfg",JSON.stringify(S.cfg))}catch(e){};onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});toast("Gespeichert")}
+  if(o.c==="setCfg"){Object.assign(S.cfg,o.cfg);simClampAng();try{localStorage.setItem("lh_demo_cfg",JSON.stringify(S.cfg))}catch(e){};onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});toast("Gespeichert")}
   if(o.c==="getCfg")onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});
   if(o.c==="scan")setTimeout(()=>onMsg({t:"scan",list:[{ssid:"Heimnetz",rssi:-52,lock:true},{ssid:"Gast",rssi:-70,lock:false}]}),800);
   if(["tare","calib","wifi","reboot","factory","prime"].includes(o.c))toast("Demo: "+o.c);
@@ -1640,7 +1678,7 @@ function simTick(){
     if(S.ph==="fast"||S.ph==="slow"){S.pump=S.ph==="fast"?100:35;p.w+=S.pump/100*2.2*dt*3;S.got=(p.w-S.start)/.95;if(S.ph==="fast"&&S.got>=S.tgtMl-3)S.ph="slow";if(S.got>=S.tgtMl-.3){S.ph="drip";S.pump=0;S.t=0}}
     if(S.ph==="drip"&&++S.t>5){p.s=2;S.cfg.shotsSinceClean++;S.stat.sn++;S.stat.tn++;S.stat.sml+=S.got;S.stat.tml+=S.got;onMsg({t:"ev",e:"pour_done",p:S.cur.p+1,ml:S.got});const a=S.cur.auto;S.cur=null;S.ph="idle";if(!S.jobs.length&&(a||S.cfg.parkAfter)){S.aim=0;S.tgt=S.cfg.angPark}}
   }
-  onMsg({t:"st",aim:S.aim,ang:S.ang,ph:S.ph,pp:S.cur?S.cur.p+1:0,tgt:S.tgtMl,got:S.got,q:S.jobs.length,busy:!!S.cur||S.jobs.length>0,pump:S.pump,
+  onMsg({t:"st",teach:!!S.teach,phys:S.teach?S.ang:S.ang+(S.cfg.angOff||0),aim:S.aim,ang:S.teach?S.ang-(S.cfg.angOff||0):S.ang,ph:S.ph,pp:S.cur?S.cur.p+1:0,tgt:S.tgtMl,got:S.got,q:S.jobs.length,busy:!!S.cur||S.jobs.length>0,pump:S.pump,
     pl:S.pl.map(p=>({s:p.s,ok:true,en:true,g:p.w,raw:Math.round(p.w*420),ml:p.s?Math.max(0,(p.w-p.tare)/.95):0,err:false})),
     wifi:{sta:true,ssid:"Heimnetz",ip:"192.168.1.42",rssi:-55,ap:false,apSsid:"LiquidHarvest-A1B2",host:"liquidharvest"},up:S.up,
     clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});

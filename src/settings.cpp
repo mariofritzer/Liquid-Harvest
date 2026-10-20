@@ -33,9 +33,11 @@ static void clampAll() {
   if (cfg.beaconFx > 5) cfg.beaconFx = 0;
   cfg.glassMin   = constrain(cfg.glassMin, 0.1f, 200.0f);
   cfg.stableMs   = constrain(cfg.stableMs, (uint32_t)100, (uint32_t)5000);
-  cfg.angPark    = constrain(cfg.angPark, 0.0f, 180.0f);
+  cfg.angOff     = constrain(cfg.angOff, 0.0f, 175.0f);
+  cfg.angMax     = constrain(cfg.angMax, 5.0f, 180.0f - cfg.angOff);
+  cfg.angPark    = constrain(cfg.angPark, 0.0f, cfg.angMax);
   for (int i = 0; i < NUM_PLACES; i++) {
-    cfg.ang[i] = constrain(cfg.ang[i], 0.0f, 180.0f);
+    cfg.ang[i] = constrain(cfg.ang[i], 0.0f, cfg.angMax);
     if (fabsf(cfg.factor[i]) < 1.0f) cfg.factor[i] = 420.0f;
   }
   cfg.servoSpeed = constrain(cfg.servoSpeed, 10.0f, 720.0f);
@@ -89,7 +91,7 @@ void settingsToJson(JsonObject o) {
   o["noFlowMs"] = cfg.noFlowMs;   o["maxPourMs"] = cfg.maxPourMs;
   o["settleMs"] = cfg.settleMs; o["dripMs"] = cfg.dripMs;   o["parkAfter"] = cfg.parkAfter;
   o["glassMin"] = cfg.glassMin;   o["stableMs"] = cfg.stableMs;
-  o["angPark"] = cfg.angPark;
+  o["angPark"] = cfg.angPark; o["angOff"] = cfg.angOff; o["angMax"] = cfg.angMax;
   JsonArray a = o["ang"].to<JsonArray>();
   for (int i = 0; i < NUM_PLACES; i++) a.add(cfg.ang[i]);
   o["servoSpeed"] = cfg.servoSpeed;
@@ -141,6 +143,15 @@ void settingsFromJson(JsonObjectConst o) {
   rd(o, "angPark", cfg.angPark);
   JsonArrayConst a = o["ang"];
   if (!a.isNull()) for (int i = 0; i < NUM_PLACES && i < (int)a.size(); i++) cfg.ang[i] = a[i].as<float>();
+  rd(o, "angOff", cfg.angOff);
+  if (o["angMax"].is<float>()) cfg.angMax = o["angMax"].as<float>();
+  else if (!a.isNull() && !o["density"].isNull()) {
+    // komplette ältere Einstellungen (NVS, Standard-Einrichtung, Import) ohne Bereich:
+    // so groß wählen, dass keine gespeicherte Position abgeschnitten wird
+    float mx = max(120.0f, cfg.angPark);
+    for (int i = 0; i < NUM_PLACES; i++) mx = max(mx, cfg.ang[i]);
+    cfg.angMax = mx;
+  }
   rd(o, "servoSpeed", cfg.servoSpeed);
   rd(o, "servoMinUs", cfg.servoMinUs); rd(o, "servoMaxUs", cfg.servoMaxUs);
   rd(o, "ledBright", cfg.ledBright);   rd(o, "encDiv", cfg.encDiv);
@@ -184,6 +195,7 @@ void settingsFromJson(JsonObjectConst o) {
 }
 
 void settingsSave() {
+  clampAll();
   JsonDocument d;
   JsonObject o = d.to<JsonObject>();
   settingsToJson(o);
