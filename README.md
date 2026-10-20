@@ -39,6 +39,7 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | | |
 |---|---|
 | **Glaserkennung** | Schwelle einstellbar ab 0,1 g (Standard 1,5 g, auch Plastikstamperl), Gewicht muss 0,5 s ruhig sein, Drift-Kompensation, Nullung beim Einschalten |
+| **Party-Modus** | Glas hinstellen → wird nach 2 s automatisch gefüllt (nur leere Gläser bis zum eingestellten Höchstgewicht), Glas weg = Stopp · Gäste-Ansicht ohne ⚙️-Menü · Regenbogenwelle auf freien Plätzen · **Roulette-Runde**: Rohr fährt über die Gläser, ein zufälliges gewinnt · eigener Party-Zähler (Session/Gesamt zählen weiter) · an/aus: ⚙️ Ausschank → Party starten bzw. „🎉 Party“ 3 s halten oder Encoder-Knopf 2× |
 | **Getränke** | bis zu 6 Getränke (z. B. Schnaps, Likör) mit eigener Menge, Dichte, Pumpenleistung und eigenem gelernten Nachlauf – Auswahl per Dropdown auf der Startseite |
 | **Waagen** | adaptiver Filter: misst das Rauschen jeder Waage, glättet in Ruhe stark und folgt echten Änderungen sofort; Endmessung als Mittelwert · **Diagnose** (⚙️ Waagen → Diagnose öffnen) mit Live-Kurven, Rauschen, Spanne, Drift und Messrate |
 | **Dosierung** | nach Gewicht: schnell → langsam (PWM) → Stopp vor dem Ziel (Nachlauf) → Nachtropfzeit · **Nachlauf lernt sich selbst ein** (korrigiert „Stopp vorher“ nach jedem Glas) · einstellbare Pause nach dem Einfüllen, damit Tropfen noch ins Glas fallen, bevor das Rohr schwenkt |
@@ -71,6 +72,8 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | Taster während Ausschank | **Notstopp** |
 | Taster halten in Parkposition | Pumpe läuft solange gedrückt (Schlauch füllen) |
 | Encoder-Knopf 1× | Rohr parken |
+| Encoder-Knopf 2× | Party-Modus an / aus (LEDs blinken violett / orange) |
+| Taster 3× | Roulette (im Party-Modus: Runde starten, dann Taster 1× = Los) |
 | Encoder-Knopf 3 s | Hotspot **ohne Passwort** ein (Glas-LEDs blinken blau) · nochmal 3 s: aus (rot) |
 
 ### LED-Farben

@@ -36,6 +36,8 @@ struct Place {
   uint32_t errUntil = 0;      // rote Fehleranzeige bis
   uint32_t belowSince = 0;
   bool     zeroDone = false;  // Einschalt-Nullung erledigt
+  uint32_t glassSince = 0;    // seit wann das Glas steht (Party-Modus)
+  bool     autoDone = false;  // Party: dieses Glas wurde schon automatisch bedient
 };
 Place places[NUM_PLACES];
 
@@ -309,8 +311,10 @@ static void pumpReverse(uint8_t pct, uint32_t ms) {
 static bool pourBusy() { return pour.ph != PH_IDLE || !jobs.empty(); }
 static bool pourActiveOn(int i) { return pour.ph >= PH_MOVE && pour.ph <= PH_DRIP && pour.p == i; }
 
+static bool roulBusy();
 static bool enqueue(int p, float ml, Source src) {
   if (p < 0 || p >= NUM_PLACES) return false;
+  if (roulBusy() && src != SRC_AUTO) { toast("Roulette läuft"); return false; }
   if (teach) { toast("Erst das Einlernen beenden"); return false; }
   if (OnlineUpd::downloading()) { toast("Update läuft – bitte warten"); return false; }
   if (places[p].st == P_NONE) { toast("Kein Glas auf Platz " + String(p + 1)); return false; }
@@ -368,23 +372,26 @@ static void stopAll(const char* reason) {
 //  Zähler: Stamperl und Liter – gesamt und seit dem letzten Session-Reset
 //  (eigener NVS-Bereich, damit Export/Import der Einstellungen sie nicht überschreibt)
 // ---------------------------------------------------------------------
-static struct { uint32_t totN = 0, sesN = 0; double totMl = 0, sesMl = 0; uint32_t sesStart = 0; } stats;
+static struct { uint32_t totN = 0, sesN = 0, parN = 0; double totMl = 0, sesMl = 0, parMl = 0; uint32_t sesStart = 0; } stats;
 
 static void statsLoad() {
   Preferences p; p.begin("stat", true);
   stats.totN = p.getUInt("tn", 0); stats.totMl = p.getDouble("tml", 0);
   stats.sesN = p.getUInt("sn", 0); stats.sesMl = p.getDouble("sml", 0); stats.sesStart = p.getUInt("ss", 0);
+  stats.parN = p.getUInt("pn", 0); stats.parMl = p.getDouble("pml", 0);
   p.end();
 }
 static void statsSave() {
   Preferences p; p.begin("stat", false);
   p.putUInt("tn", stats.totN); p.putDouble("tml", stats.totMl);
   p.putUInt("sn", stats.sesN); p.putDouble("sml", stats.sesMl); p.putUInt("ss", stats.sesStart);
+  p.putUInt("pn", stats.parN); p.putDouble("pml", stats.parMl);
   p.end();
 }
 static void statsAdd(float ml) {
   if (ml < 0.5f) return;   // nichts drin (z. B. Abbruch) -> nicht zählen
   stats.totN++; stats.sesN++; stats.totMl += ml; stats.sesMl += ml;
+  if (cfg.party) { stats.parN++; stats.parMl += ml; }   // eigener Party-Zähler, die anderen laufen weiter
   statsSave();
 }
 
@@ -526,6 +533,8 @@ static void placesLoop() {
           pl.st = P_GLASS;
           pl.tare = gs;
           pl.lastMl = 0;
+          pl.glassSince = now;
+          pl.autoDone = false;
           event("glass_on", i);                 // == "Glas_X_da"
         } else if (stb && fabsf(gs) < cfg.glassMin * 0.5f) {
           Scales::nudgeZero(i, 0.05f);          // langsame Drift-Kompensation
@@ -596,6 +605,81 @@ Button encBtn{PIN_ENC_SW, 3000};
 
 static void toggleForcedAP();
 
+// ---------------------------------------------------------------------
+//  Party-Modus + Roulette
+// ---------------------------------------------------------------------
+static struct { uint8_t st = 0; int target = -1; std::vector<int> seq; size_t pos = 0; uint32_t next = 0, armedAt = 0; } roul;
+static uint8_t roulState() { return roul.st; }   // 0 aus, 1 Runde offen (Gläser hinstellen), 2 dreht
+static bool roulBusy() { return roul.st == 2; }
+
+static void partySet(bool on) {
+  if (on == cfg.party) return;
+  cfg.party = on;
+  if (on) {   // eigener Party-Zähler startet bei 0; Session und Gesamt zählen normal weiter
+    stats.parN = 0; stats.parMl = 0; statsSave();
+    for (auto& pl : places) pl.autoDone = pl.st != P_GLASS;   // schon stehende leere Gläser gleich mitnehmen
+  }
+  roul.st = 0;
+  settingsSave(); sendCfg();
+  ledFlashColor = on ? strip.Color(200, 0, 255) : strip.Color(255, 120, 0);
+  ledFlashUntil = millis() + 900;
+  toast(on ? "🎉 Party-Modus an – Glas hinstellen, wird automatisch gefüllt" : "Party-Modus aus");
+}
+
+static void roulSpin() {
+  std::vector<int> cand;
+  for (int i = 0; i < NUM_PLACES; i++) if (places[i].st == P_GLASS && !pourActiveOn(i)) cand.push_back(i);
+  if (cand.empty()) { toast("Kein leeres Glas für Roulette"); roul.st = 0; return; }
+  for (int i : cand) places[i].autoDone = true;              // Party: die anderen nicht automatisch füllen
+  roul.target = cand[esp_random() % cand.size()];
+  // Fahrweg: alle Plätze mit Glas der Reihe nach, zwei Runden hin und her, dann auf das Ziel
+  std::vector<int> order;
+  for (int i = 0; i < NUM_PLACES; i++) if (places[i].st != P_NONE) order.push_back(i);
+  std::sort(order.begin(), order.end(), [](int a, int b) { return cfg.ang[a] < cfg.ang[b]; });
+  roul.seq.clear();
+  if (order.size() > 1) for (int r = 0; r < 2; r++) { for (int i : order) roul.seq.push_back(i); for (int k = order.size() - 2; k > 0; k--) roul.seq.push_back(order[k]); }
+  roul.seq.push_back(roul.target);
+  roul.pos = 0; roul.next = 0; roul.st = 2;
+  toast("🎯 Roulette …");
+}
+
+static void roulButton() {     // App-Knopf oder Taster 3×
+  if (pourBusy() || roul.st == 2) return;
+  if (cfg.party && roul.st == 0) { roul.st = 1; roul.armedAt = millis(); toast("🎯 Roulette-Runde: Gläser hinstellen, dann „Los“"); return; }
+  roulSpin();
+}
+
+static void partyLoop() {
+  uint32_t now = millis();
+  if (roul.st == 1 && now - roul.armedAt > 120000) roul.st = 0;   // Runde verfällt nach 2 min
+  if (roul.st == 2) {
+    if (now < roul.next || !servoArrived()) return;
+    if (roul.pos < roul.seq.size()) {
+      aim(roul.seq[roul.pos] + 1);
+      // immer langsamer werden, zum Schluss kurz Spannung
+      size_t left = roul.seq.size() - roul.pos;
+      roul.next = now + (left <= 1 ? 600 : left <= 3 ? 350 : 60);
+      roul.pos++;
+    } else {
+      int t = roul.target;
+      roul.st = 0;
+      event("roulette", t);
+      toast("🎯 Glas " + String(t + 1) + " gewinnt!");
+      if (places[t].st == P_GLASS) enqueue(t, cfg.shotMl, SRC_AUTO);
+    }
+    return;
+  }
+  if (!cfg.party || roul.st || teach || OnlineUpd::downloading()) return;
+  for (int i = 0; i < NUM_PLACES; i++) {
+    Place& pl = places[i];
+    if (pl.st != P_GLASS || pl.autoDone || pourActiveOn(i) || !Scales::stable(i)) continue;
+    if (now - pl.glassSince < cfg.partyDelayMs) continue;
+    pl.autoDone = true;
+    if (pl.tare > cfg.partyMaxG) { toast("Platz " + String(i + 1) + ": zu schwer für ein leeres Glas – wird nicht befüllt"); continue; }
+    enqueue(i, cfg.shotMl, SRC_AUTO);
+  }
+}
+
 static void inputLoop() {
   btn.update();
   encBtn.update();
@@ -607,6 +691,8 @@ static void inputLoop() {
     return;
   }
 
+  if (btn.clickResult >= 3 && !pourBusy()) { roulButton(); btn.clickResult = 0; }
+  if (btn.clickResult == 1 && roulState() == 1) { roulButton(); btn.clickResult = 0; }   // Roulette-Runde: Klick = Los
   if (btn.clickResult && !pourBusy()) {
     float ml = btn.clickResult >= 2 ? cfg.doubleMl : cfg.shotMl;
     bool ok = aimIdx == 0 ? autofill(ml) > 0 : enqueue(aimIdx - 1, ml, SRC_BUTTON);
@@ -615,7 +701,8 @@ static void inputLoop() {
   }
   if (btn.longResult && aimIdx == 0 && !pourBusy()) startPrime(15000, true);  // halten = entlüften
 
-  if (encBtn.clickResult && !pourBusy()) aim(0);
+  if (encBtn.clickResult == 2) partySet(!cfg.party);         // Encoder-Knopf 2×: Party an/aus
+  else if (encBtn.clickResult && !pourBusy()) aim(0);
   if (encBtn.longResult) toggleForcedAP();   // 3 s: offenen Hotspot ein / aus
 
   // Drehencoder -> Rohr live schwenken
@@ -640,6 +727,14 @@ static uint32_t scaleColor(float r, float g, float b, float k) {
 }
 
 // Farbe für einen LED-Zustand mit Effekt (0 an, 1 pulsieren, 2 schnell pulsieren, 3 blinken)
+// Party-Leerlauf: langsame Regenbogenwelle über die freien Plätze
+static uint32_t partyIdleColor(int i, uint32_t now) {
+  uint16_t hue = (uint16_t)((now * 12 + i * 10923UL) & 0xFFFF);
+  uint32_t c = Adafruit_NeoPixel::ColorHSV(hue, 255, 255);
+  float k = 0.35f * cfg.ledBright / 100.0f;
+  return Adafruit_NeoPixel::Color(((c >> 16) & 255) * k, ((c >> 8) & 255) * k, (c & 255) * k);
+}
+
 static uint32_t fxColor(uint32_t col, uint8_t lvl, uint8_t fx, uint32_t now) {
   float k = lvl / 100.0f * cfg.ledBright / 100.0f;
   if (fx == 1) k *= 0.3f + 0.7f * (0.5f + 0.5f * sinf(now * 2 * PI / 1400.0f));
@@ -676,6 +771,7 @@ static void ledsLoop() {
     else if (aimIdx == i + 1 && !pourBusy())  c = stateColor(2, now);   // Rohr zielt
     else if (pl.st == P_GLASS)                c = stateColor(1, now);   // bereit
     else if (pl.st == P_FILLED)               c = stateColor(4, now);   // fertig
+    else if (cfg.party)                        c = partyIdleColor(i, now); // Party: Farbwelle auf leeren Plätzen
     else                                       c = stateColor(0, now);   // kein Glas
     placeCol[i] = c;
   }
@@ -1021,6 +1117,12 @@ static void handleCmd(const String& msg) {
     else if (c == "profDel" && !ok) toast("Ein Getränk muss bleiben");
   } else if (c == "profRen") {
     if (profileRename(d["i"] | -1, d["n"] | "")) sendCfg();
+  } else if (c == "party") {
+    partySet(d["on"] | false);
+  } else if (c == "roulette") {
+    if (pourBusy()) toast("Erst fertig einschenken"); else roulButton();
+  } else if (c == "roulOff") {
+    if (roul.st == 1) roul.st = 0;
   } else if (c == "diag") {
     diagUntil = (d["on"] | false) ? millis() + 30000 : 0;
   } else if (c == "rbAck") {
@@ -1112,6 +1214,9 @@ static void buildState(String& out) {
     JsonObject s = d["stat"].to<JsonObject>();
     s["sn"] = stats.sesN; s["sml"] = roundf(stats.sesMl); s["tn"] = stats.totN; s["tml"] = roundf(stats.totMl);
     s["ss"] = stats.sesStart;
+    JsonObject pa = d["party"].to<JsonObject>();
+    pa["on"] = cfg.party; pa["n"] = stats.parN; pa["ml"] = roundf(stats.parMl);
+    pa["rou"] = roulState();
   }
   d["pp"] = pour.p + 1;
   d["tgt"] = roundf(pour.ml * 10) / 10;
@@ -1421,6 +1526,7 @@ void loop() {
   if (!teach) inputLoop();
   OnlineUpd::loop(WiFi.status() == WL_CONNECTED, cfg.updAuto);
   updHealthLoop();
+  partyLoop();
   diagLoop();
   if (OnlineUpd::takeListChanged()) sendRels();
   {

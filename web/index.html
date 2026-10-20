@@ -58,6 +58,13 @@ details.fold[open]{padding-bottom:12px}
 .drinkBar select{margin-left:auto;flex:1;max-width:65%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;color:var(--txt);font:inherit;font-size:15px;font-weight:650}
 .prow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.prow input[type=text]{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;color:var(--txt);font:inherit;font-size:15px}
 .prow .badge{font-size:11.5px;font-weight:700;padding:4px 8px;border-radius:8px;background:var(--gold);color:#111;white-space:nowrap}
+.partyChip{position:relative;overflow:hidden;height:40px;padding:0 14px;border-radius:12px;background:linear-gradient(90deg,#a03cff33,#ff3ca833);border:1px solid #c070ff88;color:var(--txt);font-weight:700;font-size:14px;touch-action:none;user-select:none;-webkit-user-select:none}
+.partyChip i{position:absolute;left:0;top:0;bottom:0;width:0;background:#c070ff66}.partyChip span{position:relative}
+.partyCard{margin-top:10px;padding:14px;border-radius:16px;background:linear-gradient(135deg,#a03cff22,#ff3ca81a);border:1px solid #c070ff66}
+.partyCard .pc-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.partyCard .pc-h b{font-size:17px}.partyCard .pc-h span{color:var(--mute);font-size:13.5px;font-variant-numeric:tabular-nums}
+.partyCard p{margin:6px 0 12px;color:var(--mute);font-size:14px}.partyCard .pc-b{display:flex;gap:10px}.partyCard .pc-b .btn{flex:1}
+body.party #gear,body.party #statBar,body.party #cleanBar,body.party #updBar,body.party #rbBar,body.party #amount,body.party #fillAll,body.party #park{display:none!important}
+body.party .actions{grid-template-columns:1fr}
 .cleanBar.warn{background:#ff4d4d1f;border-color:#ff4d4d66}
 .cleanBar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 14px;border-radius:14px;background:#b4c61822;border:1px solid #b4c61866;font-weight:650;font-size:14px}
 .surf{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;padding:12px 0 4px}
@@ -177,6 +184,7 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
     <div class="sp"></div>
     <span id="demoTag" class="demo hide">VORSCHAU</span>
     <div class="pill"><span id="dot" class="dot"></span><span id="conn">Verbinde…</span></div>
+    <button class="partyChip hide" id="partyChip" aria-label="Party-Modus – 3 s halten zum Beenden"><i id="partyFill"></i><span>🎉 Party</span></button>
     <button class="iconbtn" id="gear" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   </header>
 
@@ -192,6 +200,11 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
 
   <div class="cleanBar hide" id="cleanBar"><span>🧽 Reinigung fällig</span><button class="sbtn gold" onclick="openClean()">Jetzt spülen</button></div>
 
+  <div class="partyCard hide" id="partyCard">
+    <div class="pc-h"><b>🎉 Party-Modus</b><span id="pcCnt">0 Stamperl</span></div>
+    <p id="pcTxt">Glas hinstellen – wird automatisch gefüllt</p>
+    <div class="pc-b"><button class="btn primary" id="pcRoul" onclick="send({c:'roulette'})">🎯 Roulette-Runde</button><button class="btn hide" id="pcRoulX" onclick="send({c:'roulOff'})">Abbrechen</button></div>
+  </div>
   <div class="cleanBar warn hide" id="rbBar"><span id="rbBarT">⚠️</span><button class="sbtn" onclick="send({c:'rbAck'});this.parentNode.classList.add('hide')">OK</button></div>
   <div class="cleanBar hide" id="updBar"><span id="updBarT">⬆️ Neue Version</span><span style="display:flex;gap:6px"><button class="sbtn gold" onclick="openUpd()">Ansehen</button><button class="sbtn" onclick="updDismiss()" aria-label="Ausblenden">✕</button></span></div>
   <div class="statBar hide" id="statBar" onclick="openStats()"><span>🥃 Session: <b id="sbS">0</b></span><span>Gesamt: <b id="sbT">0</b></span></div>
@@ -761,8 +774,27 @@ function drawDiag(){
     line(F,"rgba(160,160,160,.75)",2); line(S,gold,4);
   }
 }
+function renderParty(){
+  const P=ST.party||{on:false};
+  document.body.classList.toggle("party",!!P.on);
+  $("#partyChip").classList.toggle("hide",!P.on); $("#partyCard").classList.toggle("hide",!P.on);
+  if(!P.on){ return; }
+  if($("#drawer").classList.contains("show")) $("#drawer").classList.remove("show");
+  $("#pcCnt").textContent=`${P.n} Stamperl · ${fmtL(P.ml)}`;
+  const pr=CFG&&CFG.prof&&CFG.prof[CFG.profIdx||0], amt=CFG?(CFG.shotMl/10).toString().replace(".",","):"2";
+  const empty=ST.pl.filter(p=>p.s===1).length, rb=$("#pcRoul"), rx=$("#pcRoulX");
+  if(P.rou===2){ $("#pcTxt").textContent="🎯 Roulette dreht …"; rb.textContent="dreht …"; rb.disabled=true; rx.classList.add("hide"); }
+  else if(P.rou===1){ $("#pcTxt").innerHTML=`Roulette-Runde: leere Gläser hinstellen – einer gewinnt <b>${amt} cl</b>. Taster am Drescher geht auch.`; rb.textContent=empty?`🎯 Los! (${empty})`:"Gläser hinstellen …"; rb.disabled=!empty||ST.busy; rx.classList.remove("hide"); }
+  else { $("#pcTxt").innerHTML=`Glas hinstellen – wird automatisch mit <b>${amt} cl${pr?" "+esc(pr.n):""}</b> gefüllt. Glas wegnehmen stoppt sofort.`; rb.textContent="🎯 Roulette-Runde"; rb.disabled=ST.busy; rx.classList.add("hide"); }
+}
+// Party beenden: Chip 3 s gedrückt halten
+(()=>{ let t=null,t0=0; const chip=$("#partyChip"), fill=$("#partyFill");
+  const stop=()=>{ cancelAnimationFrame(t); t=null; fill.style.width="0"; };
+  chip.addEventListener("pointerdown",e=>{ e.preventDefault(); t0=performance.now(); const step=()=>{ const k=Math.min(1,(performance.now()-t0)/3000); fill.style.width=k*100+"%"; if(k>=1){ stop(); send({c:"party",on:false}); return; } t=requestAnimationFrame(step); }; t=requestAnimationFrame(step); });
+  ["pointerup","pointerleave","pointercancel"].forEach(ev=>chip.addEventListener(ev,()=>{ if(t&&performance.now()-t0<600) toast("Zum Beenden 3 s gedrückt halten"); stop(); }));
+})();
 function renderStatus(){
-  renderStats(); renderTeach(); renderUpd();
+  renderStats(); renderTeach(); renderUpd(); renderParty();
   $("#cleanBar").classList.toggle("hide",!(ST.clean&&ST.clean.due)||ST.busy);
   const st=$("#status"), n=ST.pl.filter(p=>p.s===1).length, f=ST.pl.filter(p=>p.s===2).length;
   st.classList.toggle("busy",ST.busy);
@@ -846,6 +878,9 @@ const FIELDS={
     ["Glaserkennung",[
       ["glassMin","Glas erkannt ab","ab 0,1 g – unter 1 g können Vibration oder Drift Fehlerkennungen auslösen","g",.1,200,.1],
       ["stableMs","Gewicht ruhig seit","","ms",100,5000,50]]],
+    ["Party-Modus",[
+      ["partyDelayMs","Glas muss stehen","so lange, bevor automatisch eingeschenkt wird","s",.5,15,.5,1000],
+      ["partyMaxG","Höchstgewicht leeres Glas","Schwereres (Handy, volles Glas) wird nicht befüllt","g",5,1000,1]]],
     ["Sicherheit",[
       ["noFlowMs","Abbruch ohne Durchfluss","Gewicht steigt nicht (Flasche leer?)","s",.5,30,.5,1000],
       ["maxPourMs","Max. Dauer pro Glas","","s",2,120,1,1000],
@@ -922,7 +957,9 @@ function renderTab(){
       ${P.length<6?`<div class="prow" style="border-bottom:none"><input type="text" id="pf_new" maxlength="20" placeholder="Neues Getränk, z. B. Likör"><button class="sbtn" onclick="const e=$('#pf_new');send({c:'profAdd',n:e.value.trim()||'Getränk'})">+ Anlegen</button></div>`:""}
       <p class="help" style="margin-top:6px">Jedes Getränk hat eigene Mengen, Dichte, Pumpenleistung und eigenen gelernten Nachlauf. Ab zwei Getränken erscheint die Auswahl auf der Startseite.</p></div>`;
     h+=fieldsCard([`Menge · ${an}`,FIELDS.dose[0][1]])+fieldsCard([`Dosierung · ${an}`,FIELDS.dose[1][1]]);
-    FIELDS.dose.slice(2).forEach(g=>h+=fieldsCard([g[0]+" · alle Getränke",g[1]]));
+    FIELDS.dose.slice(2).forEach(g=>h+=g[0]==="Party-Modus"
+      ? fieldsCard(g,`<button class="btn primary" style="width:100%;margin:8px 0 6px" onclick="saveTab('dose');send({c:'party',on:true})">🎉 Party starten</button><p class="help" style="margin-top:4px">Leere Gläser werden automatisch mit der Einfach-Menge des aktiven Getränks gefüllt. Die App zeigt dann nur noch Gläser, Getränk und Roulette – das ⚙️-Menü ist weg. Beenden: „🎉 Party“ oben 3 s gedrückt halten oder Encoder-Knopf 2× drücken. Session- und Gesamtzähler laufen weiter, die Party hat einen eigenen Zähler.</p>`)
+      : fieldsCard([g[0]+" · alle Getränke",g[1]]));
     h+=saveBtn("dose");
     h+=`<p class="help">Ablauf: Pumpe läuft mit <b>schnell</b>, schaltet „Langsam ab“ Gramm vor dem Ziel auf <b>langsam</b> und stoppt „Stopp vorher“ Gramm vor dem Ziel – der Rest läuft aus dem Schlauch nach. Zu viel im Glas → „Stopp vorher“ erhöhen.</p>`;
   }
@@ -1797,9 +1834,9 @@ window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAug
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,servoHoldPour:true,autoTune:true,pumpDriver:0,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,prof:[{n:"Schnaps"}],profIdx:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,servoHoldPour:true,autoTune:true,pumpDriver:0,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,party:false,partyDelayMs:2000,partyMaxG:120,prof:[{n:"Schnaps"}],profIdx:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
-    upd:{st:0,on:true,new:"v1.8.1",av:true,ago:3,p:-1},stat:{sn:7,sml:140,tn:412,tml:8240,ss:Math.floor(Date.now()/1000)-7200},ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
+    party:{on:false,n:0,ml:0,rou:0},upd:{st:0,on:true,new:"v1.8.1",av:true,ago:3,p:-1},stat:{sn:7,sml:140,tn:412,tml:8240,ss:Math.floor(Date.now()/1000)-7200},ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
        const im=localStorage.getItem("lh_demo_img"); if(im){ demoImg=URL.createObjectURL(dataURLToBlob(im)); }
        const vd=localStorage.getItem("lh_demo_vid"); if(vd){ demoVid=URL.createObjectURL(dataURLToBlob(vd)); } }catch(e){}
@@ -1825,6 +1862,9 @@ function demoCmd(o){
     if(o.c==="profRen")c.prof[o.i].n=o.n;
     if(o.c==="profDel"&&c.prof.length>1){c.prof.splice(o.i,1);c.profIdx=0;Object.assign(c,Object.fromEntries(keys.map(k=>[k,c.prof[0][k]??c[k]])))}
     onMsg({t:"cfg",cfg:c,ver:"1.8.0-demo"}); return; }
+  if(o.c==="party"){ S.cfg.party=!!o.on; S.party={on:!!o.on,n:0,ml:0,rou:0}; toast(o.on?"🎉 Party-Modus an – Glas hinstellen, wird automatisch gefüllt":"Party-Modus aus"); return; }
+  if(o.c==="roulOff"){ S.party.rou=0; return; }
+  if(o.c==="roulette"){ const P=S.party; if(!P.on||P.rou===1){ const c=S.pl.map((p,i)=>p.s===1?i:-1).filter(i=>i>=0); if(!c.length){toast("Kein leeres Glas");return} P.rou=2; const t=c[Math.floor(Math.random()*c.length)]; let k=0; const seq=[0,1,2,3,4,5,4,3,2,1,0,1,2,3,4,5].concat([t]); const step=()=>{ if(k<seq.length){ S.aim=seq[k]+1; S.tgt=S.cfg.ang[seq[k]]; k++; setTimeout(step,k>seq.length-2?700:160);} else { P.rou=0; toast("🎯 Glas "+(t+1)+" gewinnt!"); S.jobs.push({p:t,ml:S.cfg.shotMl,auto:1}); } }; step(); } else { P.rou=1; toast("🎯 Roulette-Runde: Gläser hinstellen, dann „Los“"); } return; }
   if(o.c==="diag"){ clearInterval(S.dgT); if(o.on){ const nz=[.05,.12,.08,.35,.06,.9]; S.dgT=setInterval(()=>{ const f=S.pl.map((p,i)=>+(p.w+(Math.random()-.5)*2*nz[i]*1.7).toFixed(2)); S.dgS=S.dgS||f.slice(); S.dgS=S.dgS.map((v,i)=>v+(f[i]-v)*.05); onMsg({t:"dg",hz:10,f,s:S.dgS.map(v=>+v.toFixed(2)),n:nz,ok:[1,1,1,1,1,1]}); },100); } return; }
   if(o.c==="updList"){onMsg({t:"rels",cur:"1.8.0",list:[{tag:"v1.8.1",d:"2026-10-24",kb:1195},{tag:"v1.8.0",d:"2026-10-20",kb:1193}]});return}
   if(o.c==="updCheck"){S.upd.st=1;setTimeout(()=>{S.upd.st=0;S.upd.ago=0;demoCmd({c:"updList"})},1200);return}
@@ -1847,12 +1887,12 @@ function simTick(){
     const p=S.pl[S.cur.p];
     if(S.ph==="move"&&S.ang===S.tgt){S.ph="fast";S.start=p.w}
     if(S.ph==="fast"||S.ph==="slow"){S.pump=S.ph==="fast"?100:35;p.w+=S.pump/100*2.2*dt*3;S.got=(p.w-S.start)/.95;if(S.ph==="fast"&&S.got>=S.tgtMl-3)S.ph="slow";if(S.got>=S.tgtMl-.3){S.ph="drip";S.pump=0;S.t=0}}
-    if(S.ph==="drip"&&++S.t>5){p.s=2;S.cfg.shotsSinceClean++;S.stat.sn++;S.stat.tn++;S.stat.sml+=S.got;S.stat.tml+=S.got;onMsg({t:"ev",e:"pour_done",p:S.cur.p+1,ml:S.got});const a=S.cur.auto;S.cur=null;S.ph="idle";if(!S.jobs.length&&(a||S.cfg.parkAfter)){S.aim=0;S.tgt=S.cfg.angPark}}
+    if(S.ph==="drip"&&++S.t>5){p.s=2;S.cfg.shotsSinceClean++;if(S.party.on){S.party.n++;S.party.ml+=S.got;}S.stat.sn++;S.stat.tn++;S.stat.sml+=S.got;S.stat.tml+=S.got;onMsg({t:"ev",e:"pour_done",p:S.cur.p+1,ml:S.got});const a=S.cur.auto;S.cur=null;S.ph="idle";if(!S.jobs.length&&(a||S.cfg.parkAfter)){S.aim=0;S.tgt=S.cfg.angPark}}
   }
   onMsg({t:"st",teach:!!S.teach,phys:S.teach?S.ang:S.ang+(S.cfg.angOff||0),aim:S.aim,ang:S.teach?S.ang-(S.cfg.angOff||0):S.ang,ph:S.ph,pp:S.cur?S.cur.p+1:0,tgt:S.tgtMl,got:S.got,q:S.jobs.length,busy:!!S.cur||S.jobs.length>0,pump:S.pump,
     pl:S.pl.map(p=>({s:p.s,ok:true,en:true,g:p.w,raw:Math.round(p.w*420),ml:p.s?Math.max(0,(p.w-p.tare)/.95):0,err:false})),
     wifi:{sta:true,ssid:"Heimnetz",ip:"192.168.1.42",rssi:-55,ap:false,apSsid:"LiquidHarvest-A1B2",host:"liquidharvest"},up:S.up,
-    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},upd:{st:S.upd.st,on:S.upd.on,new:S.upd.new,av:verCmp(S.upd.new,VER||"1.8.0")>0,ago:S.upd.ago,...(S.upd.p>=0?{p:S.upd.p}:{})},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});
+    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},upd:{st:S.upd.st,on:S.upd.on,new:S.upd.new,av:verCmp(S.upd.new,VER||"1.8.0")>0,ago:S.upd.ago,...(S.upd.p>=0?{p:S.upd.p}:{})},party:{...S.party},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});
 }
 
 staticScene(); requestAnimationFrame(drawAuger); connect();

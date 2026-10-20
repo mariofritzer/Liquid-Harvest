@@ -58,7 +58,11 @@ struct Settings {
   bool     servoRelease = true;   // Servo nach Erreichen der Position stromlos schalten (kein Brummen/Zittern)
   uint16_t servoHoldMs  = 700;    // so lange nach dem Ankommen noch halten
   bool     servoHoldPour = true;
-  bool     updAuto      = true;   // automatisch nach neuen Versionen suchen (GitHub)  // beim Einschenken angesteuert lassen (Stoß dreht Rohr nicht weg)
+  bool     updAuto      = true;
+  // Party-Modus: Glas hinstellen -> wird automatisch gefüllt
+  bool     party        = false;
+  uint16_t partyDelayMs = 2000;   // so lange muss das leere Glas ruhig stehen
+  float    partyMaxG    = 120;    // schwerere Dinge (Handy, volles Glas …) werden nicht befüllt   // automatisch nach neuen Versionen suchen (GitHub)  // beim Einschenken angesteuert lassen (Stoß dreht Rohr nicht weg)
   // Schwenkbereich (eingelernt): angOff = Servo-Winkel, der in der App 0° ist; angMax = größter App-Winkel.
   // Alle Positionen sind relativ zu angOff; das Rohr fährt nie außerhalb 0…angMax.
   float    angOff      = 0;
