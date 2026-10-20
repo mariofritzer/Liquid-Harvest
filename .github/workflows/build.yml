@@ -75,6 +75,24 @@ jobs:
           cat site/manifest.json
           ls -la site site/firmware
 
+      - name: Release für neue Version (Online-Update)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Jede neue FW_VERSION wird automatisch ein Release – daraus holen sich die Geräte ihre Updates
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION gibt es schon"
+          else
+            gh release create "v$VERSION" site/firmware/liquid-harvest-ota.bin site/firmware/liquid-harvest-esp32.bin \
+              --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
+            echo "::notice title=Release::v$VERSION veröffentlicht – Geräte bieten das Update an"
+          fi
+
+      - name: Online-Update prüfen (Zertifikate, Release-Liste, Download)
+        if: github.ref == 'refs/heads/main'
+        run: python scripts/check_update_tls.py "v$VERSION"
+
       - uses: actions/upload-artifact@v4
         with:
           name: liquid-harvest-${{ env.VERSION }}

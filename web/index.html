@@ -180,6 +180,7 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
 
   <div class="cleanBar hide" id="cleanBar"><span>🧽 Reinigung fällig</span><button class="sbtn gold" onclick="openClean()">Jetzt spülen</button></div>
 
+  <div class="cleanBar hide" id="updBar"><span id="updBarT">⬆️ Neue Version</span><span style="display:flex;gap:6px"><button class="sbtn gold" onclick="openUpd()">Ansehen</button><button class="sbtn" onclick="updDismiss()" aria-label="Ausblenden">✕</button></span></div>
   <div class="statBar hide" id="statBar" onclick="openStats()"><span>🥃 Session: <b id="sbS">0</b></span><span>Gesamt: <b id="sbT">0</b></span></div>
 
   <div class="actions">
@@ -258,14 +259,14 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
 "use strict";
 const $=s=>document.querySelector(s);
 const N=6;
-let SETUPINFO="", ST=null, CFG=null, VER="", amount=20, sheetIdx=-1, shAmount=20, dispAng=null, netList=[];
+let RELS=null, SETUPINFO="", ST=null, CFG=null, VER="", amount=20, sheetIdx=-1, shAmount=20, dispAng=null, netList=[];
 
 /* ---------------- Verbindung ---------------- */
 let ws=null, demo=false;
 function connect(){
   if(location.protocol==="file:"||location.hostname.endsWith("github.io")||new URLSearchParams(location.search).has("demo")){startDemo();return}
   ws=new WebSocket(`ws://${location.host}/ws`);
-  ws.onopen=()=>{setConn(true)};
+  ws.onopen=()=>{setConn(true);setTimeout(()=>send({c:"updList"}),300)};
   ws.onclose=()=>{setConn(false);setTimeout(connect,1500)};
   ws.onerror=()=>ws.close();
   ws.onmessage=e=>{try{onMsg(JSON.parse(e.data))}catch(x){console.warn(x)}};
@@ -283,6 +284,7 @@ function onMsg(m){
   }
   else if(m.t==="toast") toast(m.m);
   else if(m.t==="scan"){netList=m.list;renderTab()}
+  else if(m.t==="rels"){RELS=m;UPD_KEY="";renderUpd()}
 }
 
 /* ---------------- Isometrische Szene ---------------- */
@@ -643,8 +645,46 @@ function renderStats(){
 }
 function statValsHtml(){ const s=(ST&&ST.stat)||{sn:0,sml:0,tn:0,tml:0,ss:0};
   return `<div><small>Session</small><b>${s.sn}</b><span>Stamperl · ${fmtL(s.sml)}</span></div><div><small>Gesamt</small><b>${s.tn}</b><span>Stamperl · ${fmtL(s.tml)}</span></div>`; }
+/* ---------------- Online-Update ---------------- */
+let UPD_KEY="";
+const verCmp=(a,b)=>{const p=v=>String(v).replace(/^v/i,"").split(/[.+-]/).slice(0,3).map(n=>parseInt(n)||0);const x=p(a),y=p(b);for(let i=0;i<3;i++)if(x[i]!==y[i])return x[i]<y[i]?-1:1;return 0};
+window.openUpd=()=>{ curTab="sys"; openDrawer(); send({c:"updList"}); setTimeout(()=>{const c=$("#updCard"); if(c) c.scrollIntoView({block:"start"})},150); };
+window.updDismiss=()=>{ try{localStorage.setItem("lh_upd_hide",ST.upd.new)}catch(e){} $("#updBar").classList.add("hide"); };
+function updHtml(){
+  const u=(ST&&ST.upd)||{st:0,on:false}, cur=VER||"", list=(RELS&&RELS.list)||[];
+  const ago=u.ago==null?"":u.ago<1?"gerade eben":u.ago<60?`vor ${u.ago} min`:`vor ${Math.round(u.ago/60)} h`;
+  const net=u.st===1?"⏳ prüft …":u.on?`✅ GitHub erreichbar${ago?" · "+ago:""}`:u.err?`❌ ${u.err}`:ST&&ST.wifi&&!ST.wifi.sta?"❌ nicht mit dem Heimnetz verbunden":"– noch nicht geprüft";
+  const sel=list.find(r=>r.tag===UPD_SEL)?UPD_SEL:(list.find(r=>!r.pre&&verCmp(r.tag,cur)>0)||list.find(r=>verCmp(r.tag,cur)===0)||list[0]||{}).tag;
+  const opts=list.map(r=>{const c=verCmp(r.tag,cur);return `<option value="${r.tag}" ${r.tag===sel?"selected":""}>${r.tag} · ${r.d.split("-").reverse().join(".")}${c===0?" · installiert":c>0?" · neu":" · älter"}${r.pre?" · Vorabversion":""}</option>`}).join("");
+  const dl=u.st===2;
+  return `<h3>Online-Update</h3>
+    <div class="f"><label>Internet<small>${net}</small></label><button class="sbtn" onclick="send({c:'updCheck'})" ${u.st?"disabled":""}>Jetzt prüfen</button></div>
+    <div class="f"><label>Installiert</label><span>v${cur.replace(/^v/,"")}</span></div>
+    ${u.new?`<div class="f"><label>Neueste Version</label><span>${u.new}${u.av?' <b style="color:var(--gold2)">· neu</b>':" · aktuell"}</span></div>`:""}
+    ${list.length?`<div class="f"><label>Version wählen</label><select id="updSel" style="max-width:60%" onchange="UPD_SEL=this.value;$('#updGo').disabled=!updCan()">${opts}</select></div>`:""}
+    ${dl?`<div class="f" style="display:block"><label id="updPL">Lade ${u.p??0} % – nicht ausschalten!</label><div class="prog" style="margin-top:8px;display:block"><i id="updP" style="width:${u.p??0}%"></i></div></div>`:""}
+    <button class="btn primary" id="updGo" style="width:100%;margin:8px 0 10px" onclick="updInstall()" ${updCan(sel)?"":"disabled"}>${dl?"Wird installiert …":"Installieren"}</button>
+    <div class="f"><label>Automatisch nach Updates suchen<small>beim Start und alle 12 h · fragt nur GitHub</small></label><input type="checkbox" class="sw" ${CFG.updAuto!==false?"checked":""} onchange="send({c:'setCfg',cfg:{updAuto:this.checked}})"></div>
+    <p class="help" style="margin-top:0">Installieren geht nur, wenn der Drescher GitHub erreicht – geprüft wird über eine gesicherte Verbindung. Einstellungen, Kalibrierung und WLAN bleiben erhalten. Klappt etwas nicht, hilft immer der Web-Installer per USB.</p>`;
+}
+let UPD_SEL=null;
+function updCan(tag){ const u=(ST&&ST.upd)||{}; tag=tag||($("#updSel")&&$("#updSel").value); return !!(u.on&&!u.st&&tag&&verCmp(tag,VER)!==0&&!(ST&&ST.busy)); }
+window.updInstall=()=>{ const tag=$("#updSel")&&$("#updSel").value; if(!updCan(tag)) return;
+  const older=verCmp(tag,VER)<0;
+  if(!confirm(`${tag} installieren?\n\nDer Drescher lädt die Firmware von GitHub und startet danach neu. Einstellungen bleiben erhalten.${older?"\n\nAchtung: ältere Version – neuere Funktionen fehlen dann.":""}`)) return;
+  send({c:"updInstall",tag}); };
+function renderUpd(){
+  const u=ST&&ST.upd; if(!u) return;
+  let hidden=""; try{hidden=localStorage.getItem("lh_upd_hide")||""}catch(e){}
+  const bar=$("#updBar"); bar.classList.toggle("hide",!(u.av&&u.new&&u.new!==hidden)||u.st===2);
+  if(u.av) $("#updBarT").textContent=`⬆️ Neue Version ${u.new} verfügbar`;
+  const c=$("#updCard"); if(!c) return;
+  const k=JSON.stringify([u.st,u.on,u.new,u.err,u.ago,(RELS&&RELS.list||[]).length,VER,ST.busy]);
+  if(k!==UPD_KEY){ UPD_KEY=k; c.innerHTML=updHtml(); return; }
+  const p=$("#updP"); if(p){ p.style.width=(u.p??0)+"%"; $("#updPL").textContent=`Lade ${u.p??0} % – nicht ausschalten!`; }
+}
 function renderStatus(){
-  renderStats(); renderTeach();
+  renderStats(); renderTeach(); renderUpd();
   $("#cleanBar").classList.toggle("hide",!(ST.clean&&ST.clean.due)||ST.busy);
   const st=$("#status"), n=ST.pl.filter(p=>p.s===1).length, f=ST.pl.filter(p=>p.s===2).length;
   st.classList.toggle("busy",ST.busy);
@@ -923,10 +963,11 @@ function renderTab(){
       <div class="f"><label>Spülen / Leerpumpen</label><input type="number" id="cl_r" min="3" max="120" value="${CFG.cleanRinseS??20}" style="width:60px"><span class="u">s</span><input type="number" id="cl_y" min="3" max="120" value="${CFG.cleanDryS??10}" style="width:60px"><span class="u">s</span></div>
       <button class="btn save" style="margin-top:6px" onclick="send({c:'setCfg',cfg:{cleanShots:+$('#cl_s').value,cleanDays:+$('#cl_d').value,cleanRinseS:+$('#cl_r').value,cleanDryS:+$('#cl_y').value}})">Erinnerung speichern</button></div>`;
     h+=`<div class="card"><h3>Pumpe</h3><div class="f"><label>Schlauch füllen / entlüften<small>Rohr fährt in Parkposition – Auffangbecher hinstellen!</small></label><input type="number" id="pr_s" value="3" style="width:64px"><span class="u">s</span><button class="sbtn gold" onclick="send({c:'prime',s:+$('#pr_s').value})">Start</button></div></div>
+      <div class="card" id="updCard">${updHtml()}</div>
       <div class="card"><h3>Firmware</h3><div class="f"><label>Version</label><span>${VER}</span></div>
       <div class="f"><label>Standard-Einrichtung<small>${SETUPINFO||"–"}</small></label><button class="sbtn" onclick="send({c:'reapplySetup'})">Neu laden</button></div>
       <div class="f"><label>Laufzeit</label><span id="upt">${ST?fmtUp(ST.up):"–"}</span></div>
-      <div class="f"><label>Update (firmware.bin)<small id="otaS">Datei von GitHub-Releases</small></label><input type="file" id="ota" accept=".bin" style="width:160px;font-size:12px"></div>
+      <div class="f"><label>Update aus Datei<small id="otaS">liquid-harvest-ota.bin aus GitHub-Releases</small></label><input type="file" id="ota" accept=".bin" style="width:160px;font-size:12px"></div>
       <div class="f"><label>REST-API<small>GET /api/state · POST /api/pour?p=1&amp;ml=20 · /api/autofill · /api/stop</small></label></div></div>
       <div class="row2"><button class="btn" onclick="send({c:'reboot'})">Neustart</button><button class="btn" style="color:#ff8a8a" onclick="if(confirm('Wirklich alles zurücksetzen (inkl. WLAN & Kalibrierung)?'))send({c:'factory'})">Werkseinstellungen</button></div>`;
   }
@@ -1640,12 +1681,12 @@ function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
   SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,servoHoldPour:true,autoTune:true,pumpDriver:0,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
-    stat:{sn:7,sml:140,tn:412,tml:8240,ss:Math.floor(Date.now()/1000)-7200},ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
+    upd:{st:0,on:true,new:"v1.8.1",av:true,ago:3,p:-1},stat:{sn:7,sml:140,tn:412,tml:8240,ss:Math.floor(Date.now()/1000)-7200},ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
        const im=localStorage.getItem("lh_demo_img"); if(im){ demoImg=URL.createObjectURL(dataURLToBlob(im)); }
        const vd=localStorage.getItem("lh_demo_vid"); if(vd){ demoVid=URL.createObjectURL(dataURLToBlob(vd)); } }catch(e){}
-  onMsg({t:"cfg",cfg:SIM.cfg,ver:"1.0.0-demo"});
-  setInterval(simTick,150);
+  onMsg({t:"cfg",cfg:SIM.cfg,ver:"1.8.0-demo"});
+  setInterval(simTick,150); setTimeout(()=>demoCmd({c:"updList"}),400);
 }
 function demoCmd(o){
   const S=SIM;
@@ -1656,15 +1697,18 @@ function demoCmd(o){
   if(o.c==="servo"&&!S.teach)S.tgt=Math.max(0,Math.min(S.cfg.angMax??180,o.a));
   if(o.c==="teach"){const off=S.cfg.angOff||0;if(o.on&&!S.teach){S.teach=true;S.ang+=off;S.tgt=S.ang}else if(!o.on&&S.teach){S.teach=false;S.ang=Math.max(0,Math.min(S.cfg.angMax,S.ang-off));S.tgt=S.aim?S.cfg.ang[S.aim-1]:S.cfg.angPark}return}
   if(o.c==="jog"&&S.teach){S.tgt=Math.max(0,Math.min(180,Math.round((S.tgt+o.d)*10)/10));return}
-  if(o.c==="teachMin"&&S.teach){const c=S.cfg,n=S.tgt,dl=(c.angOff||0)-n,pm=(c.angOff||0)+c.angMax;c.angPark+=dl;c.ang=c.ang.map(a=>a+dl);c.angOff=n;c.angMax=Math.max(5,pm-n);simClampAng();onMsg({t:"cfg",cfg:c,ver:"1.0.0-demo"});toast("Min gesetzt (Servo "+n.toFixed(1)+"°)");return}
-  if(o.c==="teachMax"&&S.teach){const m=Math.round((S.tgt-(S.cfg.angOff||0))*10)/10;if(m<5){toast("Max muss mindestens 5° über Min liegen");return}S.cfg.angMax=m;simClampAng();onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});toast("Max gesetzt: "+m.toFixed(1)+"°");return}
+  if(o.c==="teachMin"&&S.teach){const c=S.cfg,n=S.tgt,dl=(c.angOff||0)-n,pm=(c.angOff||0)+c.angMax;c.angPark+=dl;c.ang=c.ang.map(a=>a+dl);c.angOff=n;c.angMax=Math.max(5,pm-n);simClampAng();onMsg({t:"cfg",cfg:c,ver:"1.8.0-demo"});toast("Min gesetzt (Servo "+n.toFixed(1)+"°)");return}
+  if(o.c==="teachMax"&&S.teach){const m=Math.round((S.tgt-(S.cfg.angOff||0))*10)/10;if(m<5){toast("Max muss mindestens 5° über Min liegen");return}S.cfg.angMax=m;simClampAng();onMsg({t:"cfg",cfg:S.cfg,ver:"1.8.0-demo"});toast("Max gesetzt: "+m.toFixed(1)+"°");return}
   if(["cleanRinse","cleanDry"].includes(o.c)){if(o.p!=null)SIM.cfg.cleanPos=o.p;{const q=o.p||0;SIM.aim=q;SIM.tgt=q?SIM.cfg.ang[q-1]:SIM.cfg.angPark}toast("Demo: Pumpe läuft ("+o.c+")");return}
+  if(o.c==="updList"){onMsg({t:"rels",cur:"1.8.0",list:[{tag:"v1.8.1",d:"2026-10-24",kb:1195},{tag:"v1.8.0",d:"2026-10-20",kb:1193}]});return}
+  if(o.c==="updCheck"){S.upd.st=1;setTimeout(()=>{S.upd.st=0;S.upd.ago=0;demoCmd({c:"updList"})},1200);return}
+  if(o.c==="updInstall"){S.upd.st=2;S.upd.p=0;toast("Lade "+o.tag+" … nicht ausschalten!");const t=setInterval(()=>{S.upd.p+=7;if(S.upd.p>=100){clearInterval(t);S.upd.st=0;S.upd.p=-1;toast("Demo: "+o.tag+" wäre jetzt installiert – Neustart")}},150);return}
   if(o.c==="statsReset"){if(o.confirm!=="reset")return;S.stat.sn=0;S.stat.sml=0;S.stat.ss=Math.floor(Date.now()/1000);if(o.w==="all"){S.stat.tn=0;S.stat.tml=0}toast(o.w==="all"?"Alle Zähler zurückgesetzt":"Session zurückgesetzt");return}
   if(o.c==="cleanDone"){S.cfg.shotsSinceClean=0;toast("Reinigung erledigt");return}
   if(o.c==="ledPreview"){toast("Demo: Vorschau "+o.col);return}
   if(o.c==="ledTest"){toast("Demo: LED "+o.leds.join(", ")+" blinkt");return}
-  if(o.c==="setCfg"){Object.assign(S.cfg,o.cfg);simClampAng();try{localStorage.setItem("lh_demo_cfg",JSON.stringify(S.cfg))}catch(e){};onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});toast("Gespeichert")}
-  if(o.c==="getCfg")onMsg({t:"cfg",cfg:S.cfg,ver:"1.0.0-demo"});
+  if(o.c==="setCfg"){Object.assign(S.cfg,o.cfg);simClampAng();try{localStorage.setItem("lh_demo_cfg",JSON.stringify(S.cfg))}catch(e){};onMsg({t:"cfg",cfg:S.cfg,ver:"1.8.0-demo"});toast("Gespeichert")}
+  if(o.c==="getCfg")onMsg({t:"cfg",cfg:S.cfg,ver:"1.8.0-demo"});
   if(o.c==="scan")setTimeout(()=>onMsg({t:"scan",list:[{ssid:"Heimnetz",rssi:-52,lock:true},{ssid:"Gast",rssi:-70,lock:false}]}),800);
   if(["tare","calib","wifi","reboot","factory","prime"].includes(o.c))toast("Demo: "+o.c);
 }
@@ -1682,7 +1726,7 @@ function simTick(){
   onMsg({t:"st",teach:!!S.teach,phys:S.teach?S.ang:S.ang+(S.cfg.angOff||0),aim:S.aim,ang:S.teach?S.ang-(S.cfg.angOff||0):S.ang,ph:S.ph,pp:S.cur?S.cur.p+1:0,tgt:S.tgtMl,got:S.got,q:S.jobs.length,busy:!!S.cur||S.jobs.length>0,pump:S.pump,
     pl:S.pl.map(p=>({s:p.s,ok:true,en:true,g:p.w,raw:Math.round(p.w*420),ml:p.s?Math.max(0,(p.w-p.tare)/.95):0,err:false})),
     wifi:{sta:true,ssid:"Heimnetz",ip:"192.168.1.42",rssi:-55,ap:false,apSsid:"LiquidHarvest-A1B2",host:"liquidharvest"},up:S.up,
-    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});
+    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},upd:{st:S.upd.st,on:S.upd.on,new:S.upd.new,av:verCmp(S.upd.new,VER||"1.8.0")>0,ago:S.upd.ago,...(S.upd.p>=0?{p:S.upd.p}:{})},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});
 }
 
 staticScene(); requestAnimationFrame(drawAuger); connect();

@@ -20,6 +20,7 @@
 #include "settings.h"
 #include "scales.h"
 #include "improv_serial.h"
+#include "online_update.h"
 #include "web_index.h"
 
 // ---------------------------------------------------------------------
@@ -132,6 +133,13 @@ static void toast(const String& msg) {
   wsSend(d);
 }
 
+static void sendRels() {
+  JsonDocument d;
+  d["t"] = "rels"; d["cur"] = FW_VERSION;
+  OnlineUpd::listJson(d["list"].to<JsonArray>());
+  wsSend(d);
+}
+
 static String setupInfoStr();
 static void sendCfg() {
   JsonDocument d;
@@ -224,6 +232,7 @@ static bool pourActiveOn(int i) { return pour.ph >= PH_MOVE && pour.ph <= PH_DRI
 static bool enqueue(int p, float ml, Source src) {
   if (p < 0 || p >= NUM_PLACES) return false;
   if (teach) { toast("Erst das Einlernen beenden"); return false; }
+  if (OnlineUpd::downloading()) { toast("Update läuft – bitte warten"); return false; }
   if (places[p].st == P_NONE) { toast("Kein Glas auf Platz " + String(p + 1)); return false; }
   if (pour.ph == PH_PRIME) return false;
   if (pourActiveOn(p)) return false;
@@ -300,7 +309,7 @@ static void statsAdd(float ml) {
 }
 
 static void startPrime(uint32_t ms, bool byButton, uint8_t pos = 0) {
-  if (pourBusy() || teach) return;
+  if (pourBusy() || teach || OnlineUpd::downloading()) return;
   aim(pos);   // 0 = Park, 1..6 = über Glas
   pour.ph = PH_PRIME;
   pour.primeRunning = false;
@@ -917,6 +926,17 @@ static void handleCmd(const String& msg) {
     if (p >= 1 && p <= NUM_PLACES && Scales::calibrate(p - 1, g)) {
       settingsSave(); sendCfg(); toast("Waage " + String(p) + " kalibriert");
     } else toast("Kalibrierung fehlgeschlagen – erst tarieren, dann Gewicht auflegen");
+  } else if (c == "updCheck") {
+    if (!OnlineUpd::requestCheck()) toast("Prüfung läuft schon – kurz warten");
+  } else if (c == "updList") {
+    sendRels();
+  } else if (c == "updInstall") {
+    String tag = d["tag"] | "", why;
+    if (pourBusy() || teach) { toast("Erst fertig einschenken bzw. Einlernen beenden"); return; }
+    if (WiFi.status() != WL_CONNECTED) { toast("Nicht mit dem Heimnetz verbunden"); return; }
+    jobs.clear(); pumpSet(0); aim(0);
+    if (OnlineUpd::install(tag, why)) toast("Lade " + tag + " … nicht ausschalten!");
+    else toast(why);
   } else if (c == "getCfg") {
     sendCfg();
   } else if (c == "setCfg") {
@@ -982,6 +1002,7 @@ static void buildState(String& out) {
   d["ang"] = roundf((teach ? servoCur - cfg.angOff : servoCur) * 10) / 10;
   d["phys"] = roundf(physAngle() * 10) / 10;
   d["teach"] = teach;
+  OnlineUpd::statusJson(d["upd"].to<JsonObject>());
   d["ph"] = PHASE_NAMES[pour.ph];
   {
     time_t t = time(nullptr);
@@ -1289,6 +1310,14 @@ void loop() {
     teach = false; servoCur = constrain(servoCur - cfg.angOff, 0.0f, cfg.angMax); servoTgt = servoCur; aim(aimIdx);
   }
   if (!teach) inputLoop();
+  OnlineUpd::loop(WiFi.status() == WL_CONNECTED, cfg.updAuto);
+  if (OnlineUpd::takeListChanged()) sendRels();
+  {
+    static uint32_t restartAt = 0;
+    bool ok; String msg;
+    if (OnlineUpd::takeDone(ok, msg)) { toast(msg); if (ok) restartAt = millis() + 1500; }
+    if (restartAt && millis() > restartAt) { pumpSet(0); ESP.restart(); }
+  }
   processCmds();
   pourLoop(btn.stable);
   servoLoop();

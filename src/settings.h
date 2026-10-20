@@ -44,7 +44,8 @@ struct Settings {
   bool     servoReverse = false;  // Drehrichtung umkehren (0° liegt dann auf der anderen Seite)
   bool     servoRelease = true;   // Servo nach Erreichen der Position stromlos schalten (kein Brummen/Zittern)
   uint16_t servoHoldMs  = 700;    // so lange nach dem Ankommen noch halten
-  bool     servoHoldPour = true;  // beim Einschenken angesteuert lassen (Stoß dreht Rohr nicht weg)
+  bool     servoHoldPour = true;
+  bool     updAuto      = true;   // automatisch nach neuen Versionen suchen (GitHub)  // beim Einschenken angesteuert lassen (Stoß dreht Rohr nicht weg)
   // Schwenkbereich (eingelernt): angOff = Servo-Winkel, der in der App 0° ist; angMax = größter App-Winkel.
   // Alle Positionen sind relativ zu angOff; das Rohr fährt nie außerhalb 0…angMax.
   float    angOff      = 0;

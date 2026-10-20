@@ -98,7 +98,7 @@ void settingsToJson(JsonObject o) {
   o["servoMinUs"] = cfg.servoMinUs; o["servoMaxUs"] = cfg.servoMaxUs;
   o["ledBright"] = cfg.ledBright; o["encDiv"] = cfg.encDiv;
   o["ledCount"] = cfg.ledCount;
-  o["servoReverse"] = cfg.servoReverse; o["servoRelease"] = cfg.servoRelease; o["servoHoldMs"] = cfg.servoHoldMs; o["servoHoldPour"] = cfg.servoHoldPour; o["btnBright"] = cfg.btnBright;
+  o["servoReverse"] = cfg.servoReverse; o["servoRelease"] = cfg.servoRelease; o["servoHoldMs"] = cfg.servoHoldMs; o["servoHoldPour"] = cfg.servoHoldPour; o["updAuto"] = cfg.updAuto; o["btnBright"] = cfg.btnBright;
   JsonArray lc = o["ledCol"].to<JsonArray>(), ll = o["ledLvl"].to<JsonArray>(), lf = o["ledFx"].to<JsonArray>(), bf = o["btnFx"].to<JsonArray>();
   for (int i = 0; i < 7; i++) {
     char hex[8]; snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.ledCol[i]);
@@ -156,7 +156,7 @@ void settingsFromJson(JsonObjectConst o) {
   rd(o, "servoMinUs", cfg.servoMinUs); rd(o, "servoMaxUs", cfg.servoMaxUs);
   rd(o, "ledBright", cfg.ledBright);   rd(o, "encDiv", cfg.encDiv);
   rd(o, "ledCount", cfg.ledCount);
-  rd(o, "servoReverse", cfg.servoReverse); rd(o, "servoRelease", cfg.servoRelease); rd(o, "servoHoldMs", cfg.servoHoldMs); rd(o, "servoHoldPour", cfg.servoHoldPour); rd(o, "btnBright", cfg.btnBright);
+  rd(o, "servoReverse", cfg.servoReverse); rd(o, "servoRelease", cfg.servoRelease); rd(o, "servoHoldMs", cfg.servoHoldMs); rd(o, "servoHoldPour", cfg.servoHoldPour); rd(o, "updAuto", cfg.updAuto); rd(o, "btnBright", cfg.btnBright);
   JsonArrayConst lc = o["ledCol"], ll = o["ledLvl"], lf = o["ledFx"], bf = o["btnFx"];
   for (int i = 0; i < 7; i++) {
     if (!lc.isNull() && i < (int)lc.size()) { const char* h = lc[i] | ""; if (h[0] == '#') cfg.ledCol[i] = strtoul(h + 1, nullptr, 16); }
