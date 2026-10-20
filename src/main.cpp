@@ -190,7 +190,7 @@ static void servoLoop() {
     if (!servoArrivedAt) servoArrivedAt = millis();
     // Während eingeschenkt wird (inkl. Nachtropfen, Zurücksaugen, Spülen) bleibt der Servo angesteuert –
     // so kann ein Stoß das Rohr nicht vom Glas wegdrehen, während die Pumpe läuft
-    bool pouring = pour.ph != PH_IDLE && pour.ph != PH_MOVE;
+    bool pouring = cfg.servoHoldPour && pour.ph != PH_IDLE && pour.ph != PH_MOVE;
     if (cfg.servoRelease && servoPowered && !pouring && millis() - servoArrivedAt > cfg.servoHoldMs) {
       ledcWrite(CH_SERVO, 0);
       servoPowered = false;
