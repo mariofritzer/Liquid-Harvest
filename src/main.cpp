@@ -898,23 +898,29 @@ static void ledsLoop() {
   // Rundumleuchte: blinkt wie ein drehendes Warnlicht, solange gefahren oder gepumpt wird
   bool working = pourBusy() || servoCur != servoTgt || pumpPct > 0 || pumpRev > 0;
   const int bn = max(1, (int)cfg.beaconN);
+  // Tempo: alle Perioden werden mit beaconSpeed skaliert; Blitze bleiben mind. 40 ms lang (LEDs laufen mit 50 Hz)
+  const float sp = cfg.beaconSpeed / 100.0f;
+  auto per = [&](float ms) { return (uint32_t)max(60.0f, ms / sp); };
+  auto fl  = [&](float ms) { return (uint32_t)max(40.0f, ms / sp); };
   for (int k = 0; k < cfg.beaconN; k++) {
     float f = 0;
     if (working) switch (cfg.beaconFx) {
       default:
       case 0: {   // Drehlicht: scharfer Lichtkegel läuft um, LEDs versetzt
-        float ph = (now % 900) / 900.0f + (float)k / bn;
+        uint32_t P = per(900); float ph = (now % P) / (float)P + (float)k / bn;
         f = powf(max(0.0f, cosf(ph * 2 * PI)), 6); break; }
       case 1: {   // abwechselnd weich auf- und abblenden
-        float ph = (now % 1400) / 1400.0f + (float)k / bn;
+        uint32_t P = per(1400); float ph = (now % P) / (float)P + (float)k / bn;
         f = 0.5f - 0.5f * cosf(ph * 2 * PI); f *= f; break; }
       case 2: {   // alle gemeinsam Doppelblitz
-        uint32_t t = now % 1000; f = (t < 70 || (t >= 150 && t < 220)) ? 1 : 0; break; }
+        uint32_t P = max(per(1000), 4 * fl(70)), w = fl(70), t = now % P;
+        f = (t < w || (t >= 2 * w && t < 3 * w)) ? 1 : 0; break; }
       case 3: {   // Wechselblitz: gerade / ungerade LEDs abwechselnd doppelt blitzen
-        uint32_t t = now % 1000; bool a = (k % 2 == 0) == (t < 500); uint32_t u = t % 500;
-        f = (a && (u < 60 || (u >= 120 && u < 180))) ? 1 : 0; break; }
+        uint32_t H = max(per(500), 4 * fl(60)), w = fl(60), t = now % (2 * H), u = t % H;
+        bool a = (k % 2 == 0) == (t < H);
+        f = (a && (u < w || (u >= 2 * w && u < 3 * w))) ? 1 : 0; break; }
       case 4:     // Lauflicht: immer nur eine LED an
-        f = ((now / 180) % bn == (uint32_t)k) ? 1 : 0; break;
+        f = ((now / per(180)) % bn == (uint32_t)k) ? 1 : 0; break;
       case 5: f = 1; break;   // Dauerlicht
     }
     uint32_t c = cfg.beaconCol;
