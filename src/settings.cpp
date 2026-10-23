@@ -40,7 +40,7 @@ static void clampAll() {
   cfg.cleanRinseS = constrain(cfg.cleanRinseS, (uint16_t)3, (uint16_t)120);
   cfg.cleanDryS  = constrain(cfg.cleanDryS, (uint16_t)3, (uint16_t)120);
   if (cfg.cleanPos > NUM_PLACES) cfg.cleanPos = 0;
-  cfg.beaconCol &= 0xFFFFFF; cfg.beaconLvl = min(cfg.beaconLvl, (uint8_t)100); cfg.beaconSpeed = constrain(cfg.beaconSpeed, (uint16_t)25, (uint16_t)300);
+  cfg.beaconCol &= 0xFFFFFF; cfg.beaconLvl = min(cfg.beaconLvl, (uint8_t)100); cfg.beaconSpeed = constrain(cfg.beaconSpeed, (uint16_t)25, (uint16_t)300); cfg.apIndCol &= 0xFFFFFF; cfg.apIndLvl = constrain(cfg.apIndLvl, (uint8_t)1, (uint8_t)100);
   cfg.noFlowMs   = constrain(cfg.noFlowMs, (uint32_t)500, (uint32_t)30000);
   cfg.maxPourMs  = constrain(cfg.maxPourMs, (uint32_t)2000, (uint32_t)120000);
   cfg.settleMs   = constrain(cfg.settleMs, (uint32_t)0, (uint32_t)3000);
@@ -155,7 +155,8 @@ void settingsToJson(JsonObject o) {
   o["cleanShots"] = cfg.cleanShots; o["cleanDays"] = cfg.cleanDays; o["cleanRinseS"] = cfg.cleanRinseS; o["cleanDryS"] = cfg.cleanDryS; o["cleanPos"] = cfg.cleanPos;
   o["shotsSinceClean"] = cfg.shotsSinceClean; o["lastClean"] = cfg.lastClean;
   { JsonArray bm = o["beaconMap"].to<JsonArray>(); for (int k = 0; k < cfg.beaconN; k++) bm.add(cfg.beaconMap[k]);
-    char hex[8]; snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.beaconCol); o["beaconCol"] = hex; o["beaconLvl"] = cfg.beaconLvl; o["beaconFx"] = cfg.beaconFx; o["beaconSpeed"] = cfg.beaconSpeed; }
+    char hex[8]; snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.beaconCol); o["beaconCol"] = hex; o["beaconLvl"] = cfg.beaconLvl; o["beaconFx"] = cfg.beaconFx; o["beaconSpeed"] = cfg.beaconSpeed;
+    snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.apIndCol); o["apIndCol"] = hex; o["apInd"] = cfg.apInd; o["apIndLvl"] = cfg.apIndLvl; }
   o["noFlowMs"] = cfg.noFlowMs;   o["maxPourMs"] = cfg.maxPourMs;
   o["settleMs"] = cfg.settleMs; o["dripMs"] = cfg.dripMs;   o["parkAfter"] = cfg.parkAfter;
   o["glassMin"] = cfg.glassMin;   o["stableMs"] = cfg.stableMs;
@@ -220,7 +221,8 @@ void settingsFromJson(JsonObjectConst o) {
   { JsonArrayConst bm = o["beaconMap"];
     if (!bm.isNull()) { cfg.beaconN = 0; for (JsonVariantConst v : bm) { int n = v.as<int>(); if (n >= 1 && n <= MAX_LEDS && cfg.beaconN < 4) cfg.beaconMap[cfg.beaconN++] = n; } }
     const char* h = o["beaconCol"] | ""; if (h[0] == '#') cfg.beaconCol = strtoul(h + 1, nullptr, 16);
-    rd(o, "beaconLvl", cfg.beaconLvl); rd(o, "beaconFx", cfg.beaconFx); rd(o, "beaconSpeed", cfg.beaconSpeed); }
+    rd(o, "beaconLvl", cfg.beaconLvl); rd(o, "beaconFx", cfg.beaconFx); rd(o, "beaconSpeed", cfg.beaconSpeed); rd(o, "apInd", cfg.apInd); rd(o, "apIndLvl", cfg.apIndLvl);
+    const char* ah = o["apIndCol"] | ""; if (ah[0] == '#') cfg.apIndCol = strtoul(ah + 1, nullptr, 16); }
   rd(o, "noFlowMs", cfg.noFlowMs);   rd(o, "maxPourMs", cfg.maxPourMs);
   rd(o, "settleMs", cfg.settleMs); rd(o, "dripMs", cfg.dripMs);   rd(o, "parkAfter", cfg.parkAfter);
   rd(o, "glassMin", cfg.glassMin);   rd(o, "stableMs", cfg.stableMs);

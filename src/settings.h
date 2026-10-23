@@ -96,7 +96,10 @@ struct Settings {
   uint8_t  beaconMap[4] = {0, 0, 0, 0};         // LED-Nummern (ab 1)
   uint32_t beaconCol = 0xFF8C00;
   uint8_t  beaconLvl = 100;
-  uint16_t beaconSpeed = 100;   // Tempo der Muster in % (25 = langsam, 300 = schnell)
+  uint16_t beaconSpeed = 100;
+  bool     apInd    = true;       // Rundumleuchte zeigt im Stillstand einen aktiven Hotspot an
+  uint32_t apIndCol = 0x0040FF;   // schwaches Blau
+  uint8_t  apIndLvl = 12;         // Helligkeit in %   // Tempo der Muster in % (25 = langsam, 300 = schnell)
   uint8_t  beaconFx  = 0;    // 0 Drehlicht, 1 abwechselnd faden, 2 Doppelblitz, 3 Wechselblitz, 4 Lauflicht, 5 Dauerlicht
   uint8_t  ledMapN[NUM_PLACES] = {1, 1, 1, 1, 1, 1};                       // Anzahl LEDs je Glas
   uint8_t  ledMap[NUM_PLACES][MAX_LEDS_PER_GLASS] = {{1}, {2}, {3}, {4}, {5}, {6}};  // LED-Nummern (ab 1)
