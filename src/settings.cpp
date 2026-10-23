@@ -58,6 +58,12 @@ static void clampAll() {
     if (fabsf(cfg.factor[i]) < 1.0f) cfg.factor[i] = 420.0f;
   }
   cfg.servoSpeed = constrain(cfg.servoSpeed, 10.0f, 720.0f);
+  cfg.servoAccel = constrain(cfg.servoAccel, 0.0f, 5000.0f);
+  if (cfg.drive > 1) cfg.drive = 0;
+  cfg.stepRev = constrain(cfg.stepRev, (uint16_t)20, (uint16_t)1000);
+  if (!(cfg.stepMicro == 1 || cfg.stepMicro == 2 || cfg.stepMicro == 4 || cfg.stepMicro == 8 || cfg.stepMicro == 16 || cfg.stepMicro == 32 || cfg.stepMicro == 64)) cfg.stepMicro = 16;
+  cfg.stepGear = constrain(cfg.stepGear, 0.1f, 50.0f);
+  cfg.homeSpeed = constrain(cfg.homeSpeed, 2.0f, 90.0f);
   cfg.servoMinUs = constrain(cfg.servoMinUs, (uint16_t)300, (uint16_t)1500);
   cfg.servoMaxUs = constrain(cfg.servoMaxUs, (uint16_t)1500, (uint16_t)2800);
   cfg.ledBright  = constrain(cfg.ledBright, (uint8_t)1, (uint8_t)100);
@@ -156,7 +162,9 @@ void settingsToJson(JsonObject o) {
   o["angPark"] = cfg.angPark; o["angOff"] = cfg.angOff; o["angMax"] = cfg.angMax;
   JsonArray a = o["ang"].to<JsonArray>();
   for (int i = 0; i < NUM_PLACES; i++) a.add(cfg.ang[i]);
-  o["servoSpeed"] = cfg.servoSpeed;
+  o["servoSpeed"] = cfg.servoSpeed; o["servoAccel"] = cfg.servoAccel; o["drive"] = cfg.drive;
+  o["stepRev"] = cfg.stepRev; o["stepMicro"] = cfg.stepMicro; o["stepGear"] = cfg.stepGear; o["stepDirInv"] = cfg.stepDirInv;
+  o["stepRelease"] = cfg.stepRelease; o["homeInv"] = cfg.homeInv; o["homeSpeed"] = cfg.homeSpeed;
   o["servoMinUs"] = cfg.servoMinUs; o["servoMaxUs"] = cfg.servoMaxUs;
   o["ledBright"] = cfg.ledBright; o["encDiv"] = cfg.encDiv;
   o["ledCount"] = cfg.ledCount;
@@ -228,7 +236,9 @@ void settingsFromJson(JsonObjectConst o) {
     for (int i = 0; i < NUM_PLACES; i++) mx = max(mx, cfg.ang[i]);
     cfg.angMax = mx;
   }
-  rd(o, "servoSpeed", cfg.servoSpeed);
+  rd(o, "servoSpeed", cfg.servoSpeed); rd(o, "servoAccel", cfg.servoAccel); rd(o, "drive", cfg.drive);
+  rd(o, "stepRev", cfg.stepRev); rd(o, "stepMicro", cfg.stepMicro); rd(o, "stepGear", cfg.stepGear); rd(o, "stepDirInv", cfg.stepDirInv);
+  rd(o, "stepRelease", cfg.stepRelease); rd(o, "homeInv", cfg.homeInv); rd(o, "homeSpeed", cfg.homeSpeed);
   rd(o, "servoMinUs", cfg.servoMinUs); rd(o, "servoMaxUs", cfg.servoMaxUs);
   rd(o, "ledBright", cfg.ledBright);   rd(o, "encDiv", cfg.encDiv);
   rd(o, "ledCount", cfg.ledCount);

@@ -56,6 +56,7 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | **Glas-LEDs** | Anzahl der LEDs in der Kette und Zuordnung frei einstellbar (beliebig viele LEDs pro Glas), mit Test-Knopf; Farbe (Farbwähler oder R/G/B-Werte 0–255), Helligkeit und Effekt je Zustand einstellbar, mit Vorschau |
 | **Taster-LED** | zeigt den Zustand (bereit, Rohr über Glas, schenkt ein, Fehler, alle gefüllt …) – Effekt je Zustand wählbar, kurzes Aus quittiert jeden Klick |
 | **Servo** | Schwenkbereich einlernen: mit −/+ an den Anschlag fahren → „Hier ist Min“ (= 0°) bzw. „Hier ist Max“ – das Rohr fährt danach nie mehr darüber hinaus, auch nicht über Regler, Encoder oder Ausschank · Drehrichtung umkehrbar, jede Position per „Anfahren“ testbar · nach Erreichen der Position stromlos (kein Brummen), beim Einschenken aber angesteuert, damit ein Stoß das Rohr nicht vom Glas wegdreht |
+| **Antrieb** | Servo oder Schrittmotor (wählbar) · sanfte Beschleunigungs- und Bremsrampen · Schrittmotor mit Referenzfahrt auf Endschalter, Microstepping und Untersetzung einstellbar · Drehrichtung umkehren ohne dass das Rohr ausschlägt |
 | **Untergrund** | Holzscheibe, Holzplatte, Stoppelfeld, Wiese, Acker, Schiefer, Beton oder ohne – realistische Texturen, im Browser erzeugt |
 | **Standard-Einrichtung** | Export aus der App als `setup/default-setup.json` ins Repo → wird beim Flashen mitinstalliert; jeder Build prüft das Image und startet es testweise im ESP32-Emulator |
 | **Updates** | **Online-Update per Klick** (ab 1.8.1): der Drescher prüft beim Start und alle 12 h bei GitHub, ob es eine neue Version gibt, und zeigt dann einen Hinweis auf der Startseite. Unter ⚙️ System lässt sich jede veröffentlichte Version auswählen und installieren – nur wenn GitHub erreichbar ist, über eine gesicherte Verbindung (eingebaute Root-Zertifikate). Daneben weiterhin Web-Installer per USB oder Update aus Datei · **Absicherung** (ab 1.9.0): jede neue Firmware läuft zuerst auf Probe – stürzt sie ab oder kommt nach 3 min weder WLAN noch Hotspot hoch, startet der ESP automatisch wieder die vorherige Version und meldet das in der App (wird bei jedem Build im Emulator getestet) |
@@ -98,7 +99,9 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 |---|---|---|
 | HX711 SCK (alle 6 gemeinsam) | **4** | |
 | HX711 DT Glas 1…6 | **36, 39, 34, 35, 32, 33** | liegen alle im Register `GPIO_IN1` → 6 Waagen werden mit einem Zugriff gleichzeitig gelesen |
-| Servo MG90S | **13** | |
+| Servo-Signal **bzw.** Schrittmotor STEP | **13** | Servo z. B. JX 5521MG (20 kg) |
+| Schrittmotor DIR / EN | **14 / 21** | nur bei Antrieb „Schrittmotor“, EN aktiv LOW |
+| Endschalter / Hall-Sensor | **22** | nur Schrittmotor, gegen GND |
 | Pumpe: MOSFET-Modul PWM **bzw.** H-Brücke IN1 | **27** | PWM 1 kHz, vorwärts |
 | H-Brücke IN2 (nur H-Brücke) | **19** | PWM 1 kHz, rückwärts (Zurücksaugen) |
 | WS2812B Data-In | **23** | LED 1 = Glas 1 |
@@ -106,13 +109,14 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | Taster-LED | **26** | PWM |
 | KY-040 CLK / DT / SW | **16 / 17 / 18** | |
 
-**Warum so?** Keine Strapping-Pins (0, 2, 5, 12, 15), keine Flash-Pins, und die reinen Eingänge 34–39 werden sinnvoll für die HX711-Datenleitungen genutzt. Frei bleiben u. a. GPIO 21, 22 (I²C z. B. für ein OLED) und 14.
+**Warum so?** Keine Strapping-Pins (0, 2, 5, 12, 15), keine Flash-Pins, und die reinen Eingänge 34–39 werden sinnvoll für die HX711-Datenleitungen genutzt. Frei bleiben nur noch die Strapping-Pins 2, 5, 12, 15 (mit Vorsicht).
 
 > ⚠️ Bei einem **ESP32-WROVER** sind GPIO 16/17 durch den PSRAM belegt – dann Encoder auf 21/22 legen (`src/pins.h`).
 
 ## Verdrahtungs-Tipps
 
-- **Servo:** 470–1000 µF Elko direkt an 5 V/GND des Servos.
+- **Servo:** großer Servo (z. B. JX 5521MG, 20 kg·cm) über einen **eigenen Step-Down auf 6,0 V (nicht mehr!)** mit mindestens 3 A, 1000 µF Elko direkt am Stecker, Masse mit dem ESP32 verbinden. Netzteil mit mindestens 45 W (12 V / 3 A).
+- **Schrittmotor statt Servo:** ⚙️ Antrieb → Verbaut „Schrittmotor“. Treiber TMC2209 (leise), A4988 oder DRV8825 an STEP 13 / DIR 14 / EN 21, VM an +12 V, Motorstrom am Poti auf 0,6–0,8 A. Endschalter (Hall-Sensor KY-003 mit Magnet oder Mikroschalter) an GPIO 22 gegen GND – beim Start fährt das Rohr langsam dorthin (Referenzfahrt), dort ist 0°.
 - **Pumpe:** Freilaufdiode 1N5819 antiparallel zur Pumpe ist Pflicht – das D4184-Modul (2 × AOD4184A) hat keine. 10 kΩ Pulldown PWM→GND, damit die Pumpe beim Booten sicher aus ist.
 - **Taster-LED** (5–12 V, Vorwiderstand eingebaut): „+“ an +12 V, „−“ über NPN-Transistor (BC547, 1 kΩ an der Basis) nach GND – GPIO 26 schaltet bzw. dimmt.
 - **H-Brücke statt MOSFET:** in der App unter ⚙️ Pumpe → Pumpentreiber auswählen, darunter steht die Pinbelegung. **DRV8871** empfohlen (IN1→27, IN2→19, VM→+12 V, OUT1/OUT2→Pumpe). **BTS7960:** RPWM→27, LPWM→19, R_EN und L_EN an 3,3 V. **L298N:** IN1→27, IN2→19, Jumper auf ENA stecken lassen. Die Freilaufdiode D1 entfällt (Brücke hat eigene).

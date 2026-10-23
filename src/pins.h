@@ -9,8 +9,8 @@
 //    GPIO 34/35/36/39 sind "input only" – perfekt für reine Datenleitungen.
 //  * Keine Strapping-Pins (0, 2, 5, 12, 15) belegt.
 //  * Keine Flash-Pins (6-11) belegt.
-//  * Frei für Erweiterungen: GPIO 19, 21, 22 (I2C z. B. für ein OLED),
-//    GPIO 14, 5, 2, 15, 12 (mit Vorsicht).
+//  * GPIO 19 = H-Brücke IN2, GPIO 14/21/22 = Schrittmotor (DIR/EN/Endschalter).
+//    Frei bleiben GPIO 5, 2, 15, 12 (Strapping-Pins, mit Vorsicht).
 // =====================================================================
 
 #include <stdint.h>
@@ -24,7 +24,12 @@ constexpr int PIN_HX_SCK = 4;
 constexpr int PIN_HX_DT[NUM_PLACES] = {36, 39, 34, 35, 32, 33};  // Glas 1..6
 
 // Aktoren
-constexpr int PIN_SERVO = 13;     // MG90S Signal
+constexpr int PIN_SERVO = 13;     // Servo-Signal (z. B. JX 5521MG) · beim Schrittmotor: STEP
+// Schrittmotor (statt Servo, Auswahl in der App): Treiber A4988 / DRV8825 / TMC2209
+constexpr int PIN_STEP = 13;      // STEP (gleicher Pin wie das Servo-Signal)
+constexpr int PIN_DIR  = 14;      // DIR
+constexpr int PIN_EN   = 21;      // EN (aktiv LOW)
+constexpr int PIN_HOME = 22;      // Endschalter / Hall-Sensor gegen GND (Referenzpunkt)
 constexpr int PIN_PUMP  = 27;     // MOSFET-Modul: PWM · H-Brücke: IN1 (vorwärts)
 constexpr int PIN_PUMP2 = 19;     // H-Brücke: IN2 (rückwärts) – beim MOSFET-Modul unbenutzt
 constexpr int PIN_LEDS  = 23;     // WS2812B Data-In (LED 1 = Glas 1)

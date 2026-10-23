@@ -327,7 +327,9 @@ const P=(x,y,z)=>[(x-y)*C,(x+y)*S-z];
 const f1=n=>n.toFixed(1);
 const pts=a=>a.map(p=>P(...p).map(f1).join(",")).join(" ");
 const dir=a=>{const r=a*Math.PI/180,c=Math.cos(r),s=Math.sin(r);return[.7071*c+.7071*s,-.7071*c+.7071*s]};
-const sdir=a=>dir(a+((typeof CFG!=="undefined"&&CFG&&CFG.angOff)||0));
+// echter Servo-Winkel (vor der Impulsumrechnung) – bleibt beim Umkehren der Drehrichtung gleich
+const physA=a=>{ const c=(typeof CFG!=="undefined"&&CFG)||{}; const p=(c.angOff||0)+a; return c.servoReverse?180-p:p; };
+const sdir=a=>dir(physA(a));
 const poly=(a,fill,extra="")=>`<polygon points="${pts(a)}" fill="${fill}" ${extra}/>`;
 function box(x0,y0,z0,x1,y1,z1,c){
   return poly([[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]],c[0])+
@@ -794,7 +796,7 @@ function renderParty(){
   ["pointerup","pointerleave","pointercancel"].forEach(ev=>chip.addEventListener(ev,()=>{ if(t&&performance.now()-t0<600) toast("Zum Beenden 3 s gedrückt halten"); stop(); }));
 })();
 function renderStatus(){
-  renderStats(); renderTeach(); renderUpd(); renderParty();
+  renderStats(); renderTeach(); renderUpd(); renderParty(); renderHome();
   $("#cleanBar").classList.toggle("hide",!(ST.clean&&ST.clean.due)||ST.busy);
   const st=$("#status"), n=ST.pl.filter(p=>p.s===1).length, f=ST.pl.filter(p=>p.s===2).length;
   st.classList.toggle("busy",ST.busy);
@@ -861,7 +863,7 @@ function updateSheet(){
 }
 
 /* ---------------- Einstellungen ---------------- */
-const TABS=[["dose","Ausschank"],["pump","Pumpe"],["servo","Servo"],["scales","Waagen"],["leds","LEDs"],["img","Darstellung"],["wifi","WLAN"],["sys","System"]];
+const TABS=[["dose","Ausschank"],["pump","Pumpe"],["servo","Antrieb"],["scales","Waagen"],["leds","LEDs"],["img","Darstellung"],["wifi","WLAN"],["sys","System"]];
 let curTab="dose", POS_EDIT=false, POS_DRAFT=null;
 const FIELDS={
   dose:[["Menge",[
@@ -891,15 +893,23 @@ const FIELDS={
       ["retractPwm","Leistung Zurücksaugen","","%",10,100,5]]]],
   servo:[["Bewegung",[
       ["servoSpeed","Geschwindigkeit","","°/s",10,720,5],
+      ["servoAccel","Beschleunigung","sanft anfahren und bremsen – kleiner = weicher, 0 = aus","°/s²",0,5000,10],
       ["settleMs","Pause nach Schwenken","Rohr beruhigen, bevor gepumpt wird","ms",0,3000,50],
-      ["servoReverse","Drehrichtung umkehren","0° liegt dann auf der anderen Seite (nach Speichern)","bool"]]],
+      ["servoReverse","Drehrichtung umkehren","0° liegt dann am anderen Ende des Bereichs – das Rohr bewegt sich dabei nicht, Positionen bleiben, wo sie sind","bool"]]],
     ["Halten & Stromsparen",[
       ["servoRelease","Nach Erreichen stromlos","kein Brummen/Zittern – schont Servo und Waagen","bool"],
       ["servoHoldMs","Halten vor dem Abschalten","Zeit an der Position, bevor die Impulse aufhören","ms",100,5000,50],
       ["servoHoldPour","Beim Einschenken festhalten","Servo bleibt angesteuert, solange gepumpt wird – ein Stoß dreht das Rohr nicht vom Glas weg (brummt dabei leise)","bool"]]],
     ["Servo-Impulse",[
       ["servoMinUs","Impuls bei 0°","","µs",300,1500,10],
-      ["servoMaxUs","Impuls bei 180°","","µs",1500,2800,10]]]],
+      ["servoMaxUs","Impuls bei 180°","JX 5521MG / die meisten 180°-Servos: 500–2500 µs","µs",1500,2800,10]]],
+    ["Schrittmotor",[
+      ["stepRev","Schritte pro Umdrehung","1,8°-Motor = 200, 0,9° = 400","",20,1000,1],
+      ["stepMicro","Microstepping","wie am Treiber eingestellt (TMC2209 ohne Jumper meist 8)","select",[[1,"1"],[2,"1/2"],[4,"1/4"],[8,"1/8"],[16,"1/16"],[32,"1/32"],[64,"1/64"]]],
+      ["stepGear","Untersetzung","Motor : Rohr, z. B. 3 bei Riemen 20→60 Zähne, 1 = direkt","",.1,50,.01],
+      ["stepDirInv","Motor-Drehrichtung umkehren","falls er bei der Referenzfahrt vom Schalter wegfährt","bool"],
+      ["homeSpeed","Tempo Referenzfahrt","","°/s",2,90,1],
+      ["homeInv","Endschalter schaltet HIGH","bei Sensoren, die im Ruhezustand LOW liefern","bool"]]]],
   sys:[["Bedienung am Gerät",[
       ["encDiv","Encoder-Schritte pro Raste","KY-040 meist 4, manche 2","",1,8,1],
       ["encReverse","Encoder-Drehrichtung umkehren","","bool"]]]]
@@ -1041,12 +1051,22 @@ function renderTab(){
       ? `<div class="f" style="flex-wrap:wrap;row-gap:6px"><label>${l}</label><input type="number" id="a_${i}v" value="${P[i]}" min="0" max="${hi}" step="0.1" style="width:72px" onchange="posSet(${i},this.value)"><span class="u">°</span>${go(i)}
           <input type="range" min="0" max="${hi}" step="0.1" value="${P[i]}" id="a_${i}" style="width:100%" oninput="posSet(${i},this.value)"></div>`
       : `<div class="f"><label>${l}</label><span class="angv">${f(P[i])}°</span>${go(i)}</div>`;
+    const stp=(CFG.drive||0)===1, live=ST&&ST.drv!=null?ST.drv:(CFG.drive||0);
+    h+=`<div class="card"><h3>Antrieb</h3>
+      <div class="f"><label>Verbaut</label><select id="drvSel" style="max-width:60%">${[[0,"Servo"],[1,"Schrittmotor"]].map(([v,t])=>`<option value="${v}" ${(CFG.drive||0)===v?"selected":""}>${t}</option>`).join("")}</select></div>
+      ${(CFG.drive||0)!==live?`<p class="help" style="color:var(--gold2)">Neustart nötig, damit der Wechsel greift.</p>`:""}
+      <button class="btn" style="width:100%;margin:6px 0 10px" onclick="const v=+$('#drvSel').value;if(v===(CFG.drive||0)){toast('Unverändert');return}if(confirm('Antrieb wechseln? Der Drescher startet neu. Danach Bereich und Winkel neu einlernen.'))send({c:'setCfg',cfg:{drive:v}})">Übernehmen & Neustart</button>
+      ${stp?`<div class="f"><label>Referenzpunkt<small id="homeSw">–</small></label><span id="homeSt">–</span></div>
+        <button class="btn" style="width:100%;margin:6px 0 12px" onclick="send({c:'home'})">Referenzfahrt starten</button>`:""}
+      <details class="fold" data-k="drvpin" style="padding:0"><summary>Anschluss</summary>${drivePinHtml(stp)}</details></div>`;
     h+=`<div class="card" id="teachCard">${teachHtml()}</div>`;
     h+=`<div class="card"><h3>Positionen</h3>
       <div class="f"><label>Winkel bearbeiten<small>${POS_EDIT?"Regler bewegen das Rohr live – danach speichern":"erst anhaken, dann lassen sich die Winkel verstellen"}</small></label><input type="checkbox" class="sw" id="posEdit" ${POS_EDIT?"checked":""} onchange="posEdit(this.checked)"></div>
       ${row(0,"Parkposition")}${CFG.ang.map((_,i)=>row(i+1,"Glas "+(i+1))).join("")}
       ${POS_EDIT?`<div style="display:flex;gap:10px;margin:10px 0 12px"><button class="btn" style="flex:1" onclick="posEdit(false)">Abbrechen</button><button class="btn primary" style="flex:1" onclick="posSave()">Winkel speichern</button></div>`:""}</div>`;
-    h+=fieldsCard(FIELDS.servo[0])+fieldsCard(FIELDS.servo[1])+fieldsFold(FIELDS.servo[2],"servous",`<p class="help">Nur ändern, wenn der Servo seinen Weg nicht ganz ausnutzt oder am Anschlag brummt.</p>`);
+    h+=fieldsCard(FIELDS.servo[0]);
+    h+=fieldsCard(["Halten & Stromsparen",FIELDS.servo[1][1].map(f=>f[0]==="servoRelease"&&stp?["stepRelease","Nach Erreichen stromlos","Motor wird frei drehbar – Position kann verloren gehen, dann neue Referenzfahrt","bool"]:f)]);
+    h+=stp?fieldsCard(FIELDS.servo[3]):fieldsFold(FIELDS.servo[2],"servous",`<p class="help">Nur ändern, wenn der Servo seinen Weg nicht ganz ausnutzt oder am Anschlag brummt.</p>`);
     h+=saveBtn("servo")+`<p class="help"><b>Anfahren</b> fährt das Rohr auf die gespeicherte Position. Zum Einstellen „Winkel bearbeiten“ anhaken, den Auslauf mittig über das Glas stellen und „Winkel speichern“.</p>`;
   }
   if(curTab==="wifi"){
@@ -1368,8 +1388,8 @@ function applyVid(){
 function vidFrameIndex(angle){
   const v=V();
   if(!v.M){ const t=Math.max(0,Math.min(1,(angle-v.a0)/((v.a1-v.a0)||1))); return Math.round(t*(v.n-1)); }
-  const A=[CFG.angPark,...CFG.ang], segs=v.segs||6;
-  if(angle<=A[0]) return 0;
+  const A=[CFG.angPark,...CFG.ang].map(physA), segs=v.segs||6; angle=physA(angle);
+  if((angle-A[0])*(A[1]-A[0])<=0) return 0;
   for(let k=0;k<segs&&k<A.length-1;k++){
     const a0=A[k],a1=A[k+1];
     if((angle-a0)*(angle-a1)<=0){ const f=(angle-a0)/((a1-a0)||1); return Math.round(k*v.M+f*v.M); }
@@ -1761,6 +1781,18 @@ function bindFolds(){
 }
 
 /* ---------------- Pumpentreiber: Anschlussplan ---------------- */
+function drivePinHtml(stp){
+  const row=(a,b,c="")=>`<tr><td style="padding:5px 8px 5px 0;white-space:nowrap"><b>${a}</b></td><td style="padding:5px 8px;white-space:nowrap">${b}</td><td style="padding:5px 0;color:var(--mute)">${c}</td></tr>`;
+  if(!stp) return `<table style="width:100%;font-size:13.5px;border-collapse:collapse;margin:8px 0">${row("Signal","GPIO 13","gelb / orange")}${row("+","4,8–6,0 V","rot · eigener Step-Down ≥ 3 A")}${row("−","GND","braun · mit ESP32 verbunden")}</table>
+    <p class="help">Großer Servo (z. B. JX 5521MG, 20 kg): eigener Step-Down auf 6,0 V (nicht mehr!), 1000 µF direkt am Stecker, Netzteil mit mindestens 45 W.</p>`;
+  return `<table style="width:100%;font-size:13.5px;border-collapse:collapse;margin:8px 0">${row("STEP","GPIO 13")}${row("DIR","GPIO 14")}${row("EN","GPIO 21","aktiv LOW")}${row("Endschalter","GPIO 22","gegen GND · Hall-Sensor oder Mikroschalter")}${row("VM","+12 V","100 µF an VM/GND")}${row("VDD / VIO","3,3 V","Logik vom ESP32")}${row("A1 A2 / B1 B2","Motor","je eine Spule")}</table>
+    <p class="help">Treiber: TMC2209 (leise), A4988 oder DRV8825. Motorstrom am Treiber-Poti klein einstellen (0,6–0,8 A). Beim Start fährt das Rohr langsam zum Endschalter – dort ist 0°. Danach den Bereich einlernen.</p>`;
+}
+function renderHome(){
+  const e=$("#homeSt"); if(!e||!ST||ST.home==null) return;
+  e.innerHTML=["–","⏳ sucht …","⏳","✅ gefunden","❌ fehlgeschlagen","⏳ fährt vom Schalter weg"][ST.home]||"–";
+  $("#homeSw").textContent="Endschalter: "+(ST.hsw?"betätigt":"frei");
+}
 function pinoutHtml(drv){
   const row=(a,b,c="")=>`<tr><td style="padding:5px 8px 5px 0;white-space:nowrap"><b>${a}</b></td><td style="padding:5px 8px;white-space:nowrap">${b}</td><td style="padding:5px 0;color:var(--mute)">${c}</td></tr>`;
   if(drv===1) return `<table style="width:100%;font-size:13.5px;border-collapse:collapse">
@@ -1834,7 +1866,7 @@ window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAug
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2400,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,servoHoldPour:true,autoTune:true,pumpDriver:0,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,party:false,partyDelayMs:2000,partyMaxG:120,prof:[{n:"Schnaps"}],profIdx:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2500,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,servoHoldPour:true,autoTune:true,pumpDriver:0,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,drive:0,servoAccel:360,stepRev:200,stepMicro:16,stepGear:1,stepDirInv:false,stepRelease:false,homeInv:false,homeSpeed:20,party:false,partyDelayMs:2000,partyMaxG:120,prof:[{n:"Schnaps"}],profIdx:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     party:{on:false,n:0,ml:0,rou:0},upd:{st:0,on:true,new:"v1.8.1",av:true,ago:3,p:-1},stat:{sn:7,sml:140,tn:412,tml:8240,ss:Math.floor(Date.now()/1000)-7200},ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
@@ -1862,6 +1894,7 @@ function demoCmd(o){
     if(o.c==="profRen")c.prof[o.i].n=o.n;
     if(o.c==="profDel"&&c.prof.length>1){c.prof.splice(o.i,1);c.profIdx=0;Object.assign(c,Object.fromEntries(keys.map(k=>[k,c.prof[0][k]??c[k]])))}
     onMsg({t:"cfg",cfg:c,ver:"1.8.0-demo"}); return; }
+  if(o.c==="home"){toast("Demo: Referenzfahrt");return}
   if(o.c==="party"){ S.cfg.party=!!o.on; S.party={on:!!o.on,n:0,ml:0,rou:0}; toast(o.on?"🎉 Party-Modus an – Glas hinstellen, wird automatisch gefüllt":"Party-Modus aus"); return; }
   if(o.c==="roulOff"){ S.party.rou=0; return; }
   if(o.c==="roulette"){ const P=S.party; if(!P.on||P.rou===1){ const c=S.pl.map((p,i)=>p.s===1?i:-1).filter(i=>i>=0); if(!c.length){toast("Kein leeres Glas");return} P.rou=2; const t=c[Math.floor(Math.random()*c.length)]; let k=0; const seq=[0,1,2,3,4,5,4,3,2,1,0,1,2,3,4,5].concat([t]); const step=()=>{ if(k<seq.length){ S.aim=seq[k]+1; S.tgt=S.cfg.ang[seq[k]]; k++; setTimeout(step,k>seq.length-2?700:160);} else { P.rou=0; toast("🎯 Glas "+(t+1)+" gewinnt!"); S.jobs.push({p:t,ml:S.cfg.shotMl,auto:1}); } }; step(); } else { P.rou=1; toast("🎯 Roulette-Runde: Gläser hinstellen, dann „Los“"); } return; }
@@ -1873,7 +1906,8 @@ function demoCmd(o){
   if(o.c==="cleanDone"){S.cfg.shotsSinceClean=0;toast("Reinigung erledigt");return}
   if(o.c==="ledPreview"){toast("Demo: Vorschau "+o.col);return}
   if(o.c==="ledTest"){toast("Demo: LED "+o.leds.join(", ")+" blinkt");return}
-  if(o.c==="setCfg"){Object.assign(S.cfg,o.cfg);simClampAng();try{localStorage.setItem("lh_demo_cfg",JSON.stringify(S.cfg))}catch(e){};onMsg({t:"cfg",cfg:S.cfg,ver:"1.8.0-demo"});toast("Gespeichert")}
+  if(o.c==="setCfg"){ const oldRev=!!S.cfg.servoReverse; Object.assign(S.cfg,o.cfg);
+    if(!!S.cfg.servoReverse!==oldRev&&o.cfg.ang==null){ const c=S.cfg,mx=c.angMax??120; c.angOff=180-((c.angOff||0)+mx); c.angPark=mx-c.angPark; c.ang=c.ang.map(a=>mx-a); S.ang=mx-S.ang; S.tgt=mx-S.tgt; }simClampAng();try{localStorage.setItem("lh_demo_cfg",JSON.stringify(S.cfg))}catch(e){};onMsg({t:"cfg",cfg:S.cfg,ver:"1.8.0-demo"});toast("Gespeichert")}
   if(o.c==="getCfg")onMsg({t:"cfg",cfg:S.cfg,ver:"1.8.0-demo"});
   if(o.c==="scan")setTimeout(()=>onMsg({t:"scan",list:[{ssid:"Heimnetz",rssi:-52,lock:true},{ssid:"Gast",rssi:-70,lock:false}]}),800);
   if(["tare","calib","wifi","reboot","factory","prime"].includes(o.c))toast("Demo: "+o.c);
@@ -1892,7 +1926,7 @@ function simTick(){
   onMsg({t:"st",teach:!!S.teach,phys:S.teach?S.ang:S.ang+(S.cfg.angOff||0),aim:S.aim,ang:S.teach?S.ang-(S.cfg.angOff||0):S.ang,ph:S.ph,pp:S.cur?S.cur.p+1:0,tgt:S.tgtMl,got:S.got,q:S.jobs.length,busy:!!S.cur||S.jobs.length>0,pump:S.pump,
     pl:S.pl.map(p=>({s:p.s,ok:true,en:true,g:p.w,raw:Math.round(p.w*420),ml:p.s?Math.max(0,(p.w-p.tare)/.95):0,err:false})),
     wifi:{sta:true,ssid:"Heimnetz",ip:"192.168.1.42",rssi:-55,ap:false,apSsid:"LiquidHarvest-A1B2",host:"liquidharvest"},up:S.up,
-    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},upd:{st:S.upd.st,on:S.upd.on,new:S.upd.new,av:verCmp(S.upd.new,VER||"1.8.0")>0,ago:S.upd.ago,...(S.upd.p>=0?{p:S.upd.p}:{})},party:{...S.party},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});
+    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},upd:{st:S.upd.st,on:S.upd.on,new:S.upd.new,av:verCmp(S.upd.new,VER||"1.8.0")>0,ago:S.upd.ago,...(S.upd.p>=0?{p:S.upd.p}:{})},drv:S.cfg.drive||0,...((S.cfg.drive||0)===1?{home:3,hsw:false}:{}),party:{...S.party},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});
 }
 
 staticScene(); requestAnimationFrame(drawAuger); connect();

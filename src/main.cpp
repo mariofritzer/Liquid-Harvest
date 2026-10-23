@@ -237,11 +237,69 @@ static void sendCfg() {
 // ---------------------------------------------------------------------
 static bool servoPowered = true;
 static uint32_t servoArrivedAt = 0;
-// Einlernen des Schwenkbereichs: servoCur/servoTgt sind dann echte Servo-Winkel (0…180), sonst App-Winkel (0…angMax)
+// Einlernen des Schwenkbereichs: servoCur/servoTgt sind dann echte Winkel (0…180), sonst App-Winkel (0…angMax)
 static bool teach = false;
 static uint32_t teachLast = 0;
 static float physAngle() { return teach ? servoCur : cfg.angOff + servoCur; }
+
+// ---------------------------------------------------------------- Antrieb: Servo oder Schrittmotor
+static uint8_t driveAtBoot = 0;                 // Pins werden beim Start festgelegt -> Wechsel braucht Neustart
+enum HomeState : uint8_t { HOME_NONE, HOME_SEEK, HOME_SET, HOME_OK, HOME_FAIL, HOME_BACKOFF };
+static uint8_t homeSt = HOME_NONE;
+static hw_timer_t* stepTimer = nullptr;
+static volatile int32_t stepCur = 0, stepTgt = 0;
+static volatile bool stepHigh = false, stepInv = false;
+static volatile int8_t stepDir = 0;
+static portMUX_TYPE stepMux = portMUX_INITIALIZER_UNLOCKED;
+static float stepsPerDeg() { return cfg.stepRev * (float)cfg.stepMicro * cfg.stepGear / 360.0f; }
+static bool stepperOn() { return driveAtBoot == 1; }
+
+// 40-kHz-Takt: höchstens jeden zweiten Takt ein Schritt (max. 20 000 Schritte/s); folgt stepTgt
+#ifndef STEP_TICK_US
+#define STEP_TICK_US 25
+#endif
+static volatile uint32_t stepTicks = 0;
+static void IRAM_ATTR stepIsr() {
+  stepTicks++;
+  if (stepHigh) { GPIO.out_w1tc = 1UL << PIN_STEP; stepHigh = false; return; }
+  int32_t d = stepTgt - stepCur;
+  if (!d) return;
+  int8_t dir = d > 0 ? 1 : -1;
+  if (dir != stepDir) {                          // Richtung wechseln, Schritt erst im nächsten Takt (DIR-Vorlaufzeit)
+    stepDir = dir;
+    if ((dir > 0) != stepInv) GPIO.out_w1ts = 1UL << PIN_DIR; else GPIO.out_w1tc = 1UL << PIN_DIR;
+    return;
+  }
+  GPIO.out_w1ts = 1UL << PIN_STEP; stepHigh = true;
+  stepCur += dir;
+}
+// Rückfallebene, falls der Hardware-Timer keine Interrupts liefert: Takt aus dem Hauptloop
+static bool stepFallback = false;
+static void stepPoll() {
+  if (!stepFallback) return;
+  static uint32_t last = micros();
+  uint32_t now = micros();
+  int n = 0;
+  while ((int32_t)(now - last) >= STEP_TICK_US && n < 64) { stepIsr(); last += STEP_TICK_US; n++; }
+  if ((int32_t)(now - last) > 5000) last = now;
+}
+static void stepEnable(bool on) { digitalWrite(PIN_EN, on ? LOW : HIGH); }
+static bool homeHit() { return (digitalRead(PIN_HOME) == LOW) != cfg.homeInv; }
+
 static void servoWrite(float deg) {
+  if (stepperOn()) {
+    // Ramp-Position -> echter Winkel ab Endschalter -> Schritte. Der Zielwinkel ist immer im Bereich,
+    // die Rampe dorthin darf (direkt nach der Referenzfahrt) auch von außerhalb kommen.
+    float P = teach ? deg : cfg.angOff + deg;
+    if (cfg.servoReverse) P = 180.0f - P;
+    P = constrain(P, 0.0f, 180.0f);
+    if (homeSt != HOME_OK) return;
+    stepInv = cfg.stepDirInv;
+    stepTgt = lroundf(P * stepsPerDeg());
+    if (!servoPowered) stepEnable(true);
+    servoPowered = true;
+    return;
+  }
   // nie über den eingelernten Schwenkbereich hinaus
   deg = teach ? constrain(deg, 0.0f, 180.0f) : cfg.angOff + constrain(deg, 0.0f, cfg.angMax);
   if (cfg.servoReverse) deg = 180.0f - deg;   // Drehrichtung umkehren
@@ -259,30 +317,86 @@ static void aim(int idx) {
   servoTgt = angleFor(aimIdx);
 }
 
-static bool servoArrived() { return fabsf(servoCur - servoTgt) < 0.5f; }
+static bool servoArrived() {
+  if (stepperOn() && homeSt != HOME_OK) return false;     // ohne Referenzfahrt nie "angekommen" -> Pumpe bleibt aus
+  return fabsf(servoCur - servoTgt) < 0.5f && (!stepperOn() || stepCur == stepTgt);
+}
+
+// Referenzfahrt: langsam zum Endschalter, dort ist der echte Winkel 0°
+static void homeStart() {
+  if (!stepperOn()) return;
+  stepEnable(true); servoPowered = true;
+  homeSt = homeHit() ? HOME_BACKOFF : HOME_SEEK;
+  Serial.println("[Antrieb] Referenzfahrt …");
+}
+static void homeLoop() {
+#ifdef LH_STEP_DEBUG
+  { static uint32_t t = 0; if (stepperOn() && millis() - t > 500) { t = millis(); Serial.printf("[Test] Schritte ist %ld, soll %ld, Zustand %u, Takte %lu\n", (long)stepCur, (long)stepTgt, homeSt, (unsigned long)stepTicks); } }
+#endif
+  if (!stepperOn() || homeSt == HOME_OK || homeSt == HOME_FAIL || homeSt == HOME_NONE) return;
+  static uint32_t last = 0; static float acc = 0, travel = 0;
+  uint32_t now = millis();
+  float dt = last ? min(0.05f, (now - last) / 1000.0f) : 0; last = now;
+  stepInv = cfg.stepDirInv;
+  float spd = stepsPerDeg();
+  if (homeSt == HOME_BACKOFF) {            // steht schon auf dem Schalter: erst ein Stück weg
+    if (!homeHit() && travel > 5 * spd) { stepTgt = stepCur; travel = 0; homeSt = HOME_SEEK; return; }
+    acc += cfg.homeSpeed * spd * dt; int n = (int)acc; acc -= n;
+    if (stepTgt - stepCur < spd) stepTgt += n;
+    travel += n;
+    if (travel > 40 * spd) { homeSt = HOME_FAIL; stepTgt = stepCur; Serial.println("[Antrieb] Endschalter lässt nicht los"); toast("Referenzfahrt: Endschalter lässt nicht los – Verkabelung prüfen"); }
+    return;
+  }
+  if (homeSt == HOME_SEEK) {
+    if (homeHit()) {
+      stepTgt = stepCur;
+      portENTER_CRITICAL(&stepMux); stepCur = 0; stepTgt = 0; portEXIT_CRITICAL(&stepMux);
+      travel = 0; homeSt = HOME_OK;
+      // Rampe startet am Schalter (echter Winkel 0) und fährt sanft in den Bereich zur Parkposition
+      float L = cfg.servoReverse ? (180.0f - 0.0f) - cfg.angOff : -cfg.angOff;
+      servoCur = L; servoTgt = angleFor(aimIdx);
+      Serial.println("[Antrieb] Referenzpunkt gefunden");
+      return;
+    }
+    acc += cfg.homeSpeed * spd * dt; int n = (int)acc; acc -= n;
+    if (stepCur - stepTgt < spd) stepTgt -= n;
+    travel += n;
+    if (travel > 400 * spd) { homeSt = HOME_FAIL; stepTgt = stepCur; Serial.println("[Antrieb] Endschalter nicht gefunden"); toast("Referenzfahrt: Endschalter nicht gefunden – Drehrichtung oder Schalter prüfen"); }
+  }
+}
 
 static void servoLoop() {
   static uint32_t last = micros();
-  static float written = -1;
+  static float written = -1, vel = 0;
   uint32_t now = micros();
-  float dt = (now - last) / 1e6f;
+  float dt = min(0.1f, (now - last) / 1e6f);
   last = now;
-  float step = cfg.servoSpeed * dt;
+  if (stepperOn() && homeSt != HOME_OK) { vel = 0; return; }
+  // Rampe mit Beschleunigung: sanft anfahren und rechtzeitig bremsen (schont Getriebe und Rohr)
   float diff = servoTgt - servoCur;
-  if (fabsf(diff) <= step) servoCur = servoTgt;
-  else servoCur += diff > 0 ? step : -step;
-  if (fabsf(servoCur - written) >= 0.1f || (!servoPowered && servoCur != servoTgt)) { servoWrite(servoCur); written = servoCur; }
+  if (fabsf(diff) < 0.02f) { servoCur = servoTgt; vel = 0; }
+  else {
+    float want = cfg.servoSpeed;
+    if (cfg.servoAccel > 0) want = min(want, sqrtf(2.0f * cfg.servoAccel * fabsf(diff)));
+    want = diff > 0 ? want : -want;
+    if (cfg.servoAccel > 0) { float dv = cfg.servoAccel * dt; vel = vel < want ? min(want, vel + dv) : max(want, vel - dv); }
+    else vel = want;
+    float st = vel * dt;
+    if ((diff > 0 && st >= diff) || (diff < 0 && st <= diff)) { servoCur = servoTgt; vel = 0; } else servoCur += st;
+  }
+  if (fabsf(servoCur - written) >= 0.05f || (!servoPowered && servoCur != servoTgt)) { servoWrite(servoCur); written = servoCur; }
 
-  // An der Zielposition: kurz halten, dann Impulse abschalten -> Servo stromlos, kein Brummen/Zittern
+  // An der Zielposition: kurz halten, dann abschalten -> kein Brummen/Zittern
   static float lastTgt = -1;
   if (servoTgt != lastTgt) { lastTgt = servoTgt; servoArrivedAt = 0; if (!servoPowered) { servoWrite(servoCur); written = servoCur; } }
-  if (servoCur == servoTgt) {
+  if (servoArrived()) {
     if (!servoArrivedAt) servoArrivedAt = millis();
-    // Während eingeschenkt wird (inkl. Nachtropfen, Zurücksaugen, Spülen) bleibt der Servo angesteuert –
+    // Während eingeschenkt wird (inkl. Nachtropfen, Zurücksaugen, Spülen) bleibt der Antrieb aktiv –
     // so kann ein Stoß das Rohr nicht vom Glas wegdrehen, während die Pumpe läuft
     bool pouring = cfg.servoHoldPour && pour.ph != PH_IDLE && pour.ph != PH_MOVE;
-    if (cfg.servoRelease && servoPowered && !pouring && millis() - servoArrivedAt > cfg.servoHoldMs) {
-      ledcWrite(CH_SERVO, 0);
+    bool release = stepperOn() ? cfg.stepRelease : cfg.servoRelease;
+    if (release && servoPowered && !pouring && !teach && millis() - servoArrivedAt > cfg.servoHoldMs) {
+      if (stepperOn()) stepEnable(false); else ledcWrite(CH_SERVO, 0);
       servoPowered = false;
     }
   } else servoArrivedAt = 0;
@@ -317,6 +431,7 @@ static bool enqueue(int p, float ml, Source src) {
   if (roulBusy() && src != SRC_AUTO) { toast("Roulette läuft"); return false; }
   if (teach) { toast("Erst das Einlernen beenden"); return false; }
   if (OnlineUpd::downloading()) { toast("Update läuft – bitte warten"); return false; }
+  if (stepperOn() && homeSt != HOME_OK) { toast(homeSt == HOME_FAIL ? "Referenzfahrt fehlgeschlagen – unter ⚙️ Servo neu starten" : "Referenzfahrt läuft …"); return false; }
   if (places[p].st == P_NONE) { toast("Kein Glas auf Platz " + String(p + 1)); return false; }
   if (pour.ph == PH_PRIME) return false;
   if (pourActiveOn(p)) return false;
@@ -1046,6 +1161,7 @@ static void handleCmd(const String& msg) {
     bool on = d["on"] | false;
     if (on && !teach) {
       if (pourBusy()) { toast("Erst fertig einschenken"); return; }
+      if (stepperOn() && homeSt != HOME_OK) { toast("Erst Referenzfahrt"); return; }
       teach = true; teachLast = millis();
       servoCur += cfg.angOff; servoTgt = servoCur;   // gleiche Stellung, jetzt in echten Servo-Grad
       toast("Einlernen: mit − / + zum Anschlag fahren");
@@ -1117,6 +1233,10 @@ static void handleCmd(const String& msg) {
     else if (c == "profDel" && !ok) toast("Ein Getränk muss bleiben");
   } else if (c == "profRen") {
     if (profileRename(d["i"] | -1, d["n"] | "")) sendCfg();
+  } else if (c == "home") {
+    if (pourBusy() || teach) toast("Erst fertig einschenken bzw. Einlernen beenden");
+    else if (!stepperOn()) toast("Nur beim Schrittmotor");
+    else { jobs.clear(); homeStart(); toast("Referenzfahrt …"); }
   } else if (c == "party") {
     partySet(d["on"] | false);
   } else if (c == "roulette") {
@@ -1142,10 +1262,24 @@ static void handleCmd(const String& msg) {
     JsonObject o = d["cfg"];
     // WLAN-Felder nur über "wifi"
     o.remove("ssid"); o.remove("pass"); o.remove("apPass"); o.remove("host"); o.remove("apAlways");
+    bool oldRev = cfg.servoReverse;
+    uint8_t oldDrive = cfg.drive;
     settingsFromJson(o);
+    if (cfg.drive != oldDrive) { settingsSave(); sendCfg(); toast("Antrieb geändert – Neustart …"); pumpSet(0); rebootAt = millis() + 1500; return; }
+    if (cfg.servoReverse != oldRev && (teach || pourBusy())) cfg.servoReverse = oldRev;   // nicht mitten im Einlernen/Einschenken
+    else if (cfg.servoReverse != oldRev && o["ang"].isNull() && o["angOff"].isNull()) {
+      // Drehrichtung umkehren, OHNE dass sich das Rohr bewegt: nur die Zählrichtung im eingelernten Bereich
+      // wird gespiegelt. Jede gespeicherte Position bleibt physisch, wo sie war (0° liegt jetzt am anderen Ende).
+      float mx = cfg.angMax;
+      cfg.angOff = 180.0f - (cfg.angOff + mx);
+      cfg.angPark = mx - cfg.angPark;
+      for (int i = 0; i < NUM_PLACES; i++) cfg.ang[i] = mx - cfg.ang[i];
+      servoCur = mx - servoCur; servoTgt = mx - servoTgt;
+      Serial.println("[Servo] Drehrichtung gespiegelt – Rohr bleibt stehen");
+    }
     settingsSave();
     applyLedCount();
-    servoWrite(servoCur);          // z. B. geänderte Drehrichtung sofort übernehmen
+    servoWrite(servoCur);          // gleiche Stellung, ggf. neue Impulsbreiten
     if (!pourBusy()) aim(aimIdx);
     sendCfg();
     toast("Gespeichert");
@@ -1201,6 +1335,8 @@ static void buildState(String& out) {
   d["ang"] = roundf((teach ? servoCur - cfg.angOff : servoCur) * 10) / 10;
   d["phys"] = roundf(physAngle() * 10) / 10;
   d["teach"] = teach;
+  d["drv"] = driveAtBoot;
+  if (stepperOn()) { d["home"] = homeSt; d["hsw"] = homeHit(); }
   OnlineUpd::statusJson(d["upd"].to<JsonObject>());
   if (rbMsg.length()) d["rb"] = rbMsg;
   d["ph"] = PHASE_NAMES[pour.ph];
@@ -1488,10 +1624,31 @@ void setup() {
   ledcAttachPin(PIN_PUMP2, CH_PUMP2);
   pumpSet(0);
 
-  ledcSetup(CH_SERVO, 50, 16);
-  ledcAttachPin(PIN_SERVO, CH_SERVO);
+  driveAtBoot = cfg.drive;
   servoCur = servoTgt = cfg.angPark;
-  servoWrite(servoCur);
+  if (stepperOn()) {
+    pinMode(PIN_STEP, OUTPUT); digitalWrite(PIN_STEP, LOW);
+    pinMode(PIN_DIR, OUTPUT);  digitalWrite(PIN_DIR, LOW);
+    pinMode(PIN_EN, OUTPUT);   stepEnable(false);
+    pinMode(PIN_HOME, INPUT_PULLUP);
+    stepTimer = timerBegin(0, 80, true);              // 1 MHz (Hardware-Timer 0)
+    timerAttachInterrupt(stepTimer, &stepIsr, true);
+    timerAlarmWrite(stepTimer, STEP_TICK_US, true);   // alle 25 µs
+    timerAlarmEnable(stepTimer);
+    delay(5);
+    if (!stepTicks) { stepFallback = true; Serial.println("[Antrieb] Hardware-Timer liefert keinen Takt – Schritte aus dem Hauptloop"); }
+    homeStart();
+    Serial.printf("[Antrieb] Schrittmotor, %.2f Schritte/°\n", stepsPerDeg());
+#ifdef LH_STEP_DEBUG
+    Serial.printf("[Test] Timer %p, Zähler %llu\n", stepTimer, stepTimer ? timerRead(stepTimer) : 0ULL); delay(100);
+    Serial.printf("[Test] Zähler nach 100 ms %llu\n", stepTimer ? timerRead(stepTimer) : 0ULL);
+    for (uint32_t t0 = millis(); millis() - t0 < 6000;) { homeLoop(); stepPoll(); delayMicroseconds(200); }   // Emulator-Test: Schrittausgabe prüfen
+#endif
+  } else {
+    ledcSetup(CH_SERVO, 50, 16);
+    ledcAttachPin(PIN_SERVO, CH_SERVO);
+    servoWrite(servoCur);
+  }
 
   ledcSetup(CH_BTN_LED, 5000, 8);
   ledcAttachPin(PIN_BTN_LED, CH_BTN_LED);
@@ -1510,7 +1667,9 @@ void setup() {
 
   Scales::begin();
 
+#ifndef LH_STEP_DEBUG   // Test im Emulator: dort gibt es kein WLAN
   wifiBegin();
+#endif
   webBegin();
   Improv::begin({improvConnect, improvConnected, improvUrl, improvName});
 }
@@ -1527,6 +1686,8 @@ void loop() {
   OnlineUpd::loop(WiFi.status() == WL_CONNECTED, cfg.updAuto);
   updHealthLoop();
   partyLoop();
+  homeLoop();
+  stepPoll();
   diagLoop();
   if (OnlineUpd::takeListChanged()) sendRels();
   {

@@ -54,6 +54,16 @@ struct Settings {
   float    angPark     = 0.0f;
   float    ang[NUM_PLACES] = {18.3f, 36.7f, 55.0f, 73.3f, 91.7f, 110.0f};  // Park 0°, ausgefahren 110°
   float    servoSpeed  = 120.0f;  // °/s
+  float    servoAccel  = 360.0f;  // °/s² – sanftes Anfahren/Bremsen (0 = aus)
+  // Antrieb: 0 = Servo, 1 = Schrittmotor (STEP/DIR/EN + Endschalter)
+  uint8_t  drive       = 0;
+  uint16_t stepRev     = 200;     // Vollschritte pro Motorumdrehung (1,8° = 200)
+  uint8_t  stepMicro   = 16;      // Microstepping am Treiber
+  float    stepGear    = 1.0f;    // Untersetzung Motor : Rohr (z. B. 3 bei 20→60 Zähnen)
+  bool     stepDirInv  = false;   // Drehrichtung des Motors umkehren
+  bool     stepRelease = false;   // nach Erreichen stromlos (Achtung: Position kann verloren gehen)
+  bool     homeInv     = false;   // Endschalter schaltet HIGH statt LOW
+  float    homeSpeed   = 20.0f;   // °/s bei der Referenzfahrt
   bool     servoReverse = false;  // Drehrichtung umkehren (0° liegt dann auf der anderen Seite)
   bool     servoRelease = true;   // Servo nach Erreichen der Position stromlos schalten (kein Brummen/Zittern)
   uint16_t servoHoldMs  = 700;    // so lange nach dem Ankommen noch halten
@@ -68,7 +78,7 @@ struct Settings {
   float    angOff      = 0;
   float    angMax      = 120;
   uint16_t servoMinUs  = 500;     // Impuls bei 0°
-  uint16_t servoMaxUs  = 2400;    // Impuls bei 180°
+  uint16_t servoMaxUs  = 2500;    // Impuls bei 180° (JX 5521MG: 500–2500 µs)
 
   // --- LEDs / Bedienung ---
   uint8_t  ledBright   = 60;      // %
