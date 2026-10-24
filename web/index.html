@@ -701,6 +701,7 @@ function updHtml(){
   const opts=list.map(r=>{const c=verCmp(r.tag,cur);return `<option value="${r.tag}" ${r.tag===sel?"selected":""}>${r.tag} · ${r.d.split("-").reverse().join(".")}${c===0?" · installiert":c>0?" · neu":" · älter"}${r.pre?" · Vorabversion":""}</option>`}).join("");
   const dl=u.st===2;
   return `<h3>Online-Update</h3>
+    <a class="btn" style="display:block;text-align:center;margin:0 0 10px;text-decoration:none" href="https://mariofritzer.github.io/Liquid-Harvest/anleitung.pdf" target="_blank" rel="noopener">📖 Anleitung (PDF) herunterladen</a>
     <div class="f"><label>Internet<small>${net}</small></label><button class="sbtn" onclick="send({c:'updCheck'})" ${u.st?"disabled":""}>Jetzt prüfen</button></div>
     <div class="f"><label>Installiert</label><span>v${cur.replace(/^v/,"")}</span></div>
     ${u.new?`<div class="f"><label>Neueste Version</label><span>${u.new}${u.av?' <b style="color:var(--gold2)">· neu</b>':" · aktuell"}</span></div>`:""}

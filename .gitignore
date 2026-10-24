@@ -4,3 +4,4 @@ src/web_index.h
 flasher/firmware/*.bin
 data/
 fs-image.bin
+node_modules/

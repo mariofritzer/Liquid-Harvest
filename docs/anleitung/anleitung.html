@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Liquid Harvest – Anleitung</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm 15mm; }
+  :root { --gold:#b4c618; --ink:#1b1d17; --mute:#5d6152; --line:#d9dcc9; --soft:#f4f6e6; --red:#c62828; }
+  * { box-sizing: border-box; }
+  body { font-family: "Inter","Segoe UI","DejaVu Sans",Arial,sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.5; margin: 0; }
+  h1 { font-size: 26pt; margin: 0 0 4mm; letter-spacing: -.02em; }
+  h2 { font-size: 15pt; margin: 9mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 2px solid var(--gold); break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 5mm 0 1.5mm; break-after: avoid; }
+  p { margin: 0 0 2.5mm; }
+  ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+  li { margin: .8mm 0; }
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; font-size: 10pt; break-inside: avoid; }
+  th, td { text-align: left; vertical-align: top; padding: 2mm 2.5mm; border-bottom: 1px solid var(--line); }
+  th { background: var(--soft); font-weight: 700; }
+  td:first-child { white-space: nowrap; font-weight: 600; }
+  .cover { height: 240mm; display: flex; flex-direction: column; justify-content: center; break-after: page; }
+  .cover .logo { width: 22mm; height: 22mm; border-radius: 5mm; background: var(--gold); display: grid; place-items: center; font-size: 15mm; margin-bottom: 8mm; }
+  .cover .sub { font-size: 14pt; color: var(--mute); margin-bottom: 10mm; }
+  .cover .meta { font-size: 10pt; color: var(--mute); }
+  .box { border: 1px solid var(--line); background: var(--soft); border-radius: 3mm; padding: 3.5mm 4.5mm; margin: 3mm 0 4mm; break-inside: avoid; }
+  .box.warn { background: #fff4e5; border-color: #f0c27b; }
+  .box.stop { background: #fdecea; border-color: #f2a7a0; }
+  .box b.t { display: block; margin-bottom: 1mm; }
+  .row { display: flex; gap: 6mm; align-items: flex-start; break-inside: avoid; margin: 2mm 0 4mm; }
+  .row .txt { flex: 1; }
+  .shot { width: 50mm; border-radius: 3mm; border: 1px solid var(--line); flex: none; }
+  .shot.wide { width: 70mm; }
+  .key { display: inline-block; border: 1px solid #b9bca8; border-bottom-width: 2px; border-radius: 1.5mm; padding: 0 1.6mm; font-size: 9pt; font-weight: 700; background: #fff; white-space: nowrap; }
+  .toc { columns: 2; column-gap: 10mm; font-size: 10.5pt; }
+  .toc div { break-inside: avoid; margin: 1mm 0; }
+  .new { border-left: 4px solid var(--gold); padding: 2mm 4mm; background: var(--soft); white-space: pre-line; font-size: 9.5pt; }
+  .page-break { break-before: page; }
+  .muted { color: var(--mute); }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="logo">🌾</div>
+  <h1>Liquid Harvest</h1>
+  <div class="sub">Der Schnaps-Mähdrescher – Anleitung für den Alltag</div>
+  <div class="meta">Firmware-Version <b>{{VERSION}}</b> · Stand {{DATE}}<br>Diese Anleitung wird mit jeder neuen Version automatisch neu erstellt.</div>
+  <h3 style="margin-top:14mm">Neu in dieser Version</h3>
+  <div class="new">{{CHANGES}}</div>
+</section>
+
+<h2 style="margin-top:0">Inhalt</h2>
+<div class="toc">
+  <div>1. Was ist das?</div><div>2. Sicherheit</div><div>3. Einschalten und verbinden</div><div>4. Die Lichter verstehen</div>
+  <div>5. Bedienung am Gerät</div><div>6. Bedienung mit dem Handy</div><div>7. Party-Modus</div><div>8. Roulette</div>
+  <div>9. Einrichten (einmalig)</div><div>10. Reinigen und Pflege</div><div>11. Die Menge stimmt nicht?</div><div>12. Updates</div>
+  <div>13. Probleme und Lösungen</div>
+</div>
+
+<h2>1. Was ist das?</h2>
+<p>Der Liquid Harvest ist ein Spielzeug-Mähdrescher, der Schnaps einschenkt. Auf der Platte stehen bis zu <b>6 Gläser</b>, jedes auf einer eigenen kleinen <b>Waage</b>. Das Abtankrohr des Dreschers schwenkt über das Glas, eine kleine <b>Pumpe</b> holt den Schnaps aus der Flasche und füllt genau die eingestellte Menge ein – gemessen wird über das Gewicht.</p>
+<p>Bedienen kannst du ihn <b>direkt am Gerät</b> (Taster und Drehknopf) oder bequem mit dem <b>Handy</b> über eine Webseite – eine App muss man nicht installieren.</p>
+
+<h2>2. Sicherheit</h2>
+<div class="box stop"><b class="t">⛔ Notaus</b>Läuft etwas (Einschenken, Spülen, Roulette …), stoppt ein Druck auf den <span class="key">Taster</span> oder den <span class="key">Drehknopf</span> sofort alles: Pumpe aus, Rohr bleibt stehen. In der App gibt es außerdem den roten Knopf <b>STOPP</b>.</div>
+<ul>
+  <li>Alkohol nur an Erwachsene ausschenken – und in Maßen.</li>
+  <li>Glas weggenommen? Der Drescher hört sofort auf zu pumpen.</li>
+  <li>Nicht an den Drescher stoßen, während er sich bewegt – das Rohr kann kräftig schwenken.</li>
+  <li>Netzteil und Elektronik von Flüssigkeit fernhalten. Verschüttetes sofort wegwischen.</li>
+  <li>Schlauch und Rohr sind lebensmittelecht. Nach dem Gebrauch spülen (Kapitel 10).</li>
+</ul>
+
+<h2>3. Einschalten und verbinden</h2>
+<ol>
+  <li>USB-C-Netzteil anstecken (mindestens 45 W). Der Drescher startet, das Rohr fährt in die <b>Parkposition</b>.</li>
+  <li>Die Waagen stellen sich beim Einschalten selbst auf 0. <b>Deshalb beim Einschalten keine Gläser draufstellen.</b></li>
+  <li>Mit dem Handy verbinden – eine der zwei Möglichkeiten:</li>
+</ol>
+<table>
+  <tr><th>Situation</th><th>So kommst du hin</th></tr>
+  <tr><td>Drescher ist in deinem WLAN</td><td>Im Browser <b>http://liquidharvest.local</b> öffnen (oder die IP-Adresse, die im Router steht).</td></tr>
+  <tr><td>Kein WLAN / unterwegs</td><td>Der Drescher macht nach ca. 20 Sekunden ein eigenes WLAN auf: <b>LiquidHarvest-XXXX</b>, Passwort <b>prost1234</b>. Verbinden – die Seite öffnet sich meist von selbst, sonst <b>http://192.168.4.1</b>.</td></tr>
+</table>
+<div class="box"><b class="t">Tipp</b>Den eigenen Hotspot kannst du jederzeit mit dem <span class="key">Drehknopf 3 s halten</span> ein- und ausschalten – auch wenn der Drescher im Heim-WLAN ist.</div>
+
+<h2>4. Die Lichter verstehen</h2>
+<h3>Lichter an den Gläsern</h3>
+<table>
+  <tr><th>Licht</th><th>Bedeutung</th></tr>
+  <tr><td>schwach rot</td><td>Kein Glas auf diesem Platz</td></tr>
+  <tr><td>blau</td><td>Leeres Glas erkannt – bereit</td></tr>
+  <tr><td>orange pulsierend</td><td>Das Rohr zielt auf dieses Glas</td></tr>
+  <tr><td>orange schnell</td><td>Schenkt gerade ein</td></tr>
+  <tr><td>grün</td><td>Fertig – Prost! Glas kann weg</td></tr>
+  <tr><td>rot blinkend</td><td>Fehler (Glas weg, Flasche leer, …)</td></tr>
+  <tr><td>violett blinkend</td><td>Diese Waage meldet sich nicht</td></tr>
+</table>
+<p class="muted">Farben und Effekte lassen sich in den Einstellungen ändern – die Tabelle zeigt die Grundeinstellung.</p>
+<h3>Rundumleuchte am Drescher</h3>
+<table>
+  <tr><th>Licht</th><th>Bedeutung</th></tr>
+  <tr><td>blinkt / dreht</td><td>Rohr bewegt sich, Pumpe läuft oder Rohr steht nicht in Parkposition</td></tr>
+  <tr><td>schwach grün</td><td>Steht still, mit dem Heim-WLAN verbunden</td></tr>
+  <tr><td>kurzer blauer Blitz</td><td>Eigener Hotspot ist an</td></tr>
+</table>
+<h3>Kurzes Blinken aller Lichter (Rückmeldung)</h3>
+<table>
+  <tr><th>Farbe</th><th>Was gerade passiert ist</th></tr>
+  <tr><td>blau / rot</td><td>Hotspot ein / aus</td></tr>
+  <tr><td>violett / orange</td><td>Party-Modus ein / aus</td></tr>
+  <tr><td>gelb / rot</td><td>Roulette-Modus ein / aus</td></tr>
+  <tr><td>weiß</td><td>Alle Waagen auf 0 gestellt</td></tr>
+</table>
+
+<h2>5. Bedienung am Gerät</h2>
+<p>Am Drescher gibt es einen großen <span class="key">Taster</span> (mit Licht) und einen <span class="key">Drehknopf</span>, den man auch drücken kann.</p>
+<table>
+  <tr><th>Was du tust</th><th>Was passiert</th></tr>
+  <tr><td>Drehknopf drehen</td><td>Rohr fährt von Glas zu Glas</td></tr>
+  <tr><td>Taster 1×</td><td>Steht das Rohr über einem Glas: <b>Einfach-Shot</b> (z. B. 2 cl).<br>Steht es in Parkposition: <b>alle leeren Gläser</b> nacheinander füllen.</td></tr>
+  <tr><td>Taster 2×</td><td>Wie oben, aber <b>Doppel-Shot</b></td></tr>
+  <tr><td>Taster lang halten</td><td><b>Leerpumpen</b>: Pumpe läuft rückwärts, solange du hältst – der Schlauch läuft zurück in die Flasche</td></tr>
+  <tr><td>Taster oder Drehknopf, während etwas läuft</td><td><b>Notaus</b></td></tr>
+  <tr><td>Drehknopf 1× drücken</td><td>Rohr in die Parkposition</td></tr>
+  <tr><td>Drehknopf 2×</td><td><b>Party-Modus</b> ein / aus (Kapitel 7)</td></tr>
+  <tr><td>Drehknopf 3×</td><td><b>Roulette-Modus</b> ein / aus (Kapitel 8)</td></tr>
+  <tr><td>Drehknopf 3 s halten</td><td>Eigenen <b>Hotspot</b> ein / aus</td></tr>
+  <tr><td>Taster + Drehknopf zusammen 3 s</td><td><b>Alle Waagen auf 0</b> stellen (vorher Gläser runter!)</td></tr>
+</table>
+<p class="muted">Das Licht im Taster zeigt, was ein Druck gerade bewirken würde – z. B. „bereit“, „über Glas“, „schenkt ein“ oder „Fehler“.</p>
+
+<h2>6. Bedienung mit dem Handy</h2>
+<div class="row"><img class="shot" src="shot:main"><div class="txt">
+  <h3 style="margin-top:0">Die Startseite</h3>
+  <ul>
+    <li>Oben siehst du den Drescher mit den 6 Plätzen. Ein Glas „poppt auf“, sobald du es hinstellst.</li>
+    <li>Darunter steht, was gerade passiert, mit Fortschrittsbalken.</li>
+    <li><b>Getränk</b> (nur wenn mehrere angelegt sind): auswählen, was in der Flasche ist.</li>
+    <li><b>Einfach / Doppelt</b>: Menge wählen.</li>
+    <li><b>Alle leeren Gläser füllen</b>: schenkt alle blauen Gläser nacheinander ein.</li>
+    <li><b>Parken</b>: Rohr in die Ausgangsstellung.</li>
+    <li>Während etwas läuft, erscheint ein roter <b>STOPP</b>-Knopf.</li>
+  </ul></div></div>
+<div class="row"><img class="shot" src="shot:sheet"><div class="txt">
+  <h3 style="margin-top:0">Ein einzelnes Glas</h3>
+  <p>Tippe auf ein Glas. Es öffnet sich ein Fenster: Menge mit dem Regler oder den Schnellknöpfen wählen, dann <b>Einschenken</b>. Mit <b>Anfahren</b> fährt nur das Rohr hin.</p>
+  <p>Die Leiste mit 🥃 zeigt, wie viele Stamperl in dieser Runde (Session) und insgesamt eingeschenkt wurden. Antippen öffnet die Zähler – dort kannst du sie zurücksetzen (zur Sicherheit muss man <b>reset</b> eintippen).</p>
+</div></div>
+<div class="box"><b class="t">Einstellungen</b>Das Zahnrad ⚙️ oben rechts öffnet die Einstellungen. Für den normalen Betrieb brauchst du sie nicht.</div>
+
+<h2>7. Party-Modus – Selbstbedienung</h2>
+<div class="row"><img class="shot" src="shot:party"><div class="txt">
+  <p>Im Party-Modus bedienen sich die Gäste selbst: <b>Leeres Glas hinstellen – nach 2 Sekunden wird es automatisch gefüllt.</b> Glas wegnehmen stoppt sofort.</p>
+  <ul>
+    <li><b>Einschalten:</b> Drehknopf 2× drücken oder ⚙️ → Ausschank → <i>Party starten</i>.</li>
+    <li><b>Ausschalten:</b> Drehknopf 2× oder in der App oben auf <b>🎉 Party</b> <b>3 Sekunden</b> drücken.</li>
+    <li>Die Einstellungen sind während der Party ausgeblendet – Gäste können nichts verstellen.</li>
+    <li>Jedes Glas wird einmal gefüllt. Für Nachschub kurz anheben und wieder hinstellen.</li>
+    <li>Die Party hat einen eigenen Zähler. Die normalen Zähler laufen weiter.</li>
+  </ul>
+  <div class="box warn"><b class="t">Achtung</b>Der Drescher kann nicht sehen, ob schon etwas im Glas ist. Bitte nur <b>leere</b> Gläser hinstellen.</div>
+</div></div>
+
+<h2>8. Roulette</h2>
+<div class="row"><img class="shot" src="shot:roul"><div class="txt">
+  <ol>
+    <li><b>Drehknopf 3× drücken</b> – Roulette-Modus ist an, über die Gläser läuft ein Lauflicht.</li>
+    <li>Alle stellen ein <b>leeres Glas</b> hin.</li>
+    <li><b>Taster drücken:</b> 1× = 1 Glas gewinnt, 2× = 2 Gläser, 3× = 3 Gläser …<br><b>Taster gedrückt halten</b> = zufällige Anzahl.</li>
+    <li>Das Rohr fährt hin und her, wird langsamer und bleibt stehen – die Gewinner werden gefüllt.</li>
+    <li>Gleich die nächste Runde: Gläser hinstellen, Taster drücken.</li>
+    <li><b>Drehknopf 3×</b> beendet den Roulette-Modus.</li>
+  </ol>
+  <p>In der App geht das genauso mit den Knöpfen 🎯 1 / 2 / 3 und 🎲.</p>
+</div></div>
+
+<h2>9. Einrichten (einmalig)</h2>
+<p>Diese Schritte macht man einmal nach dem Zusammenbau oder wenn etwas umgebaut wurde. Alles findest du unter ⚙️.</p>
+
+<h3>9.1 Waagen (⚙️ → Waagen)</h3>
+<div class="row"><img class="shot" src="shot:scales"><div class="txt">
+  <ol>
+    <li>Alle Gläser runter. Bei jeder Waage <b>Tara</b> drücken (oder unten „Alle leeren Waagen tarieren“).</li>
+    <li>Ein bekanntes Gewicht auflegen – z. B. eine Packung mit 100 g oder 100 ml Wasser in einem gewogenen Becher.</li>
+    <li>Das Gewicht eintragen und <b>Kalibrieren</b> drücken. Für jede Waage wiederholen.</li>
+    <li><b>Zuordnung Glas ↔ Waage:</b> Hand auf einen Platz legen und schauen, welche Waage reagiert – die wird diesem Glas zugeordnet.</li>
+    <li>Springt die Anzeige stark? <b>Diagnose öffnen</b> zeigt, welche Waage „rauscht“, und gibt Tipps.</li>
+  </ol>
+</div></div>
+
+<h3>9.2 Rohr (⚙️ → Antrieb)</h3>
+<div class="row"><img class="shot" src="shot:teach"><div class="txt">
+  <p><b>Schwenkbereich einlernen</b> – damit das Rohr nie irgendwo anstößt:</p>
+  <ol>
+    <li><b>Bereich einlernen</b> tippen.</li>
+    <li>Mit <b>−1° / +1°</b> (gedrückt halten = weiterfahren) an den einen Anschlag fahren → <b>Hier ist Min</b>.</li>
+    <li>An den anderen Anschlag fahren → <b>Hier ist Max</b> → <b>Fertig</b>.</li>
+  </ol>
+  <p><b>Glaspositionen einstellen:</b> „Winkel bearbeiten“ anhaken, mit dem Regler das Rohr genau über die Glasmitte stellen, für alle Gläser und die Parkposition wiederholen, dann <b>Winkel speichern</b>.</p>
+</div></div>
+
+<h3>9.3 Pumpe (⚙️ → Pumpe)</h3>
+<div class="row"><img class="shot" src="shot:pump"><div class="txt">
+  <ol>
+    <li>Schlauch in die Flasche, Becher unter das Rohr.</li>
+    <li><b>Schlauch füllen</b> → <b>Start</b>, bis Schnaps kommt.</li>
+    <li>Pumpt die Pumpe in die falsche Richtung? <b>Drehrichtung umkehren</b> einschalten und speichern.</li>
+  </ol>
+</div></div>
+
+<h3>9.4 Getränke und Mengen (⚙️ → Ausschank)</h3>
+<p>Unter <b>Getränke</b> kannst du mehrere Getränke anlegen (z. B. Schnaps und Likör). Jedes hat eigene Mengen für Einfach und Doppel. Dickflüssiges wie Likör tropft anders nach – der Drescher lernt das pro Getränk selbst dazu.</p>
+
+<h3>9.5 Lichter (⚙️ → LEDs)</h3>
+<p>Hier legst du fest, welche LED zu welchem Glas gehört (<b>Testen</b> lässt sie weiß blinken), und stellst Farben, Rundumleuchte und Roulette-Lauflicht ein.</p>
+
+<h2>10. Reinigen und Pflege</h2>
+<div class="row"><img class="shot" src="shot:clean"><div class="txt">
+  <p>Nach einer Feier oder wenn die App „Reinigung fällig“ meldet (⚙️ → Pumpe → Reinigung):</p>
+  <ol>
+    <li>Großen Becher unter das Rohr stellen, Ansaugschlauch in warmes Wasser → <b>Spülen</b>.</li>
+    <li>Schlauch aus dem Wasser nehmen → <b>Leer pumpen</b>.</li>
+    <li>Schlauch zurück in die Flasche → <b>Reinigung erledigt</b>.</li>
+  </ol>
+  <p>Die Erinnerung kommt nach einer einstellbaren Anzahl Gläser oder Tage.</p>
+  <div class="box"><b class="t">Flasche wechseln</b><span class="key">Taster lang halten</span> pumpt den Schlauch zurück in die Flasche leer – dann tropft beim Wechseln nichts.</div>
+</div></div>
+
+<h2>11. Die Menge stimmt nicht?</h2>
+<p>Der Drescher misst das <b>Gewicht</b> und rechnet es in Milliliter um. Zwei Dinge müssen dafür stimmen:</p>
+<ol>
+  <li><b>Die Waage ist richtig kalibriert</b> (Kapitel 9.1).</li>
+  <li><b>Das Getränk passt:</b> ⚙️ → Ausschank → <b>Menge nachmessen</b>. Ein Glas einschenken, in einen Messbecher oder ein 2-cl-Eichmaß kippen und eintragen, was wirklich drin war → <b>Übernehmen</b>.</li>
+</ol>
+<p>Kommt etwas mehr oder weniger als eingestellt ins Glas, regelt sich das nach ein paar Gläsern meist von selbst („Nachlauf automatisch lernen“).</p>
+
+<h2>12. Updates</h2>
+<div class="row"><img class="shot" src="shot:update"><div class="txt">
+  <p>Gibt es eine neue Version, erscheint auf der Startseite <b>„Neue Version verfügbar“</b>.</p>
+  <ol>
+    <li><b>Ansehen</b> tippen (oder ⚙️ → System → Online-Update).</li>
+    <li>Version auswählen → <b>Installieren</b>. Nicht ausschalten, bis er neu gestartet hat.</li>
+  </ol>
+  <p>Einstellungen, Kalibrierung und Zähler bleiben erhalten. Startet eine neue Version nicht richtig, nimmt der Drescher automatisch wieder die vorherige.</p>
+  <p class="muted">Diese Anleitung als PDF gibt es zu jeder Version unter ⚙️ → System → Anleitung.</p>
+</div></div>
+
+<h2>13. Probleme und Lösungen</h2>
+<table>
+  <tr><th>Problem</th><th>Was hilft</th></tr>
+  <tr><td>Seite lässt sich nicht öffnen</td><td>Ist das Handy im selben WLAN? Sonst mit dem Hotspot <b>LiquidHarvest-XXXX</b> verbinden (Passwort <b>prost1234</b>) und <b>http://192.168.4.1</b> öffnen. Drehknopf 3 s halten schaltet den Hotspot ein.</td></tr>
+  <tr><td>Glas wird nicht erkannt</td><td>Glas mittig hinstellen. Ohne Glas Waage auf 0 stellen (Taster + Drehknopf 3 s). Leuchtet der Platz violett, meldet sich die Waage nicht – Kabel prüfen.</td></tr>
+  <tr><td>„Kein Durchfluss“</td><td>Flasche leer oder Schlauch nicht in der Flasche. Schlauch füllen (Kapitel 9.3).</td></tr>
+  <tr><td>Es tropft beim Schwenken</td><td>⚙️ → Ausschank → „Pause nach dem Einfüllen“ erhöhen. Mit H-Brücke hilft „Zurücksaugen“ (⚙️ → Pumpe).</td></tr>
+  <tr><td>Zu viel / zu wenig im Glas</td><td>Siehe Kapitel 11.</td></tr>
+  <tr><td>Rohr trifft das Glas nicht</td><td>⚙️ → Antrieb → „Winkel bearbeiten“ und die Position nachstellen.</td></tr>
+  <tr><td>Rohr zittert oder brummt</td><td>⚙️ → Antrieb → „Nach Erreichen stromlos“ einschalten.</td></tr>
+  <tr><td>Anzeige springt</td><td>⚙️ → Waagen → Diagnose öffnen; Tipps unter „Woher kommt Rauschen?“.</td></tr>
+  <tr><td>Roter Hinweis „Update … nicht sauber gestartet“</td><td>Der Drescher hat die vorherige Version wiederhergestellt. Mit OK bestätigen; später erneut versuchen.</td></tr>
+  <tr><td>Gar nichts geht mehr</td><td>Netzteil kurz abziehen und wieder anstecken. Hilft das nicht: Firmware neu aufspielen über den Web-Installer (Adresse in der README auf GitHub).</td></tr>
+</table>
+<p class="muted" style="margin-top:8mm">Liquid Harvest · github.com/mariofritzer/Liquid-Harvest · Firmware {{VERSION}}</p>
+
+</body>
+</html>

@@ -4,9 +4,11 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 
 <p align="center"><img src="docs/images/hero.png" alt="Isometrische Live-Ansicht: Mähdrescher schenkt Glas 1 ein" width="820"></p>
 
-<p align="center"><a href="https://mariofritzer.github.io/Liquid-Harvest/"><b>⚡ Web-Installer öffnen</b></a> · <a href="#verdrahtung">Verdrahtung</a> · <a href="#bedienung-am-gerät">Bedienung</a> · <a href="#rest-api">API</a></p>
+<p align="center"><a href="https://mariofritzer.github.io/Liquid-Harvest/"><b>⚡ Web-Installer öffnen</b></a> · <a href="https://mariofritzer.github.io/Liquid-Harvest/anleitung.pdf"><b>📖 Anleitung (PDF)</b></a> · <a href="#verdrahtung">Verdrahtung</a> · <a href="#bedienung-am-gerät">Bedienung</a> · <a href="#rest-api">API</a></p>
 
 **➜ Firmware installieren:** [mariofritzer.github.io/Liquid-Harvest](https://mariofritzer.github.io/Liquid-Harvest/) in Chrome oder Edge öffnen, ESP32 per USB anstecken, auf *Installieren* klicken. Danach fragt der Installer direkt nach den WLAN-Daten (Improv).
+
+**📖 Anleitung für den Alltag:** [anleitung.pdf](https://mariofritzer.github.io/Liquid-Harvest/anleitung.pdf) – einfach erklärt, mit Bildern aus der App. Wird bei jeder neuen Version automatisch neu erstellt und hängt auch an jedem [Release](https://github.com/mariofritzer/Liquid-Harvest/releases).
 
 ---
 
@@ -180,6 +182,7 @@ Jeder Push auf `main` baut die Firmware und aktualisiert den Web-Installer. Ist 
 src/            Firmware (main.cpp, scales.cpp, settings.cpp, improv_serial.cpp, pins.h)
 web/            Weboberfläche (eine Datei, wird eingebettet)
 docs/images/    Bilder für diese README
+docs/anleitung/ Laien-Anleitung (HTML-Vorlage + build.mjs -> PDF mit App-Screenshots)
 flasher/        Web-Installer (GitHub Pages, ESP Web Tools)
 scripts/        Build-Helfer (Web einbetten, Flash-Image zusammenführen)
 .github/        GitHub Actions: Build + Pages-Deploy + Releases

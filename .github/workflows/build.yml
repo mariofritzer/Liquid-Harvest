@@ -81,6 +81,16 @@ jobs:
           cat site/manifest.json
           ls -la site site/firmware
 
+      - name: Anleitung (PDF) erzeugen
+        continue-on-error: true
+        run: |
+          # Laien-Anleitung mit aktuellen Screenshots aus der App – bei jeder Version neu
+          npm i --no-save --no-audit --no-fund playwright@1.56.1 > npm.log 2>&1
+          npx playwright install --with-deps chromium > pw.log 2>&1
+          node docs/anleitung/build.mjs site/anleitung.pdf
+          cp site/anleitung.pdf "site/Liquid-Harvest-Anleitung-v$VERSION.pdf"
+          echo "::notice title=Anleitung::Liquid-Harvest-Anleitung-v$VERSION.pdf erstellt ($(du -k site/anleitung.pdf | cut -f1) kB)"
+
       - name: Release für neue Version (Online-Update)
         if: github.ref == 'refs/heads/main'
         env:
@@ -89,8 +99,13 @@ jobs:
           # Jede neue FW_VERSION wird automatisch ein Release – daraus holen sich die Geräte ihre Updates
           if gh release view "v$VERSION" >/dev/null 2>&1; then
             echo "Release v$VERSION gibt es schon"
+            # Anleitung nachreichen, falls sie beim Release noch fehlte
+            if [ -f "site/Liquid-Harvest-Anleitung-v$VERSION.pdf" ] && ! gh release view "v$VERSION" --json assets -q '.assets[].name' | grep -q Anleitung; then
+              gh release upload "v$VERSION" "site/Liquid-Harvest-Anleitung-v$VERSION.pdf"
+            fi
           else
-            gh release create "v$VERSION" site/firmware/liquid-harvest-ota.bin site/firmware/liquid-harvest-esp32.bin \
+            PDF=$(ls site/Liquid-Harvest-Anleitung-v*.pdf 2>/dev/null || true)
+            gh release create "v$VERSION" site/firmware/liquid-harvest-ota.bin site/firmware/liquid-harvest-esp32.bin $PDF \
               --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
             echo "::notice title=Release::v$VERSION veröffentlicht – Geräte bieten das Update an"
           fi
