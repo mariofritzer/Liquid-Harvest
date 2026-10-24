@@ -28,6 +28,7 @@ struct Settings {
   float    slowBefore  = 3.0f;    // so viele g vor Ziel auf langsam schalten
   float    stopBefore  = 0.3f;    // so viele g vor Ziel stoppen (Nachlauf)
   bool     autoTune    = true;    // Nachlauf nach jedem Glas selbst nachstellen
+  bool     pumpInv = false;       // Pumpendrehrichtung umkehren (nur H-Brücke)
   uint8_t  pumpDriver  = 0;       // 0 = MOSFET-Modul (D4184), 1 = H-Brücke (DRV8871, BTS7960, L298N …)
   uint16_t retractMs   = 300;     // H-Brücke: nach dem Einschenken so lange rückwärts (gegen Nachtropfen), 0 = aus
   uint8_t  retractPwm  = 80;      // Leistung beim Zurücksaugen [%]

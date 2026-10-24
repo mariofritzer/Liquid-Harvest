@@ -406,17 +406,20 @@ static void servoLoop() {
 static uint8_t pumpRev = 0;          // H-Brücke: Rückwärts-Leistung (Zurücksaugen)
 static uint32_t retractUntil = 0;
 // Vorwärts mit pct %. MOSFET-Modul: nur PWM an IN/Gate. H-Brücke: IN1 = PWM, IN2 = 0 (Freilauf in den Pausen).
+// H-Brücke mit "Drehrichtung umkehren": IN1 und IN2 tauschen die Rollen
+static int chFwd() { return (cfg.pumpDriver == 1 && cfg.pumpInv) ? CH_PUMP2 : CH_PUMP; }
+static int chRev() { return (cfg.pumpDriver == 1 && cfg.pumpInv) ? CH_PUMP : CH_PUMP2; }
 static void pumpSet(uint8_t pct) {
   pumpPct = pct; pumpRev = 0; retractUntil = 0;
-  ledcWrite(CH_PUMP2, 0);
-  ledcWrite(CH_PUMP, (uint32_t)pct * 255 / 100);
+  ledcWrite(chRev(), 0);
+  ledcWrite(chFwd(), (uint32_t)pct * 255 / 100);
 }
-// Rückwärts (nur H-Brücke): IN1 = 0, IN2 = PWM
+// Rückwärts (nur H-Brücke): vorwärts-Eingang = 0, rückwärts-Eingang = PWM
 static void pumpReverse(uint8_t pct, uint32_t ms) {
   if (cfg.pumpDriver != 1 || !ms) return;
-  ledcWrite(CH_PUMP, 0);
+  ledcWrite(chFwd(), 0);
   pumpPct = 0; pumpRev = pct;
-  ledcWrite(CH_PUMP2, (uint32_t)pct * 255 / 100);
+  ledcWrite(chRev(), (uint32_t)pct * 255 / 100);
   retractUntil = millis() + ms;
 }
 
@@ -1285,9 +1288,13 @@ static void handleCmd(const String& msg) {
     JsonObject o = d["cfg"];
     // WLAN-Felder nur über "wifi"
     o.remove("ssid"); o.remove("pass"); o.remove("apPass"); o.remove("host"); o.remove("apAlways");
-    bool oldRev = cfg.servoReverse;
-    uint8_t oldDrive = cfg.drive;
+    bool oldRev = cfg.servoReverse, oldPumpInv = cfg.pumpInv;
+    uint8_t oldDrive = cfg.drive, oldPumpDrv = cfg.pumpDriver;
     settingsFromJson(o);
+    if (cfg.pumpInv != oldPumpInv || cfg.pumpDriver != oldPumpDrv) {   // Ausgänge sofort neu zuordnen, nie beide gleichzeitig
+      ledcWrite(CH_PUMP, 0); ledcWrite(CH_PUMP2, 0);
+      if (pumpRev) pumpSet(0); else if (pumpPct) pumpSet(pumpPct);
+    }
     if (cfg.drive != oldDrive) { settingsSave(); sendCfg(); toast("Antrieb geändert – Neustart …"); pumpSet(0); rebootAt = millis() + 1500; return; }
     if (cfg.servoReverse != oldRev && (teach || pourBusy())) cfg.servoReverse = oldRev;   // nicht mitten im Einlernen/Einschenken
     else if (cfg.servoReverse != oldRev && o["ang"].isNull() && o["angOff"].isNull()) {

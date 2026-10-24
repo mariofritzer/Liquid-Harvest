@@ -151,7 +151,7 @@ void settingsToJson(JsonObject o) {
       x["sb"] = p.slowBefore; x["st"] = p.stopBefore; x["dr"] = p.dripMs;
     } }
   o["autoTune"] = cfg.autoTune;
-  o["pumpDriver"] = cfg.pumpDriver; o["retractMs"] = cfg.retractMs; o["retractPwm"] = cfg.retractPwm;
+  o["pumpDriver"] = cfg.pumpDriver; o["pumpInv"] = cfg.pumpInv; o["retractMs"] = cfg.retractMs; o["retractPwm"] = cfg.retractPwm;
   o["cleanShots"] = cfg.cleanShots; o["cleanDays"] = cfg.cleanDays; o["cleanRinseS"] = cfg.cleanRinseS; o["cleanDryS"] = cfg.cleanDryS; o["cleanPos"] = cfg.cleanPos;
   o["shotsSinceClean"] = cfg.shotsSinceClean; o["lastClean"] = cfg.lastClean;
   { JsonArray bm = o["beaconMap"].to<JsonArray>(); for (int k = 0; k < cfg.beaconN; k++) bm.add(cfg.beaconMap[k]);
@@ -216,7 +216,7 @@ void settingsFromJson(JsonObjectConst o) {
   rd(o, "pwmSlow", cfg.pwmSlow);     rd(o, "slowBefore", cfg.slowBefore);
   rd(o, "stopBefore", cfg.stopBefore);
   rd(o, "autoTune", cfg.autoTune);
-  rd(o, "pumpDriver", cfg.pumpDriver); rd(o, "retractMs", cfg.retractMs); rd(o, "retractPwm", cfg.retractPwm);
+  rd(o, "pumpDriver", cfg.pumpDriver); rd(o, "pumpInv", cfg.pumpInv); rd(o, "retractMs", cfg.retractMs); rd(o, "retractPwm", cfg.retractPwm);
   rd(o, "cleanShots", cfg.cleanShots); rd(o, "cleanDays", cfg.cleanDays); rd(o, "cleanRinseS", cfg.cleanRinseS); rd(o, "cleanDryS", cfg.cleanDryS); rd(o, "cleanPos", cfg.cleanPos);
   rd(o, "shotsSinceClean", cfg.shotsSinceClean); rd(o, "lastClean", cfg.lastClean);
   { JsonArrayConst bm = o["beaconMap"];
