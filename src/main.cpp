@@ -730,6 +730,7 @@ static void toggleForcedAP();
 //  Party-Modus + Roulette
 // ---------------------------------------------------------------------
 static struct { uint8_t st = 0; int target = -1; std::vector<int> seq; size_t pos = 0; uint32_t next = 0, armedAt = 0; } roul;
+static bool roulMode = false;   // Roulette-Modus (Encoder-Knopf 3×): jede Runde per Taster, bis er wieder aus ist
 static uint8_t roulState() { return roul.st; }   // 0 aus, 1 Runde offen (Gläser hinstellen), 2 dreht
 static bool roulBusy() { return roul.st == 2; }
 
@@ -750,7 +751,7 @@ static void partySet(bool on) {
 static void roulSpin() {
   std::vector<int> cand;
   for (int i = 0; i < NUM_PLACES; i++) if (places[i].st == P_GLASS && !pourActiveOn(i)) cand.push_back(i);
-  if (cand.empty()) { toast("Kein leeres Glas für Roulette"); roul.st = 0; return; }
+  if (cand.empty()) { toast("Kein leeres Glas für Roulette"); roul.st = roulMode ? 1 : 0; return; }
   for (int i : cand) places[i].autoDone = true;              // Party: die anderen nicht automatisch füllen
   roul.target = cand[esp_random() % cand.size()];
   // Fahrweg: alle Plätze mit Glas der Reihe nach, zwei Runden hin und her, dann auf das Ziel
@@ -770,9 +771,18 @@ static void roulButton() {     // App-Knopf oder Taster 3×
   roulSpin();
 }
 
+static void roulModeSet(bool on) {
+  if (on && (pourBusy() || teach)) { toast("Erst fertig einschenken bzw. Einlernen beenden"); return; }
+  roulMode = on;
+  roul.st = on ? 1 : (roul.st == 2 ? 2 : 0);
+  ledFlashColor = on ? strip.Color(255, 180, 0) : strip.Color(255, 0, 0);
+  ledFlashUntil = millis() + 900;
+  toast(on ? "🎯 Roulette-Modus: leere Gläser hinstellen, Taster = Los" : "Roulette-Modus aus");
+}
+
 static void partyLoop() {
   uint32_t now = millis();
-  if (roul.st == 1 && now - roul.armedAt > 120000) roul.st = 0;   // Runde verfällt nach 2 min
+  if (roul.st == 1 && !roulMode && now - roul.armedAt > 120000) roul.st = 0;   // Runde verfällt nach 2 min
   if (roul.st == 2) {
     if (now < roul.next || !servoArrived()) return;
     if (roul.pos < roul.seq.size()) {
@@ -783,7 +793,7 @@ static void partyLoop() {
       roul.pos++;
     } else {
       int t = roul.target;
-      roul.st = 0;
+      roul.st = roulMode ? 1 : 0;   // im Roulette-Modus gleich die nächste Runde
       event("roulette", t);
       toast("🎯 Glas " + String(t + 1) + " gewinnt!");
       if (places[t].st == P_GLASS) enqueue(t, cfg.shotMl, SRC_AUTO);
@@ -808,7 +818,7 @@ static bool somethingRunning() {
   return pourBusy() || roul.st == 2 || (stepperOn() && (homeSt == HOME_SEEK || homeSt == HOME_BACKOFF));
 }
 static void emergencyStop(const char* why) {
-  roul.st = 0;
+  roul.st = roulMode ? 1 : 0;
   if (stepperOn() && (homeSt == HOME_SEEK || homeSt == HOME_BACKOFF)) homeSt = HOME_FAIL;
   stopAll(why);
   pumpSet(0);
@@ -847,7 +857,8 @@ static void inputLoop() {
     else if (aimIdx == 0) startPrime(15000, true);
   }
 
-  if (encBtn.clickResult == 2) partySet(!cfg.party);         // Encoder-Knopf 2×: Party an/aus
+  if (encBtn.clickResult >= 3) roulModeSet(!roulMode);      // Encoder-Knopf 3×: Roulette-Modus an/aus
+  else if (encBtn.clickResult == 2) partySet(!cfg.party);    // Encoder-Knopf 2×: Party an/aus
   else if (encBtn.clickResult && !pourBusy()) aim(0);
   if (encBtn.longResult) toggleForcedAP();   // 3 s: offenen Hotspot ein / aus
 
@@ -1297,7 +1308,9 @@ static void handleCmd(const String& msg) {
   } else if (c == "roulette") {
     if (pourBusy()) toast("Erst fertig einschenken"); else roulButton();
   } else if (c == "roulOff") {
-    if (roul.st == 1) roul.st = 0;
+    if (roulMode) roulModeSet(false); else if (roul.st == 1) roul.st = 0;
+  } else if (c == "roulMode") {
+    roulModeSet(d["on"] | false);
   } else if (c == "diag") {
     diagUntil = (d["on"] | false) ? millis() + 30000 : 0;
   } else if (c == "rbAck") {
@@ -1419,6 +1432,7 @@ static void buildState(String& out) {
     JsonObject pa = d["party"].to<JsonObject>();
     pa["on"] = cfg.party; pa["n"] = stats.parN; pa["ml"] = roundf(stats.parMl);
     pa["rou"] = roulState();
+    d["rm"] = roulMode;
   }
   d["pp"] = pour.p + 1;
   d["tgt"] = roundf(pour.ml * 10) / 10;

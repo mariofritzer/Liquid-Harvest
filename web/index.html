@@ -205,6 +205,11 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
     <p id="pcTxt">Glas hinstellen – wird automatisch gefüllt</p>
     <div class="pc-b"><button class="btn primary" id="pcRoul" onclick="send({c:'roulette'})">🎯 Roulette-Runde</button><button class="btn hide" id="pcRoulX" onclick="send({c:'roulOff'})">Abbrechen</button></div>
   </div>
+  <div class="partyCard hide" id="roulCard" style="background:linear-gradient(135deg,#ffb40022,#ff3c3c14);border-color:#ffb40066">
+    <div class="pc-h"><b>🎯 Roulette-Modus</b><span id="rcSt"></span></div>
+    <p id="rcTxt">Leere Gläser hinstellen – ein zufälliges gewinnt. Taster am Drescher = Los.</p>
+    <div class="pc-b"><button class="btn primary" id="rcGo" onclick="send({c:'roulette'})">🎯 Los!</button><button class="btn" onclick="send({c:'roulMode',on:false})">Beenden</button></div>
+  </div>
   <div class="cleanBar warn hide" id="rbBar"><span id="rbBarT">⚠️</span><button class="sbtn" onclick="send({c:'rbAck'});this.parentNode.classList.add('hide')">OK</button></div>
   <div class="cleanBar hide" id="updBar"><span id="updBarT">⬆️ Neue Version</span><span style="display:flex;gap:6px"><button class="sbtn gold" onclick="openUpd()">Ansehen</button><button class="sbtn" onclick="updDismiss()" aria-label="Ausblenden">✕</button></span></div>
   <div class="statBar hide" id="statBar" onclick="openStats()"><span>🥃 Session: <b id="sbS">0</b></span><span>Gesamt: <b id="sbT">0</b></span></div>
@@ -777,7 +782,14 @@ function drawDiag(){
     line(F,"rgba(160,160,160,.75)",2); line(S,gold,4);
   }
 }
+function renderRoul(){
+  const c=$("#roulCard"), on=!!(ST.rm&&!(ST.party&&ST.party.on)); c.classList.toggle("hide",!on); if(!on) return;
+  const P=ST.party||{}, empty=ST.pl.filter(p=>p.s===1).length, amt=CFG?(CFG.shotMl/10).toString().replace(".",","):"2", b=$("#rcGo");
+  if(P.rou===2){ b.textContent="dreht …"; b.disabled=true; $("#rcSt").textContent=""; }
+  else { b.textContent=empty?`🎯 Los! (${empty})`:"Gläser hinstellen …"; b.disabled=!empty||ST.busy; $("#rcSt").textContent=`Gewinn: ${amt} cl`; }
+}
 function renderParty(){
+  renderRoul();
   const P=ST.party||{on:false};
   document.body.classList.toggle("party",!!P.on);
   $("#partyChip").classList.toggle("hide",!P.on); $("#partyCard").classList.toggle("hide",!P.on);
@@ -1931,8 +1943,10 @@ function demoCmd(o){
     onMsg({t:"cfg",cfg:c,ver:"1.8.0-demo"}); return; }
   if(o.c==="home"){toast("Demo: Referenzfahrt");return}
   if(o.c==="party"){ S.cfg.party=!!o.on; S.party={on:!!o.on,n:0,ml:0,rou:0}; toast(o.on?"🎉 Party-Modus an – Glas hinstellen, wird automatisch gefüllt":"Party-Modus aus"); return; }
-  if(o.c==="roulOff"){ S.party.rou=0; return; }
-  if(o.c==="roulette"){ const P=S.party; if(!P.on||P.rou===1){ const c=S.pl.map((p,i)=>p.s===1?i:-1).filter(i=>i>=0); if(!c.length){toast("Kein leeres Glas");return} P.rou=2; const t=c[Math.floor(Math.random()*c.length)]; let k=0; const seq=[0,1,2,3,4,5,4,3,2,1,0,1,2,3,4,5].concat([t]); const step=()=>{ if(k<seq.length){ S.aim=seq[k]+1; S.tgt=S.cfg.ang[seq[k]]; k++; setTimeout(step,k>seq.length-2?700:160);} else { P.rou=0; toast("🎯 Glas "+(t+1)+" gewinnt!"); S.jobs.push({p:t,ml:S.cfg.shotMl,auto:1}); } }; step(); } else { P.rou=1; toast("🎯 Roulette-Runde: Gläser hinstellen, dann „Los“"); } return; }
+  if(o.c==="roulOff"){ S.party.rou=0; S.rm=false; return; }
+  if(o.c==="roulMode"){ S.rm=!!o.on; S.party.rou=o.on?1:0; toast(o.on?"🎯 Roulette-Modus: leere Gläser hinstellen, Taster = Los":"Roulette-Modus aus"); return; }
+  if(o.c==="roulette"){ const P=S.party; if(!P.on||P.rou===1||S.rm){ const c=S.pl.map((p,i)=>p.s===1?i:-1).filter(i=>i>=0); if(!c.length){toast("Kein leeres Glas");return} P.rou=2; const t=c[Math.floor(Math.random()*c.length)]; let k=0; const seq=[0,1,2,3,4,5,4,3,2,1,0,1,2,3,4,5].concat([t]); const step=()=>{ if(k<seq.length){ S.aim=seq[k]+1; S.tgt=S.cfg.ang[seq[k]]; k++; setTimeout(step,k>seq.length-2?700:160);} else { P.rou=S.rm?1:0; toast("🎯 Glas "+(t+1)+" gewinnt!"); S.jobs.push({p:t,ml:S.cfg.shotMl,auto:1}); } }; step(); } else { P.rou=1; toast("🎯 Roulette-Runde: Gläser hinstellen, dann „Los“"); } return; }
+  if(o.c==="roulEnd"){ S.party.rou=S.rm?1:0; return; }
   if(o.c==="diag"){ clearInterval(S.dgT); if(o.on){ const nz=[.05,.12,.08,.35,.06,.9]; S.dgT=setInterval(()=>{ const f=S.pl.map((p,i)=>+(p.w+(Math.random()-.5)*2*nz[i]*1.7).toFixed(2)); S.dgS=S.dgS||f.slice(); S.dgS=S.dgS.map((v,i)=>v+(f[i]-v)*.05); onMsg({t:"dg",hz:10,f,s:S.dgS.map(v=>+v.toFixed(2)),n:nz,ok:[1,1,1,1,1,1]}); },100); } return; }
   if(o.c==="updList"){onMsg({t:"rels",cur:"1.8.0",list:[{tag:"v1.8.1",d:"2026-10-24",kb:1195},{tag:"v1.8.0",d:"2026-10-20",kb:1193}]});return}
   if(o.c==="updCheck"){S.upd.st=1;setTimeout(()=>{S.upd.st=0;S.upd.ago=0;demoCmd({c:"updList"})},1200);return}
@@ -1961,7 +1975,7 @@ function simTick(){
   onMsg({t:"st",teach:!!S.teach,phys:S.teach?S.ang:S.ang+(S.cfg.angOff||0),aim:S.aim,ang:S.teach?S.ang-(S.cfg.angOff||0):S.ang,ph:S.ph,pp:S.cur?S.cur.p+1:0,tgt:S.tgtMl,got:S.got,q:S.jobs.length,busy:!!S.cur||S.jobs.length>0,pump:S.pump,
     pl:S.pl.map(p=>({s:p.s,ok:true,en:true,g:p.w,raw:Math.round(p.w*420),ml:p.s?Math.max(0,(p.w-p.tare)/.95):0,err:false})),
     wifi:{sta:true,ssid:"Heimnetz",ip:"192.168.1.42",rssi:-55,ap:false,apSsid:"LiquidHarvest-A1B2",host:"liquidharvest"},up:S.up,
-    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},upd:{st:S.upd.st,on:S.upd.on,new:S.upd.new,av:verCmp(S.upd.new,VER||"1.8.0")>0,ago:S.upd.ago,...(S.upd.p>=0?{p:S.upd.p}:{})},drv:S.cfg.drive||0,chg:(()=>{const m=S.cfg.scaleMap||[1,2,3,4,5,6],a=[];m.forEach((c,i)=>a[c-1]=+(S.pl[i].w+(Math.random()-.5)*.1).toFixed(1));return a})(),...((S.cfg.drive||0)===1?{home:3,hsw:false}:{}),party:{...S.party},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});
+    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},upd:{st:S.upd.st,on:S.upd.on,new:S.upd.new,av:verCmp(S.upd.new,VER||"1.8.0")>0,ago:S.upd.ago,...(S.upd.p>=0?{p:S.upd.p}:{})},rm:!!S.rm,drv:S.cfg.drive||0,chg:(()=>{const m=S.cfg.scaleMap||[1,2,3,4,5,6],a=[];m.forEach((c,i)=>a[c-1]=+(S.pl[i].w+(Math.random()-.5)*.1).toFixed(1));return a})(),...((S.cfg.drive||0)===1?{home:3,hsw:false}:{}),party:{...S.party},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});
 }
 
 staticScene(); requestAnimationFrame(drawAuger); connect();
