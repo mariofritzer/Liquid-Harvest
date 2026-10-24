@@ -57,7 +57,7 @@ struct Pour {
   Source   src = SRC_WEB;
   // Entlüften
   uint32_t primeUntil = 0;
-  bool     primeRunning = false, primeByButton = false;
+  bool     primeRunning = false, primeByButton = false, primeRev = false;
 } pour;
 
 static int   aimIdx = 0;            // 0 = Park, 1..6 = Glas
@@ -514,9 +514,10 @@ static void statsAdd(float ml) {
   statsSave();
 }
 
-static void startPrime(uint32_t ms, bool byButton, uint8_t pos = 0) {
+static void startPrime(uint32_t ms, bool byButton, uint8_t pos = 0, bool rev = false) {
   if (pourBusy() || teach || OnlineUpd::downloading()) return;
-  aim(pos);   // 0 = Park, 1..6 = über Glas
+  if (!rev) aim(pos);   // 0 = Park, 1..6 = über Glas · rückwärts: Rohr bleibt, wo es ist
+  pour.primeRev = rev;
   pour.ph = PH_PRIME;
   pour.primeRunning = false;
   pour.primeByButton = byButton;
@@ -609,7 +610,8 @@ static void pourLoop(bool btnHeld) {
         if (servoArrived()) {
           pour.primeRunning = true;
           pour.primeUntil = now + pour.primeUntil;
-          pumpSet(cfg.pwmFast);
+          if (pour.primeRev) pumpReverse(cfg.pwmFast, pour.primeUntil - now + 500);   // Schlauch zurück in die Flasche
+          else pumpSet(cfg.pwmFast);
         }
       } else if (now >= pour.primeUntil || (pour.primeByButton && !btnHeld)) {
         pumpSet(0);
@@ -838,7 +840,12 @@ static void inputLoop() {
     if (ok) btnAckUntil = millis() + 140;
     else btnErrUntil = millis() + 1200;
   }
-  if (btn.longResult && aimIdx == 0 && !pourBusy()) startPrime(15000, true);  // halten = entlüften
+  // Taster lang halten = leerpumpen: mit H-Brücke rückwärts zurück in die Flasche (an jeder Position),
+  // beim MOSFET-Modul (kann nur vorwärts) wie bisher vorwärts in den Auffangbecher an der Parkposition
+  if (btn.longResult && !pourBusy()) {
+    if (cfg.pumpDriver == 1) { startPrime(30000, true, 0, true); toast("Leerpumpen – solange gedrückt"); }
+    else if (aimIdx == 0) startPrime(15000, true);
+  }
 
   if (encBtn.clickResult == 2) partySet(!cfg.party);         // Encoder-Knopf 2×: Party an/aus
   else if (encBtn.clickResult && !pourBusy()) aim(0);
@@ -920,7 +927,9 @@ static void ledsLoop() {
     for (int k = 0; k < cfg.ledMapN[i]; k++)
       if (cfg.ledMap[i][k] >= 1 && cfg.ledMap[i][k] <= strip.numPixels()) strip.setPixelColor(cfg.ledMap[i][k] - 1, placeCol[i]);
   // Rundumleuchte: blinkt wie ein drehendes Warnlicht, solange gefahren oder gepumpt wird
-  bool working = pourBusy() || servoCur != servoTgt || pumpPct > 0 || pumpRev > 0;
+  // Rundumleuchte läuft, solange gefahren/gepumpt wird ODER das Rohr nicht in der Parkposition steht
+  bool atPark = !teach && aimIdx == 0 && fabsf(servoCur - cfg.angPark) < 0.5f;
+  bool working = pourBusy() || servoCur != servoTgt || pumpPct > 0 || pumpRev > 0 || !atPark;
   const int bn = max(1, (int)cfg.beaconN);
   const bool staOk = WiFi.status() == WL_CONNECTED;
   // Tempo: alle Perioden werden mit beaconSpeed skaliert; Blitze bleiben mind. 40 ms lang (LEDs laufen mit 50 Hz)

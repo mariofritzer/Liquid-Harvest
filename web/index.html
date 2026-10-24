@@ -1035,13 +1035,13 @@ function renderTab(){
     // Rundumleuchte
     const BXF=[["Drehlicht",1],["Abwechselnd faden",2],["Doppelblitz",1],["Wechselblitz",2],["Lauflicht",2],["Dauerlicht",1]];
     h+=`<details class="card fold" data-k="beacon"><summary>Rundumleuchte</summary>
-      <div class="f"><label>Zusätzliche WS2812B am Drescher<small>blinkt, solange er fährt oder pumpt</small></label>${E.bm.length?`<button class="sbtn" onclick="send({c:'ledTest',leds:LEDEDIT.bm})">Testen</button>`:""}</div>`;
+      <div class="f"><label>Zusätzliche WS2812B am Drescher<small>blinkt, solange er fährt, pumpt oder das Rohr nicht in der Parkposition steht</small></label>${E.bm.length?`<button class="sbtn" onclick="send({c:'ledTest',leds:LEDEDIT.bm})">Testen</button>`:""}</div>`;
     E.bm.forEach((v,k)=>h+=ledRow(v,`LEDEDIT.bm[${k}]=+this.value;ledRefresh()`,`LEDEDIT.bm.splice(${k},1);ledRefresh()`));
     if(!E.bm.length) h+=`<p class="help" style="margin:8px 0">Keine Rundumleuchte zugeordnet.</p>`;
     if(E.bm.length) h+=`<div class="f"><label>Muster${E.bm.length<2?"<small>weitere Muster ab 2 LEDs</small>":""}</label><select onchange="LEDEDIT.bxf=+this.value" aria-label="Muster Rundumleuchte">${BXF.map(([n,m],k)=>`<option value="${k}" ${E.bxf===k?"selected":""} ${E.bm.length<m?"disabled":""}>${n}</option>`).join("")}</select></div>
       <div class="f"><label>Geschwindigkeit<small>wie schnell das Muster läuft</small></label><input type="range" min="25" max="300" step="5" value="${E.bsp}" style="width:38%" oninput="LEDEDIT.bsp=+this.value;$('#lbsp').textContent=this.value+' %'"><span id="lbsp" style="width:52px;text-align:right;white-space:nowrap">${E.bsp} %</span></div>
       <div class="f"><label>Farbe & Helligkeit</label><input type="color" value="${E.bcol}" oninput="LEDEDIT.bcol=this.value"><input type="range" min="10" max="100" value="${E.blvl}" style="width:30%" oninput="LEDEDIT.blvl=+this.value"></div>`;
-    if(E.bm.length) h+=`<p class="help" style="margin:14px 0 4px"><b>Status im Stillstand</b> – sobald das Rohr fährt oder die Pumpe läuft, zeigt die Rundumleuchte nur ihr Muster.</p>
+    if(E.bm.length) h+=`<p class="help" style="margin:14px 0 4px"><b>Status im Stillstand</b> – sobald das Rohr fährt, die Pumpe läuft oder das Rohr nicht in der Parkposition steht, zeigt die Rundumleuchte nur ihr Muster.</p>
       <div class="f"><label>Heimnetz verbunden<small>leuchtet dauerhaft schwach</small></label><input type="checkbox" class="sw" ${E.si?"checked":""} onchange="LEDEDIT.si=this.checked"></div>
       <div class="f"><label>Farbe & Helligkeit</label><input type="color" value="${E.scol}" oninput="LEDEDIT.scol=this.value"><input type="range" min="1" max="40" value="${E.slvl}" style="width:30%" oninput="LEDEDIT.slvl=+this.value"></div>
       <div class="f"><label>Hotspot aktiv<small>kurzer Blitz alle 1,5 s</small></label><input type="checkbox" class="sw" ${E.ai?"checked":""} onchange="LEDEDIT.ai=this.checked"></div>
