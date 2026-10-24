@@ -100,7 +100,8 @@ static SemaphoreHandle_t stateMutex;
 enum WState : uint8_t { W_CONNECTING, W_STA, W_AP };
 static WState wstate = W_AP;
 static bool apActive = false;
-static bool apOpen = false;        // Hotspot ohne Passwort (per Encoder-Knopf erzwungen)
+static bool apOpen = false;        // Hotspot ohne Passwort (nur wenn kein Hotspot-Passwort gesetzt ist)
+static bool apForced = false;      // Hotspot per Knopf geöffnet -> nicht automatisch schließen
 static bool apUserOff = false;     // Hotspot per Knopf ausgeschaltet -> kein automatischer Rückfall-Hotspot
 static uint32_t ledFlashUntil = 0, ledFlashColor = 0;
 static uint32_t tWifi = 0, tStaRetry = 0;
@@ -898,6 +899,7 @@ static void ledsLoop() {
   // Rundumleuchte: blinkt wie ein drehendes Warnlicht, solange gefahren oder gepumpt wird
   bool working = pourBusy() || servoCur != servoTgt || pumpPct > 0 || pumpRev > 0;
   const int bn = max(1, (int)cfg.beaconN);
+  const bool staOk = WiFi.status() == WL_CONNECTED;
   // Tempo: alle Perioden werden mit beaconSpeed skaliert; Blitze bleiben mind. 40 ms lang (LEDs laufen mit 50 Hz)
   const float sp = cfg.beaconSpeed / 100.0f;
   auto per = [&](float ms) { return (uint32_t)max(60.0f, ms / sp); };
@@ -925,11 +927,11 @@ static void ledsLoop() {
     }
     uint32_t c = cfg.beaconCol;
     float kk = f * cfg.beaconLvl / 100.0f * cfg.ledBright / 100.0f;
-    if (!working && apActive && cfg.apInd) {
-      // Hotspot aktiv: schwaches Leuchten – ruhig mit Passwort, langsames Atmen ohne Passwort
-      c = cfg.apIndCol;
-      float br = apOpen ? 0.35f + 0.65f * (0.5f + 0.5f * sinf(now * 2 * PI / 2400.0f)) : 1.0f;
-      kk = br * cfg.apIndLvl / 100.0f;
+    if (!working) {
+      // Status im Stillstand (fährt oder pumpt er, läuft nur die Animation oben):
+      // Heimnetz verbunden = schwach grün, Hotspot aktiv = kurzer schwacher blauer Blitz alle 1,5 s
+      if (staOk && cfg.staInd) { c = cfg.staIndCol; kk = cfg.staIndLvl / 100.0f; }
+      if (apActive && cfg.apInd && (now % 1500) < 90) { c = cfg.apIndCol; kk = cfg.apIndLvl / 100.0f; }
     }
     if (cfg.beaconMap[k] >= 1 && cfg.beaconMap[k] <= strip.numPixels())
       strip.setPixelColor(cfg.beaconMap[k] - 1, strip.Color(((c >> 16) & 255) * kk, ((c >> 8) & 255) * kk, (c & 255) * kk));
@@ -941,7 +943,11 @@ static void ledsLoop() {
   if (now < ledFlashUntil) {   // kurze Rückmeldung: blau = Hotspot an, rot = aus
     float k = (cfg.ledBright / 100.0f) * (0.4f + 0.6f * ((now / 150) % 2));
     uint8_t r = (ledFlashColor >> 16) & 255, g = (ledFlashColor >> 8) & 255, b = ledFlashColor & 255;
-    for (int i = 0; i < (int)strip.numPixels(); i++) strip.setPixelColor(i, strip.Color(r * k, g * k, b * k));
+    for (int i = 0; i < (int)strip.numPixels(); i++) {
+      bool beacon = false;
+      for (int b2 = 0; b2 < cfg.beaconN; b2++) if (cfg.beaconMap[b2] == i + 1) beacon = true;
+      if (!beacon) strip.setPixelColor(i, strip.Color(r * k, g * k, b * k));
+    }
   }
   strip.show();
 
@@ -992,25 +998,16 @@ static void stopAP() {
   WiFi.mode(WIFI_STA);
   apActive = false;
   apOpen = false;
+  apForced = false;
 }
 
-// Encoder-Knopf 3 s: Hotspot ohne Passwort. Läuft schon der automatische Hotspot (mit Passwort),
-// wird genau dieser geöffnet. Nochmal 3 s: wird er gebraucht (kein Heimnetz / "immer an"), bekommt er
-// wieder sein Passwort – sonst geht er aus.
-static bool apNeeded() { return cfg.apAlways || !cfg.ssid.length() || WiFi.status() != WL_CONNECTED; }
+// Encoder-Knopf 3 s: Hotspot (mit Passwort) ein bzw. aus.
+//  * Heimnetz verbunden: Knopf öffnet zusätzlich den Hotspot, nochmal 3 s schließt ihn.
+//  * Kein Heimnetz: der Drescher öffnet den Hotspot selbst; 3 s schaltet ihn aus (bleibt aus,
+//    bis der Knopf ihn wieder einschaltet oder neu gestartet wird).
 static void toggleForcedAP() {
   uint32_t now = millis();
-  if (apActive && !apOpen) {
-    apUserOff = false;
-    startAP(true);
-    ledFlashColor = strip.Color(0, 90, 255);
-    toast("Hotspot jetzt ohne Passwort");
-  } else if (apActive && apNeeded()) {
-    startAP(false);
-    ledFlashColor = strip.Color(255, 120, 0);
-    Serial.println("[WLAN] Hotspot wieder mit Passwort");
-    toast(cfg.apPass.length() >= 8 ? "Hotspot wieder mit Passwort" : "Hotspot läuft weiter (kein Passwort festgelegt)");
-  } else if (apActive) {
+  if (apActive) {
     stopAP();
     apUserOff = true;
     if (cfg.ssid.length() && WiFi.status() != WL_CONNECTED) {
@@ -1024,9 +1021,10 @@ static void toggleForcedAP() {
     toast("Hotspot ausgeschaltet");
   } else {
     apUserOff = false;
-    startAP(true);
+    startAP(false);
+    apForced = true;
     ledFlashColor = strip.Color(0, 90, 255);
-    toast("Hotspot ohne Passwort gestartet");
+    toast(cfg.apPass.length() >= 8 ? "Hotspot gestartet (mit Passwort)" : "Hotspot gestartet");
   }
   ledFlashUntil = now + 900;
 }
@@ -1085,7 +1083,7 @@ static void wifiLoop() {
 
     case W_AP:
       // Heimnetz regelmäßig erneut versuchen (z. B. Router nach Stromausfall später da)
-      if (cfg.ssid.length() && !cfg.apAlways && !apOpen) {
+      if (cfg.ssid.length() && !cfg.apAlways && !apForced) {
         if (!staRetrying && now - tStaRetry > 120000 && WiFi.softAPgetStationNum() == 0) {
           WiFi.mode(WIFI_AP_STA);
           WiFi.begin(cfg.ssid.c_str(), cfg.pass.c_str());
