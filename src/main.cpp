@@ -799,14 +799,34 @@ static void partyLoop() {
   }
 }
 
+// Notaus: Taster oder Encoder-Knopf, solange etwas läuft (Einschenken, Spülen/Entlüften aus der App,
+// Roulette, Referenzfahrt). Pumpe sofort aus, Warteschlange leer, Rohr bleibt stehen, im Party-Modus
+// werden die gerade stehenden Gläser nicht sofort weitergefüllt.
+static bool somethingRunning() {
+  return pourBusy() || roul.st == 2 || (stepperOn() && (homeSt == HOME_SEEK || homeSt == HOME_BACKOFF));
+}
+static void emergencyStop(const char* why) {
+  roul.st = 0;
+  if (stepperOn() && (homeSt == HOME_SEEK || homeSt == HOME_BACKOFF)) homeSt = HOME_FAIL;
+  stopAll(why);
+  pumpSet(0);
+  servoTgt = servoCur;
+  if (stepperOn()) { portENTER_CRITICAL(&stepMux); stepTgt = stepCur; portEXIT_CRITICAL(&stepMux); }
+  for (auto& pl : places) if (pl.st == P_GLASS) pl.autoDone = true;
+  btnErrUntil = millis() + 1500;
+  Serial.printf("[Notaus] %s\n", why);
+  toast("⛔ Notaus – alles gestoppt");
+}
+
 static void inputLoop() {
   btn.update();
   encBtn.update();
 
-  // Notstopp: jeder Tastendruck während des Ausschanks
-  if (btn.pressedEdge && pourBusy() && pour.ph != PH_PRIME) {
-    stopAll("button_stop");
-    btn.consumed = true;
+  // Notaus: jeder Druck auf Taster oder Encoder-Knopf, solange etwas läuft
+  // (außer beim Entlüften per gehaltenem Taster – da stoppt schon das Loslassen)
+  if ((btn.pressedEdge || encBtn.pressedEdge) && somethingRunning() && !(pour.ph == PH_PRIME && pour.primeByButton)) {
+    emergencyStop(btn.pressedEdge ? "button_stop" : "enc_stop");
+    btn.consumed = true; encBtn.consumed = true; btn.clicks = 0; encBtn.clicks = 0;
     return;
   }
 

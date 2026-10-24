@@ -48,7 +48,7 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | **Reinigung** | geführtes Spülprogramm (Spülen → Leer pumpen → fertig) an wählbarer Position (Park oder Glas 1–6), Erinnerung nach X Gläsern oder Y Tagen (Uhrzeit per NTP aus dem Heimnetz) |
 | **Rundumleuchte** | 1–4 zusätzliche WS2812B am Ende der LED-Kette blitzen als Rundumleuchte, solange das Rohr fährt oder die Pumpe läuft; Muster (Drehlicht, abwechselnd faden, Doppelblitz, Wechselblitz, Lauflicht, Dauerlicht), Geschwindigkeit (25–300 %), Farbe und Helligkeit einstellbar |
 | **Zähler** | Stamperl und Liter für die aktuelle Session und insgesamt, auf der Startseite und unter ⚙️ System; Zurücksetzen nur nach Eintippen von „reset“ |
-| **Sicherheit** | Glas weg = sofort Stopp · kein Durchfluss nach X s = Abbruch (einstellbar) · Pumpe nur bei stehendem Rohr · Höchstdauer pro Glas · Taster = Notstopp |
+| **Sicherheit** | Glas weg = sofort Stopp · kein Durchfluss nach X s = Abbruch (einstellbar) · Pumpe nur bei stehendem Rohr · Höchstdauer pro Glas · Taster oder Encoder-Knopf = Notaus |
 | **Offline** | Encoder schwenkt das Rohr, Taster schenkt ein, Auto-Fill aus der Parkposition |
 | **Online** | isometrische 3D-Ansicht am Handy, Gläser poppen live auf, Klick → Menge wählen → einschenken |
 | **WLAN** | Heimnetz mit `http://liquidharvest.local`, Hotspot als Rückfall bzw. Party-Modus, Captive Portal |
@@ -71,7 +71,7 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | Taster 1× (über Glas) | Einfach-Shot (Standard 20 ml) |
 | Taster 2× (über Glas) | Doppel-Shot (Standard 40 ml) |
 | Taster 1× / 2× in Parkposition | **Auto-Fill**: alle blauen Gläser nacheinander, danach parken |
-| Taster während Ausschank | **Notstopp** |
+| Taster **oder** Encoder-Knopf, solange etwas läuft | **Notaus**: Pumpe sofort aus, Warteschlange leer, Rohr bleibt stehen (auch bei Spülen/Entlüften aus der App, Roulette, Referenzfahrt) |
 | Taster halten in Parkposition | Pumpe läuft solange gedrückt (Schlauch füllen) |
 | Encoder-Knopf 1× | Rohr parken |
 | Encoder-Knopf 2× | Party-Modus an / aus (LEDs blinken violett / orange) |

@@ -292,7 +292,7 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
 "use strict";
 const $=s=>document.querySelector(s);
 const N=6;
-let RELS=null, SETUPINFO="", ST=null, CFG=null, VER="", amount=20, sheetIdx=-1, shAmount=20, dispAng=null, netList=[];
+let LAST_POUR=null, RELS=null, SETUPINFO="", ST=null, CFG=null, VER="", amount=20, sheetIdx=-1, shAmount=20, dispAng=null, netList=[];
 
 /* ---------------- Verbindung ---------------- */
 let ws=null, demo=false;
@@ -312,8 +312,9 @@ function onMsg(m){
   else if(m.t==="cfg"){CFG=m.cfg;VER=m.ver;SETUPINFO=m.setup||"";buildAmount();applyImg();if($("#drawer").classList.contains("show")&&curTab!=="img"&&!(curTab==="leds"&&LEDEDIT))renderTab()}
   else if(m.t==="ev"){
     if(m.e==="glass_on") pop(m.p);
+    if(m.e==="pour_done"){ LAST_POUR={p:m.p,ml:m.ml}; const e=$("#mc_shown"); if(e&&!e.dataset.touched) e.value=m.ml.toFixed(1); }
     if(m.e==="pour_done") toast(`Glas ${m.p}: ${m.ml.toFixed(1)} ml – Prost! 🥃`);
-    if(m.e==="pour_error") toast(`Glas ${m.p}: `+({no_flow:"Kein Durchfluss – Flasche leer?",glass_removed:"Glas entfernt",timeout:"Zeitlimit erreicht",button_stop:"Am Taster gestoppt",web_stop:"Gestoppt",scale_error:"Waagenfehler"}[m.r]||m.r));
+    if(m.e==="pour_error") toast(`Glas ${m.p}: `+({no_flow:"Kein Durchfluss – Flasche leer?",glass_removed:"Glas entfernt",timeout:"Zeitlimit erreicht",button_stop:"Notaus am Taster",enc_stop:"Notaus am Encoder-Knopf",web_stop:"Gestoppt",scale_error:"Waagenfehler"}[m.r]||m.r));
   }
   else if(m.t==="toast") toast(m.m);
   else if(m.t==="scan"){netList=m.list;renderTab()}
@@ -935,6 +936,15 @@ function renderTabs(){
   $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{curTab=b.dataset.k;LEDEDIT=null;POS_EDIT=false;POS_DRAFT=null;SMDRAFT=null;renderTabs();renderTab()});
 }
 function saveBtn(tab){return `<button class="btn primary save" onclick="saveTab('${tab}')">Speichern</button>`}
+let MC_NEW=null;
+window.mcCalc=()=>{ const sh=parseFloat(String($("#mc_shown").value).replace(",",".")), re=parseFloat(String($("#mc_real").value).replace(",","."));
+  const info=$("#mc_info"), go=$("#mc_go"); MC_NEW=null;
+  if(!(sh>0&&re>0)){ info.textContent=`aktuell ${(+CFG.density).toFixed(3).replace(".",",")} g/ml`; go.disabled=true; return; }
+  const d=Math.max(.5,Math.min(1.5,CFG.density*sh/re)), ch=(d/CFG.density-1)*100;
+  MC_NEW=Math.round(d*1000)/1000;
+  info.innerHTML=`${(+CFG.density).toFixed(3).replace(".",",")} → <b>${MC_NEW.toFixed(3).replace(".",",")}</b> g/ml (${ch>=0?"+":""}${ch.toFixed(1).replace(".",",")} %)${Math.abs(ch)>15?' <span style="color:#ff8a8a">– so viel? Erst die Waage kalibrieren</span>':""}`;
+  go.disabled=false; };
+window.mcApply=()=>{ if(MC_NEW==null) return; send({c:"setCfg",cfg:{density:MC_NEW}}); toast("Dichte angepasst – nächstes Glas sollte stimmen"); };
 window.saveTab=tab=>{ send({c:"setCfg",cfg:collect(tab)}); };
 window.posEdit=on=>{ POS_EDIT=on; POS_DRAFT=on?[CFG.angPark,...CFG.ang]:null; renderTab(); };
 window.posSet=(i,v)=>{ v=clampA(v); POS_DRAFT[i]=v; const n=$("#a_"+i+"v"), r=$("#a_"+i); if(n) n.value=v; if(r) r.value=v; send({c:"servo",a:v}); };
@@ -967,6 +977,12 @@ function renderTab(){
         ${P.length>1?`<button class="sbtn red" aria-label="Löschen" onclick="if(confirm('„'+${JSON.stringify(p.n).replace(/"/g,"&quot;")}+'“ löschen?'))send({c:'profDel',i:${i}})">✕</button>`:""}</div>`).join("")}
       ${P.length<6?`<div class="prow" style="border-bottom:none"><input type="text" id="pf_new" maxlength="20" placeholder="Neues Getränk, z. B. Likör"><button class="sbtn" onclick="const e=$('#pf_new');send({c:'profAdd',n:e.value.trim()||'Getränk'})">+ Anlegen</button></div>`:""}
       <p class="help" style="margin-top:6px">Jedes Getränk hat eigene Mengen, Dichte, Pumpenleistung und eigenen gelernten Nachlauf. Ab zwei Getränken erscheint die Auswahl auf der Startseite.</p></div>`;
+    h+=`<details class="card fold" data-k="mengecal"><summary>Menge nachmessen · ${an}</summary>
+      <p class="help" style="margin-top:10px">Die Menge wird aus dem <b>Gewicht</b> berechnet: ml = Gramm ÷ Dichte. Stimmt sie nicht, schenk ein Glas ein, kipp es in einen <b>Messbecher</b> (oder ein 2-cl-/4-cl-Eichmaß) und trag ein, was wirklich drin war – die Dichte wird dann passend korrigiert.</p>
+      <div class="f"><label>Laut Drescher eingeschenkt<small>${LAST_POUR?`zuletzt Glas ${LAST_POUR.p}`:"noch nichts eingeschenkt – Wert selbst eintragen"}</small></label><input type="number" id="mc_shown" step="0.1" min="1" max="100" inputmode="decimal" value="${LAST_POUR?LAST_POUR.ml.toFixed(1):(CFG.shotMl||20)}" oninput="this.dataset.touched=1;mcCalc()" style="width:80px"><span class="u">ml</span></div>
+      <div class="f"><label>Wirklich gemessen</label><input type="number" id="mc_real" step="0.1" min="1" max="100" inputmode="decimal" placeholder="z. B. 18,5" oninput="mcCalc()" style="width:80px"><span class="u">ml</span></div>
+      <div class="f"><label>Dichte<small id="mc_info">aktuell ${(+CFG.density).toFixed(3).replace(".",",")} g/ml</small></label><button class="sbtn gold" id="mc_go" disabled onclick="mcApply()">Übernehmen</button></div>
+    </details>`;
     h+=fieldsCard([`Menge · ${an}`,FIELDS.dose[0][1]])+fieldsCard([`Dosierung · ${an}`,FIELDS.dose[1][1]]);
     FIELDS.dose.slice(2).forEach(g=>h+=g[0]==="Party-Modus"
       ? fieldsCard(g,`<button class="btn primary" style="width:100%;margin:8px 0 6px" onclick="saveTab('dose');send({c:'party',on:true})">🎉 Party starten</button><p class="help" style="margin-top:4px">Leere Gläser werden automatisch mit der Einfach-Menge des aktiven Getränks gefüllt. Die App zeigt dann nur noch Gläser, Getränk und Roulette – das ⚙️-Menü ist weg. Beenden: „🎉 Party“ oben 3 s gedrückt halten oder Encoder-Knopf 2× drücken. Session- und Gesamtzähler laufen weiter, die Party hat einen eigenen Zähler.</p>`)
