@@ -19,6 +19,7 @@ struct Settings {
   // --- Dosierung ---
   // Die Dosier-Felder unten sind immer die Werte des aktiven Getränks (prof[profIdx])
   uint8_t  profN = 0, profIdx = 0;
+  uint8_t  scaleMap[NUM_PLACES] = {0, 1, 2, 3, 4, 5};   // Glas i liest Waage scaleMap[i] (HX711 an DT-Pin Nr.)
   DrinkProfile prof[MAX_PROF];
   float    shotMl      = 20.0f;   // Taster Einfach-Klick
   float    doubleMl    = 40.0f;   // Taster Doppel-Klick

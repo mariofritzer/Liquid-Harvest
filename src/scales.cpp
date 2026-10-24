@@ -147,15 +147,19 @@ void loop() {
   }
 }
 
+// ---- Öffentliche Funktionen: Index = Glas-Platz, intern wird auf die Waage (HX711) umgesetzt
+static inline int C(int p) { return cfg.scaleMap[constrain(p, 0, NUM_PLACES - 1)]; }
 uint32_t seq()            { return seqNo; }
-bool     ok(int i)        { return healthy[i] && histN[i] >= 3; }
-float    g(int i)         { return gFast[i]; }
-float    gs(int i)        { return gSmooth[i]; }
-int32_t  raw(int i)       { return (int32_t)rawSm[i]; }
-bool     stable(int i)    { return ok(i) && millis() - stabSince[i] >= cfg.stableMs; }
-float    noise(int i)     { return sqrtf(noiseVar[i]); }
+bool     ok(int p)        { int i = C(p); return healthy[i] && histN[i] >= 3; }
+float    g(int p)         { return gFast[C(p)]; }
+float    gs(int p)        { return gSmooth[C(p)]; }
+int32_t  raw(int p)       { return (int32_t)rawSm[C(p)]; }
+bool     stable(int p)    { int i = C(p); return ok(p) && millis() - stabSince[i] >= cfg.stableMs; }
+float    noise(int p)     { return sqrtf(noiseVar[C(p)]); }
 float    hz()             { return rateHz; }
-float    avg(int i, int n) {
+float    chG(int ch)      { return (ch >= 0 && ch < NUM_PLACES && healthy[ch]) ? gFast[ch] : NAN; }
+float    avg(int p, int n) {
+  int i = C(p);
   n = constrain(n, 1, (int)ringN[i]);
   if (!n) return gSmooth[i];
   float s = 0;
@@ -163,7 +167,9 @@ float    avg(int i, int n) {
   return s / n;
 }
 
-void tare(int i) {
+// Kalibrierung bleibt bei der Waage (Kanal), nicht beim Glas – Umordnen verliert nichts
+void tare(int p) {
+  int i = C(p);
   cfg.offset[i] = (int32_t)rawSm[i];
   for (int k = 0; k < 16; k++) ring[i][k] = 0;
   gFast[i] = gSmooth[i] = 0;
@@ -171,7 +177,8 @@ void tare(int i) {
   stabSince[i] = millis();
 }
 
-bool calibrate(int i, float known) {
+bool calibrate(int p, float known) {
+  int i = C(p);
   if (known <= 0) return false;
   float delta = rawSm[i] - cfg.offset[i];
   if (fabsf(delta) < 500) return false;   // zu wenig Signal -> Gewicht vergessen?
@@ -179,7 +186,8 @@ bool calibrate(int i, float known) {
   return true;
 }
 
-void nudgeZero(int i, float frac) {
+void nudgeZero(int p, float frac) {
+  int i = C(p);
   cfg.offset[i] += (int32_t)((rawSm[i] - cfg.offset[i]) * frac);
 }
 

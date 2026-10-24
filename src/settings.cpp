@@ -86,6 +86,9 @@ static void clampAll() {
     cfg.ledMapN[i] = n;
   }
   cfg.enabledMask &= 0x3F;
+  { uint8_t seen = 0; bool okm = true;   // Waagen-Zuordnung muss jede Waage genau einmal enthalten
+    for (int i = 0; i < NUM_PLACES; i++) { if (cfg.scaleMap[i] >= NUM_PLACES || (seen & (1 << cfg.scaleMap[i]))) okm = false; else seen |= 1 << cfg.scaleMap[i]; }
+    if (!okm) for (int i = 0; i < NUM_PLACES; i++) cfg.scaleMap[i] = i; }
   cfg.imgW = constrain(cfg.imgW, 40.0f, 900.0f);
   cfg.augW = constrain(cfg.augW, 3.0f, 30.0f);
   cfg.augPX = constrain(cfg.augPX, -300.0f, 300.0f);
@@ -190,6 +193,7 @@ void settingsToJson(JsonObject o) {
   JsonArray fac = o["factor"].to<JsonArray>();
   for (int i = 0; i < NUM_PLACES; i++) { off.add(cfg.offset[i]); fac.add(cfg.factor[i]); }
   o["enabledMask"] = cfg.enabledMask;
+  { JsonArray sm = o["scaleMap"].to<JsonArray>(); for (int i = 0; i < NUM_PLACES; i++) sm.add(cfg.scaleMap[i] + 1); }
   o["ssid"] = cfg.ssid;  o["host"] = cfg.host;
   o["apAlways"] = cfg.apAlways;
   o["hasPass"] = cfg.pass.length() > 0;
@@ -278,6 +282,7 @@ void settingsFromJson(JsonObjectConst o) {
   JsonArrayConst fac = o["factor"];
   if (!fac.isNull()) for (int i = 0; i < NUM_PLACES && i < (int)fac.size(); i++) cfg.factor[i] = fac[i].as<float>();
   rd(o, "enabledMask", cfg.enabledMask);
+  { JsonArrayConst sm = o["scaleMap"]; if (!sm.isNull() && sm.size() == NUM_PLACES) for (int i = 0; i < NUM_PLACES; i++) cfg.scaleMap[i] = (uint8_t)(sm[i].as<int>() - 1); }
   rd(o, "ssid", cfg.ssid);   rd(o, "host", cfg.host);
   rd(o, "apAlways", cfg.apAlways);
   // Passwörter nur, wenn explizit mitgeschickt

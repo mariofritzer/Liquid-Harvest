@@ -726,7 +726,7 @@ const DGN=200;   // ~20 s bei 10 Hz
 window.openDiag=()=>{
   DG={f:[...Array(N)].map(()=>[]),s:[...Array(N)].map(()=>[]),t:[],last:null};
   $("#diagBody").innerHTML=`<div class="card"><div class="f"><label>Messrate<small id="dgHzH">–</small></label><b id="dgHz">–</b></div>
-      <div id="dgRows">${[...Array(N)].map((_,i)=>`<div class="dgrow"><div class="h"><b>Waage ${i+1}</b><span id="dgSt${i}" style="font-size:12px;color:var(--mute)"></span><span class="v" id="dgV${i}">–</span></div>
+      <div id="dgRows">${[...Array(N)].map((_,i)=>`<div class="dgrow"><div class="h"><b>Glas ${i+1}</b><span style="font-size:12px;color:var(--mute)">Waage ${(CFG.scaleMap||[1,2,3,4,5,6])[i]}</span><span id="dgSt${i}" style="font-size:12px;color:var(--mute)"></span><span class="v" id="dgV${i}">–</span></div>
         <canvas id="dgC${i}" width="700" height="128"></canvas>
         <div class="dgm"><div>Rauschen<b id="dgN${i}">–</b></div><div>Spanne 10 s<b id="dgR${i}">–</b></div><div>Drift<b id="dgD${i}">–</b></div></div></div>`).join("")}</div></div>
     <p class="help">Grau = einzelne Messwerte, gelb = geglätteter Wert (was die App anzeigt). <b>Rauschen</b> ist die Streuung der Einzelwerte: unter 0,1 g sehr gut, bis 0,3 g ok, darüber stimmt meist an der Hardware etwas.</p>
@@ -928,11 +928,11 @@ function collect(tab){
   (FIELDS[tab]||[]).forEach(([_,fs])=>fs.forEach(([k,,, u])=>{const e=$("#f_"+k);if(!e)return;o[k]=u==="bool"?e.checked:u==="select"?+e.value:+e.value*(+e.dataset.mul)}));
   return o;
 }
-function openDrawer(){ LEDEDIT=null; POS_EDIT=false; POS_DRAFT=null; $("#drawer").classList.add("show"); send({c:"getCfg"}); renderTabs(); renderTab(); }
+function openDrawer(){ LEDEDIT=null; POS_EDIT=false; POS_DRAFT=null; SMDRAFT=null; $("#drawer").classList.add("show"); send({c:"getCfg"}); renderTabs(); renderTab(); }
 $("#gear").onclick=openDrawer; $("#dClose").onclick=()=>$("#drawer").classList.remove("show");
 function renderTabs(){
   $("#tabs").innerHTML=TABS.map(([k,l])=>`<button data-k="${k}" class="${k===curTab?"on":""}">${l}</button>`).join("");
-  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{curTab=b.dataset.k;LEDEDIT=null;POS_EDIT=false;POS_DRAFT=null;renderTabs();renderTab()});
+  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{curTab=b.dataset.k;LEDEDIT=null;POS_EDIT=false;POS_DRAFT=null;SMDRAFT=null;renderTabs();renderTab()});
 }
 function saveBtn(tab){return `<button class="btn primary save" onclick="saveTab('${tab}')">Speichern</button>`}
 window.saveTab=tab=>{ send({c:"setCfg",cfg:collect(tab)}); };
@@ -1044,10 +1044,20 @@ function renderTab(){
   }
   if(curTab==="scales"){
     h+=`<div class="card"><h3>Waagen</h3>`;
-    for(let i=0;i<N;i++) h+=`<div class="scale-row"><div class="h"><b>Glas ${i+1}</b><span class="chip" id="sc_s${i}">–</span><input type="checkbox" class="sw" id="sc_en${i}" ${CFG.enabledMask&(1<<i)?"checked":""} onchange="setEn()"></div>
+    const SMAP=CFG.scaleMap||[1,2,3,4,5,6];
+    for(let i=0;i<N;i++) h+=`<div class="scale-row"><div class="h"><b>Glas ${i+1}</b><span style="color:var(--mute);font-size:12.5px">Waage ${SMAP[i]}</span><span class="chip" id="sc_s${i}">–</span><input type="checkbox" class="sw" id="sc_en${i}" ${CFG.enabledMask&(1<<(SMAP[i]-1))?"checked":""} onchange="setEn()"></div>
       <div class="v" id="sc_v${i}">–</div>
       <div class="acts"><button class="sbtn" onclick="send({c:'tare',p:${i+1}})">Tara</button><input id="sc_k${i}" type="number" value="100" inputmode="decimal"> g <button class="sbtn gold" onclick="send({c:'calib',p:${i+1},g:+$('#sc_k${i}').value})">Kalibrieren</button></div></div>`;
-    h+=`</div><button class="btn save" onclick="send({c:'tare',p:0})">Alle leeren Waagen tarieren</button>
+    if(!SMDRAFT) SMDRAFT=[...SMAP];
+    const dup=SMDRAFT.filter((v,k)=>SMDRAFT.indexOf(v)!==k);
+    h+=`</div><details class="card fold" data-k="scalemap"><summary>Zuordnung Glas ↔ Waage</summary>
+      <p class="help" style="margin-top:10px">Leg die Hand auf einen Glasplatz und schau, welche Waage reagiert – die trägst du bei diesem Glas ein. Die Kalibrierung bleibt bei der Waage, Umordnen verliert nichts.</p>
+      <div class="stats" style="grid-template-columns:repeat(3,1fr)">${[0,1,2,3,4,5].map(c=>`<div><small>Waage ${c+1} · IO${[36,39,34,35,32,33][c]}</small><b id="smv${c}" style="font-size:18px">–</b></div>`).join("")}</div>
+      ${[...Array(N)].map((_,i)=>`<div class="f"><label>Glas ${i+1}<small>Winkel ${(+CFG.ang[i]).toFixed(1).replace(".",",")}° · LED ${(CFG.ledMap&&CFG.ledMap[i]||[]).join(", ")||"–"}</small></label><select style="max-width:45%;${dup.includes(SMDRAFT[i])?"border-color:var(--red);color:#ff8a8a":""}" onchange="SMDRAFT[${i}]=+this.value;renderTab()">${[1,2,3,4,5,6].map(c=>`<option value="${c}" ${SMDRAFT[i]===c?"selected":""}>Waage ${c}</option>`).join("")}</select></div>`).join("")}
+      ${dup.length?`<p class="help" style="color:#ff8a8a">Jede Waage darf nur einem Glas zugeordnet sein.</p>`:""}
+      <button class="btn primary" style="width:100%;margin:8px 0 4px" ${dup.length?"disabled":""} onclick="send({c:'setCfg',cfg:{scaleMap:SMDRAFT}});SMDRAFT=null">Zuordnung speichern</button>
+      <p class="help">Die LED eines Glases stellst du unter LEDs → Zuordnung zu den Gläsern ein (z. B. Glas 1 → LED 6).</p></details>
+      <button class="btn save" onclick="send({c:'tare',p:0})">Alle leeren Waagen tarieren</button>
       <button class="btn" style="width:100%;margin-top:10px" onclick="openDiag()">📈 Diagnose öffnen</button>
       <p class="help"><b>Kalibrieren:</b> Waage leer lassen → <b>Tara</b>. Dann ein bekanntes Gewicht (z. B. 100-g-Gewicht oder 100 ml Wasser) auflegen, Gewicht eintragen → <b>Kalibrieren</b>. Nicht angeschlossene Waagen hier ausschalten.</p>`;
   }
@@ -1157,10 +1167,12 @@ function renderTab(){
   if(curTab==="scales") updateScales();
   const ota=$("#ota"); if(ota) ota.onchange=uploadOta;
 }
-window.setEn=()=>{let m=0;for(let i=0;i<N;i++)if($("#sc_en"+i).checked)m|=1<<i;send({c:"setCfg",cfg:{enabledMask:m}})};
+window.setEn=()=>{const M=CFG.scaleMap||[1,2,3,4,5,6];let m=0;for(let i=0;i<N;i++)if($("#sc_en"+i).checked)m|=1<<(M[i]-1);send({c:"setCfg",cfg:{enabledMask:m}})};
 window.saveWifi=()=>{const o={c:"wifi",ssid:$("#w_ssid").value.trim(),pass:$("#w_pass").value,host:$("#w_host").value.trim().toLowerCase().replace(/[^a-z0-9-]/g,""),apAlways:$("#w_apa").checked};const ap=$("#w_app").value;if(ap){if(ap.length<8){toast("Hotspot-Passwort: mind. 8 Zeichen");return}o.apPass=ap}send(o)};
+let SMDRAFT=null;
 function updateScales(){
   if(!ST) return;
+  if(ST.chg) ST.chg.forEach((v,c)=>{ const e=$("#smv"+c); if(e) e.textContent=v==null?"–":v.toFixed(1).replace(".",",")+" g"; });
   for(let i=0;i<N;i++){const p=ST.pl[i],v=$("#sc_v"+i),c=$("#sc_s"+i);if(!v)continue;
     v.innerHTML=p.ok?`${p.g.toFixed(1)} g<small>roh ${p.raw}</small>`:"–";
     c.textContent=!p.en?"aus":p.ok?["leer","Glas","gefüllt"][p.s]:"keine Daten"; c.className="chip "+(!p.en?"":p.ok?"c"+(p.s||1):"c0");}
@@ -1873,7 +1885,7 @@ window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAug
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2500,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,servoHoldPour:true,autoTune:true,pumpDriver:0,pumpInv:false,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,drive:0,servoAccel:360,stepRev:200,stepMicro:16,stepGear:1,stepDirInv:false,stepRelease:false,homeInv:false,homeSpeed:20,party:false,partyDelayMs:2000,partyMaxG:120,prof:[{n:"Schnaps"}],profIdx:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,beaconSpeed:100,apInd:true,apIndCol:"#0040FF",apIndLvl:15,staInd:true,staIndCol:"#00FF40",staIndLvl:6,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2500,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,servoHoldPour:true,autoTune:true,pumpDriver:0,pumpInv:false,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,drive:0,servoAccel:360,stepRev:200,stepMicro:16,stepGear:1,stepDirInv:false,stepRelease:false,homeInv:false,homeSpeed:20,party:false,partyDelayMs:2000,partyMaxG:120,prof:[{n:"Schnaps"}],profIdx:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,beaconSpeed:100,apInd:true,apIndCol:"#0040FF",apIndLvl:15,staInd:true,staIndCol:"#00FF40",staIndLvl:6,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,scaleMap:[1,2,3,4,5,6],ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     party:{on:false,n:0,ml:0,rou:0},upd:{st:0,on:true,new:"v1.8.1",av:true,ago:3,p:-1},stat:{sn:7,sml:140,tn:412,tml:8240,ss:Math.floor(Date.now()/1000)-7200},ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
@@ -1933,7 +1945,7 @@ function simTick(){
   onMsg({t:"st",teach:!!S.teach,phys:S.teach?S.ang:S.ang+(S.cfg.angOff||0),aim:S.aim,ang:S.teach?S.ang-(S.cfg.angOff||0):S.ang,ph:S.ph,pp:S.cur?S.cur.p+1:0,tgt:S.tgtMl,got:S.got,q:S.jobs.length,busy:!!S.cur||S.jobs.length>0,pump:S.pump,
     pl:S.pl.map(p=>({s:p.s,ok:true,en:true,g:p.w,raw:Math.round(p.w*420),ml:p.s?Math.max(0,(p.w-p.tare)/.95):0,err:false})),
     wifi:{sta:true,ssid:"Heimnetz",ip:"192.168.1.42",rssi:-55,ap:false,apSsid:"LiquidHarvest-A1B2",host:"liquidharvest"},up:S.up,
-    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},upd:{st:S.upd.st,on:S.upd.on,new:S.upd.new,av:verCmp(S.upd.new,VER||"1.8.0")>0,ago:S.upd.ago,...(S.upd.p>=0?{p:S.upd.p}:{})},drv:S.cfg.drive||0,...((S.cfg.drive||0)===1?{home:3,hsw:false}:{}),party:{...S.party},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});
+    clean:{due:!!(S.cfg.cleanShots&&S.cfg.shotsSinceClean>=S.cfg.cleanShots),shots:S.cfg.shotsSinceClean,days:-1},upd:{st:S.upd.st,on:S.upd.on,new:S.upd.new,av:verCmp(S.upd.new,VER||"1.8.0")>0,ago:S.upd.ago,...(S.upd.p>=0?{p:S.upd.p}:{})},drv:S.cfg.drive||0,chg:(()=>{const m=S.cfg.scaleMap||[1,2,3,4,5,6],a=[];m.forEach((c,i)=>a[c-1]=+(S.pl[i].w+(Math.random()-.5)*.1).toFixed(1));return a})(),...((S.cfg.drive||0)===1?{home:3,hsw:false}:{}),party:{...S.party},stat:{sn:S.stat.sn,sml:Math.round(S.stat.sml),tn:S.stat.tn,tml:Math.round(S.stat.tml),ss:S.stat.ss}});
 }
 
 staticScene(); requestAnimationFrame(drawAuger); connect();

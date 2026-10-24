@@ -882,7 +882,7 @@ static void ledsLoop() {
   for (int i = 0; i < NUM_PLACES; i++) {
     const Place& pl = places[i];
     uint32_t c;
-    if (!(cfg.enabledMask & (1 << i)))       c = 0;
+    if (!(cfg.enabledMask & (1 << cfg.scaleMap[i]))) c = 0;
     else if (now < ledPrevUntil)              c = fxColor(ledPrevCol, ledPrevLvl, ledPrevFx, now);   // Farbvorschau
     else if (now < pl.errUntil)               c = stateColor(5, now);   // Fehler
     else if (!Scales::ok(i))                  c = stateColor(6, now);   // Waage defekt
@@ -1288,9 +1288,14 @@ static void handleCmd(const String& msg) {
     JsonObject o = d["cfg"];
     // WLAN-Felder nur über "wifi"
     o.remove("ssid"); o.remove("pass"); o.remove("apPass"); o.remove("host"); o.remove("apAlways");
+    uint8_t oldMap[NUM_PLACES]; memcpy(oldMap, cfg.scaleMap, sizeof(oldMap));
     bool oldRev = cfg.servoReverse, oldPumpInv = cfg.pumpInv;
     uint8_t oldDrive = cfg.drive, oldPumpDrv = cfg.pumpDriver;
     settingsFromJson(o);
+    if (memcmp(oldMap, cfg.scaleMap, sizeof(oldMap))) {   // Waagen neu zugeordnet: Gläser neu erkennen
+      if (pourBusy()) stopAll("web_stop");
+      for (auto& pl : places) { pl.st = P_NONE; pl.errUntil = 0; pl.belowSince = 0; }
+    }
     if (cfg.pumpInv != oldPumpInv || cfg.pumpDriver != oldPumpDrv) {   // Ausgänge sofort neu zuordnen, nie beide gleichzeitig
       ledcWrite(CH_PUMP, 0); ledcWrite(CH_PUMP2, 0);
       if (pumpRev) pumpSet(0); else if (pumpPct) pumpSet(pumpPct);
@@ -1366,6 +1371,8 @@ static void buildState(String& out) {
   d["phys"] = roundf(physAngle() * 10) / 10;
   d["teach"] = teach;
   d["drv"] = driveAtBoot;
+  { JsonArray ch = d["chg"].to<JsonArray>();   // Gewicht je Waage (für die Zuordnung in der App)
+    for (int c = 0; c < NUM_PLACES; c++) { float v = Scales::chG(c); if (isnan(v)) ch.add(nullptr); else ch.add(roundf(v * 10) / 10); } }
   if (stepperOn()) { d["home"] = homeSt; d["hsw"] = homeHit(); }
   OnlineUpd::statusJson(d["upd"].to<JsonObject>());
   if (rbMsg.length()) d["rb"] = rbMsg;
@@ -1398,7 +1405,7 @@ static void buildState(String& out) {
     const Place& pl = places[i];
     o["s"] = pl.st;
     o["ok"] = Scales::ok(i);
-    o["en"] = (bool)(cfg.enabledMask & (1 << i));
+    o["en"] = (bool)(cfg.enabledMask & (1 << cfg.scaleMap[i]));
     // Anzeige mit Hysterese: letzte Stelle springt nicht bei jedem Rauschen
     static float shown[NUM_PLACES];
     float gsv = Scales::gs(i);
