@@ -76,6 +76,7 @@ Ein Spielzeug-Mähdrescher, der mit seinem Abtankrohr bis zu **6 Gläser** anfä
 | Encoder-Knopf 1× | Rohr parken |
 | Encoder-Knopf 2× | Party-Modus an / aus (LEDs blinken violett / orange) |
 | Encoder-Knopf 3× | **Roulette-Modus** an / aus: leere Gläser hinstellen, Taster 1× / 2× / 3× … = so viele zufällige Gläser gewinnen, gedrückt halten = zufällige Anzahl – das Rohr fährt über die Gläser, die Gewinner werden gefüllt; danach gleich die nächste Runde · Lauflicht über die Glas-LEDs (Farbe, Helligkeit, Tempo einstellbar) |
+| Taster **+** Encoder-Knopf zusammen 3 s halten | **Alle Waagen tarieren** (LEDs blinken weiß) |
 | Taster 3× | Roulette (im Party-Modus: Runde starten, dann Taster 1× = Los) |
 | Encoder-Knopf 3 s | Hotspot (mit Passwort) ein bzw. aus – ohne Heimnetz öffnet der Drescher ihn selbst, 3 s schaltet ihn dann aus · Rundumleuchte im Stillstand: schwach grün = Heimnetz verbunden, schwache blaue Blitze = Hotspot aktiv (Fahr-/Pump-Animation hat Vorrang) |
 

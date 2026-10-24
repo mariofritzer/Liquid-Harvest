@@ -1098,7 +1098,7 @@ function renderTab(){
       <p class="help">Die LED eines Glases stellst du unter LEDs → Zuordnung zu den Gläsern ein (z. B. Glas 1 → LED 6).</p></details>
       <button class="btn save" onclick="send({c:'tare',p:0})">Alle leeren Waagen tarieren</button>
       <button class="btn" style="width:100%;margin-top:10px" onclick="openDiag()">📈 Diagnose öffnen</button>
-      <p class="help"><b>Kalibrieren:</b> Waage leer lassen → <b>Tara</b>. Dann ein bekanntes Gewicht (z. B. 100-g-Gewicht oder 100 ml Wasser) auflegen, Gewicht eintragen → <b>Kalibrieren</b>. Nicht angeschlossene Waagen hier ausschalten.</p>`;
+      <p class="help"><b>Am Gerät:</b> Taster und Encoder-Knopf zusammen 3 s halten = alle Waagen tarieren.<br><b>Kalibrieren:</b> Waage leer lassen → <b>Tara</b>. Dann ein bekanntes Gewicht (z. B. 100-g-Gewicht oder 100 ml Wasser) auflegen, Gewicht eintragen → <b>Kalibrieren</b>. Nicht angeschlossene Waagen hier ausschalten.</p>`;
   }
   if(curTab==="servo"){
     const hi=CFG.angMax??180, P=POS_EDIT?POS_DRAFT:[CFG.angPark,...CFG.ang], f=v=>(+v).toFixed(1).replace(".",",");

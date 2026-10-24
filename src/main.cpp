@@ -825,6 +825,7 @@ static void partyLoop() {
 static bool somethingRunning() {
   return pourBusy() || roul.st == 2 || (stepperOn() && (homeSt == HOME_SEEK || homeSt == HOME_BACKOFF));
 }
+static bool somethingRunningExceptButtonPrime() { return somethingRunning() && !(pour.ph == PH_PRIME && pour.primeByButton); }
 static void emergencyStop(const char* why) {
   roul.st = roulMode ? 1 : 0;
   if (stepperOn() && (homeSt == HOME_SEEK || homeSt == HOME_BACKOFF)) homeSt = HOME_FAIL;
@@ -841,6 +842,32 @@ static void emergencyStop(const char* why) {
 static void inputLoop() {
   btn.update();
   encBtn.update();
+
+  // Taster + Encoder-Knopf zusammen 3 s halten = alle Waagen tarieren.
+  // Solange beide gedrückt sind, lösen die Einzelfunktionen (Klicks, Leerpumpen, Hotspot) nicht aus.
+  {
+    static uint32_t comboSince = 0;
+    static bool comboDone = false;
+    if (btn.stable && encBtn.stable && !somethingRunningExceptButtonPrime()) {
+      uint32_t now = millis();
+      if (!comboSince) {
+        comboSince = now; comboDone = false;
+        btn.consumed = encBtn.consumed = true; btn.clicks = encBtn.clicks = 0;
+        if (pour.ph == PH_PRIME && pour.primeByButton) { pumpSet(0); pour.ph = PH_IDLE; }   // Taster war zuerst lang gedrückt
+      } else if (!comboDone && now - comboSince >= 3000) {
+        comboDone = true;
+        for (int i = 0; i < NUM_PLACES; i++) Scales::tare(i);
+        settingsSave();
+        ledFlashColor = strip.Color(255, 255, 255); ledFlashUntil = now + 700;
+        Serial.println("[Waagen] Alle tariert (Taster + Encoder-Knopf)");
+        toast("⚖️ Alle Waagen tariert");
+      }
+      btn.clickResult = encBtn.clickResult = 0; btn.longResult = encBtn.longResult = false;
+      return;
+    }
+    if (!btn.stable && !encBtn.stable) comboSince = 0;
+    else if (comboSince) { btn.clickResult = encBtn.clickResult = 0; btn.longResult = encBtn.longResult = false; return; }   // einer schon losgelassen
+  }
 
   // Notaus: jeder Druck auf Taster oder Encoder-Knopf, solange etwas läuft
   // (außer beim Entlüften per gehaltenem Taster – da stoppt schon das Loslassen)
