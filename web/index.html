@@ -207,8 +207,9 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12.5px}
   </div>
   <div class="partyCard hide" id="roulCard" style="background:linear-gradient(135deg,#ffb40022,#ff3c3c14);border-color:#ffb40066">
     <div class="pc-h"><b>🎯 Roulette-Modus</b><span id="rcSt"></span></div>
-    <p id="rcTxt">Leere Gläser hinstellen – ein zufälliges gewinnt. Taster am Drescher = Los.</p>
-    <div class="pc-b"><button class="btn primary" id="rcGo" onclick="send({c:'roulette'})">🎯 Los!</button><button class="btn" onclick="send({c:'roulMode',on:false})">Beenden</button></div>
+    <p id="rcTxt">Leere Gläser hinstellen. 🎯 Zahl = so viele Gläser gewinnen, 🎲 = zufällige Anzahl. Am Drescher: Taster 1×, 2×, 3× … bzw. gedrückt halten.</p>
+    <div class="pc-b" id="rcBtns"></div>
+    <div class="pc-b" style="margin-top:8px"><button class="btn" style="flex:1" onclick="send({c:'roulMode',on:false})">Roulette beenden</button></div>
   </div>
   <div class="cleanBar warn hide" id="rbBar"><span id="rbBarT">⚠️</span><button class="sbtn" onclick="send({c:'rbAck'});this.parentNode.classList.add('hide')">OK</button></div>
   <div class="cleanBar hide" id="updBar"><span id="updBarT">⬆️ Neue Version</span><span style="display:flex;gap:6px"><button class="sbtn gold" onclick="openUpd()">Ansehen</button><button class="sbtn" onclick="updDismiss()" aria-label="Ausblenden">✕</button></span></div>
@@ -784,9 +785,13 @@ function drawDiag(){
 }
 function renderRoul(){
   const c=$("#roulCard"), on=!!(ST.rm&&!(ST.party&&ST.party.on)); c.classList.toggle("hide",!on); if(!on) return;
-  const P=ST.party||{}, empty=ST.pl.filter(p=>p.s===1).length, amt=CFG?(CFG.shotMl/10).toString().replace(".",","):"2", b=$("#rcGo");
-  if(P.rou===2){ b.textContent="dreht …"; b.disabled=true; $("#rcSt").textContent=""; }
-  else { b.textContent=empty?`🎯 Los! (${empty})`:"Gläser hinstellen …"; b.disabled=!empty||ST.busy; $("#rcSt").textContent=`Gewinn: ${amt} cl`; }
+  const P=ST.party||{}, empty=ST.pl.filter(p=>p.s===1).length, amt=CFG?(CFG.shotMl/10).toString().replace(".",","):"2";
+  const box=$("#rcBtns"), spin=P.rou===2, key=[spin,empty,!!ST.busy].join();
+  if(box.dataset.k!==key){ box.dataset.k=key;
+    box.innerHTML=spin?`<button class="btn primary" disabled style="flex:1">🎯 dreht …</button>`
+      :empty?[1,2,3].filter(n=>n<=empty).map(n=>`<button class="btn primary" style="flex:1;min-width:0;padding-left:4px;padding-right:4px" ${ST.busy?"disabled":""} onclick="send({c:'roulette',n:${n}})">🎯 ${n}</button>`).join("")+`<button class="btn" style="flex:1;min-width:0;padding-left:4px;padding-right:4px" ${ST.busy?"disabled":""} onclick="send({c:'roulette',n:0})">🎲</button>`
+      :`<button class="btn" disabled style="flex:1">leere Gläser hinstellen …</button>`; }
+  $("#rcSt").textContent=`je ${amt} cl · ${empty} leer`;
 }
 function renderParty(){
   renderRoul();
@@ -1011,7 +1016,7 @@ function renderTab(){
   if(curTab==="leds"){
     if(!LEDEDIT) LEDEDIT={n:CFG.ledCount||6,map:(CFG.ledMap||[[1],[2],[3],[4],[5],[6]]).map(a=>[...a]),
       col:[...ledCfg("ledCol")],lvl:[...ledCfg("ledLvl")],fx:[...ledCfg("ledFx")],bfx:[...ledCfg("btnFx")],bb:CFG.btnBright??100,gb:CFG.ledBright??60,
-      bm:[...(CFG.beaconMap||[])],bcol:CFG.beaconCol||"#FF8C00",blvl:CFG.beaconLvl??100,bxf:CFG.beaconFx??0,bsp:CFG.beaconSpeed??100,ai:CFG.apInd!==false,acol:CFG.apIndCol||"#0040FF",alvl:CFG.apIndLvl??15,si:CFG.staInd!==false,scol:CFG.staIndCol||"#00FF40",slvl:CFG.staIndLvl??6};
+      bm:[...(CFG.beaconMap||[])],bcol:CFG.beaconCol||"#FF8C00",blvl:CFG.beaconLvl??100,bxf:CFG.beaconFx??0,bsp:CFG.beaconSpeed??100,ri:CFG.roulInd!==false,rcol:CFG.roulCol||"#FFB400",rlvl:CFG.roulLvl??60,rsp:CFG.roulSpeed??100,ai:CFG.apInd!==false,acol:CFG.apIndCol||"#0040FF",alvl:CFG.apIndLvl??15,si:CFG.staInd!==false,scol:CFG.staIndCol||"#00FF40",slvl:CFG.staIndLvl??6};
     const E=LEDEDIT, cnt={}; [...E.map.flat(),...E.bm].forEach(v=>cnt[v]=(cnt[v]||0)+1);
     const bad=v=>!(v>=1&&v<=E.n)||cnt[v]>1;
     const ledRow=(v,inp,del)=>`<div class="f"><label>LED Nr.</label><input type="number" min="1" max="64" value="${v}" inputmode="numeric" style="${bad(v)?"border-color:var(--red);color:#ff8a8a":""}" onchange="${inp}"><button class="sbtn" onclick="send({c:'ledTest',leds:[${v}]})">Test</button><button class="sbtn red" onclick="${del}" aria-label="LED entfernen">✕</button></div>`;
@@ -1059,6 +1064,12 @@ function renderTab(){
       <div class="f"><label>Hotspot aktiv<small>kurzer Blitz alle 1,5 s</small></label><input type="checkbox" class="sw" ${E.ai?"checked":""} onchange="LEDEDIT.ai=this.checked"></div>
       <div class="f"><label>Farbe & Helligkeit</label><input type="color" value="${E.acol}" oninput="LEDEDIT.acol=this.value"><input type="range" min="1" max="60" value="${E.alvl}" style="width:30%" oninput="LEDEDIT.alvl=+this.value"></div>`;
     h+=`${E.bm.length<4?`<button class="btn" style="width:100%;margin:10px 0 0;padding:11px" onclick="beaconAdd()">+ LED hinzufügen</button>`:""}</details>`;
+    // Roulette-Lauflicht
+    h+=`<details class="card fold" data-k="roulled"><summary>Roulette-Modus</summary>
+      <div class="f"><label>Lauflicht über die Glas-LEDs<small>solange eine Roulette-Runde offen ist (Encoder-Knopf 3×)</small></label><input type="checkbox" class="sw" ${E.ri?"checked":""} onchange="LEDEDIT.ri=this.checked"></div>
+      <div class="f"><label>Farbe & Helligkeit</label><input type="color" value="${E.rcol}" oninput="LEDEDIT.rcol=this.value"><input type="range" min="5" max="100" value="${E.rlvl}" style="width:30%" oninput="LEDEDIT.rlvl=+this.value"></div>
+      <div class="f"><label>Geschwindigkeit</label><input type="range" min="25" max="300" step="5" value="${E.rsp}" style="width:38%" oninput="LEDEDIT.rsp=+this.value;$('#lrsp').textContent=this.value+' %'"><span id="lrsp" style="width:52px;text-align:right;white-space:nowrap">${E.rsp} %</span></div>
+      <button class="btn" style="width:100%;margin:8px 0 0" onclick="ledSave();setTimeout(()=>send({c:'roulMode',on:true}),400)">Speichern & Roulette-Modus testen</button></details>`;
     // Taster-LED
     const BN=[["Bereit","Rohr parkt, leere Gläser da – Klick = Auto-Fill"],["Keine Gläser","nichts zum Einschenken"],["Rohr über Glas","Klick schenkt ein"],["Rohr über leerem Platz","Klick hat keine Wirkung"],["Schenkt ein","Klick = Notstopp"],["Fehler","z. B. kein Durchfluss"],["Alle Gläser gefüllt","Prost!"]];
     const BF=["Aus","An","Gedimmt","Atmen","Pulsieren","Blinken","Doppelblitz"];
@@ -1866,7 +1877,7 @@ window.beaconAdd=()=>{ const e=$("#lc_n"); if(e) LEDEDIT.n=Math.max(1,Math.min(6
 window.ledTestGlass=i=>{ if(!LEDEDIT.map[i].length){ toast("Glas "+(i+1)+" hat keine LED"); return; } send({c:"ledTest",leds:LEDEDIT.map[i]}); };
 window.ledSave=()=>{ const e=$("#lc_n"); if(e) LEDEDIT.n=Math.max(1,Math.min(64,+e.value||1));
   const E=LEDEDIT;
-  send({c:"setCfg",cfg:{ledCount:E.n,ledMap:E.map,beaconMap:E.bm,beaconCol:E.bcol.toUpperCase(),beaconLvl:E.blvl,beaconSpeed:E.bsp,apInd:E.ai,apIndCol:E.acol.toUpperCase(),apIndLvl:E.alvl,staInd:E.si,staIndCol:E.scol.toUpperCase(),staIndLvl:E.slvl,beaconFx:(E.bm.length<2&&[1,3,4].includes(E.bxf))?0:E.bxf,ledBright:E.gb,ledCol:E.col.map(c=>c.toUpperCase()),ledLvl:E.lvl,ledFx:E.fx,btnFx:E.bfx,btnBright:E.bb}}); LEDEDIT=null; };
+  send({c:"setCfg",cfg:{ledCount:E.n,ledMap:E.map,beaconMap:E.bm,beaconCol:E.bcol.toUpperCase(),beaconLvl:E.blvl,beaconSpeed:E.bsp,roulInd:E.ri,roulCol:E.rcol.toUpperCase(),roulLvl:E.rlvl,roulSpeed:E.rsp,apInd:E.ai,apIndCol:E.acol.toUpperCase(),apIndLvl:E.alvl,staInd:E.si,staIndCol:E.scol.toUpperCase(),staIndLvl:E.slvl,beaconFx:(E.bm.length<2&&[1,3,4].includes(E.bxf))?0:E.bxf,ledBright:E.gb,ledCol:E.col.map(c=>c.toUpperCase()),ledLvl:E.lvl,ledFx:E.fx,btnFx:E.bfx,btnBright:E.bb}}); LEDEDIT=null; };
 window.ledCol=(i,k,v)=>{ const E=LEDEDIT; E[k][i]=v;
   const d=$("#lcd"+i); if(d){ d.style.background=E.col[i]; d.style.opacity=.25+.75*E.lvl[i]/100; }
   if(k==="lvl") $("#lcl"+i).textContent=v+" %";
@@ -1913,7 +1924,7 @@ window.toast=toast;window.exportSetup=exportSetup;window.startAugAdjust=startAug
 let SIM;
 function startDemo(){
   demo=true; $("#demoTag").classList.remove("hide"); setConn(true);
-  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2500,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,servoHoldPour:true,autoTune:true,pumpDriver:0,pumpInv:false,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,drive:0,servoAccel:360,stepRev:200,stepMicro:16,stepGear:1,stepDirInv:false,stepRelease:false,homeInv:false,homeSpeed:20,party:false,partyDelayMs:2000,partyMaxG:120,prof:[{n:"Schnaps"}],profIdx:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,beaconSpeed:100,apInd:true,apIndCol:"#0040FF",apIndLvl:15,staInd:true,staIndCol:"#00FF40",staIndLvl:6,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,scaleMap:[1,2,3,4,5,6],ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
+  SIM={cfg:{shotMl:20,doubleMl:40,density:.95,pwmFast:100,pwmSlow:35,slowBefore:3,stopBefore:.3,noFlowMs:3000,maxPourMs:30000,settleMs:400,parkAfter:true,glassMin:1.5,stableMs:500,angPark:0,ang:[18.3,36.7,55,73.3,91.7,110],servoSpeed:120,servoMinUs:500,servoMaxUs:2500,ledBright:60,servoReverse:false,servoRelease:true,servoHoldMs:700,servoHoldPour:true,autoTune:true,pumpDriver:0,pumpInv:false,retractMs:300,retractPwm:80,cleanShots:50,cleanDays:7,cleanRinseS:20,cleanDryS:10,cleanPos:0,drive:0,servoAccel:360,stepRev:200,stepMicro:16,stepGear:1,stepDirInv:false,stepRelease:false,homeInv:false,homeSpeed:20,party:false,partyDelayMs:2000,partyMaxG:120,prof:[{n:"Schnaps"}],profIdx:0,dripMs:800,angOff:0,angMax:120,beaconFx:0,shotsSinceClean:12,lastClean:0,beaconMap:[],beaconCol:"#FF8C00",beaconLvl:100,beaconSpeed:100,roulInd:true,roulCol:"#FFB400",roulLvl:60,roulSpeed:100,apInd:true,apIndCol:"#0040FF",apIndLvl:15,staInd:true,staIndCol:"#00FF40",staIndLvl:6,ledCol:[...LED_DEF.ledCol],ledLvl:[...LED_DEF.ledLvl],ledFx:[...LED_DEF.ledFx],btnFx:[...LED_DEF.btnFx],btnBright:100,ledCount:6,ledMap:[[1],[2],[3],[4],[5],[6]],encDiv:4,encReverse:false,imgOn:false,imgW:380,imgX:-240,imgY:-215,imgVer:0,augCol:"#2f8f4e",augW:11,augPX:0,augPY:0,augPZ:134,augEZ:134,augRiser:true,ui:"{}",offset:[0,0,0,0,0,0],factor:[420,420,420,420,420,420],enabledMask:63,scaleMap:[1,2,3,4,5,6],ssid:"Heimnetz",host:"liquidharvest",apAlways:false,hasPass:true,hasApPass:true},
     pl:[...Array(N)].map((_,i)=>({s:[1,0,1,2,1,0][i],tare:[2.1,0,24,24,2.3,0][i],w:[2.1,0,24,43,2.3,0][i]})),
     party:{on:false,n:0,ml:0,rou:0},upd:{st:0,on:true,new:"v1.8.1",av:true,ago:3,p:-1},stat:{sn:7,sml:140,tn:412,tml:8240,ss:Math.floor(Date.now()/1000)-7200},ang:0,tgt:0,aim:0,jobs:[],cur:null,pump:0,got:0,tgtMl:0,ph:"idle",t:0,up:5000};
   try{ const c=localStorage.getItem("lh_demo_cfg"); if(c) Object.assign(SIM.cfg,JSON.parse(c));
@@ -1944,8 +1955,8 @@ function demoCmd(o){
   if(o.c==="home"){toast("Demo: Referenzfahrt");return}
   if(o.c==="party"){ S.cfg.party=!!o.on; S.party={on:!!o.on,n:0,ml:0,rou:0}; toast(o.on?"🎉 Party-Modus an – Glas hinstellen, wird automatisch gefüllt":"Party-Modus aus"); return; }
   if(o.c==="roulOff"){ S.party.rou=0; S.rm=false; return; }
-  if(o.c==="roulMode"){ S.rm=!!o.on; S.party.rou=o.on?1:0; toast(o.on?"🎯 Roulette-Modus: leere Gläser hinstellen, Taster = Los":"Roulette-Modus aus"); return; }
-  if(o.c==="roulette"){ const P=S.party; if(!P.on||P.rou===1||S.rm){ const c=S.pl.map((p,i)=>p.s===1?i:-1).filter(i=>i>=0); if(!c.length){toast("Kein leeres Glas");return} P.rou=2; const t=c[Math.floor(Math.random()*c.length)]; let k=0; const seq=[0,1,2,3,4,5,4,3,2,1,0,1,2,3,4,5].concat([t]); const step=()=>{ if(k<seq.length){ S.aim=seq[k]+1; S.tgt=S.cfg.ang[seq[k]]; k++; setTimeout(step,k>seq.length-2?700:160);} else { P.rou=S.rm?1:0; toast("🎯 Glas "+(t+1)+" gewinnt!"); S.jobs.push({p:t,ml:S.cfg.shotMl,auto:1}); } }; step(); } else { P.rou=1; toast("🎯 Roulette-Runde: Gläser hinstellen, dann „Los“"); } return; }
+  if(o.c==="roulMode"){ S.rm=!!o.on; S.party.rou=o.on?1:0; toast(o.on?"🎯 Roulette-Modus: Taster n× = n Gläser, halten = Zufall":"Roulette-Modus aus"); return; }
+  if(o.c==="roulette"){ const P=S.party; if(!P.on||P.rou===1||S.rm){ const c=S.pl.map((p,i)=>p.s===1?i:-1).filter(i=>i>=0); if(!c.length){toast("Kein leeres Glas");return} P.rou=2; for(let k=c.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[c[k],c[j]]=[c[j],c[k]]} let n=o.n==null?1:o.n; if(n<=0) n=1+Math.floor(Math.random()*c.length); const W=c.slice(0,Math.min(n,c.length)), t=W[0]; let k=0; const seq=[0,1,2,3,4,5,4,3,2,1,0,1,2,3,4,5].concat([t]); const step=()=>{ if(k<seq.length){ S.aim=seq[k]+1; S.tgt=S.cfg.ang[seq[k]]; k++; setTimeout(step,k>seq.length-2?700:160);} else { P.rou=S.rm?1:0; toast(W.length>1?"🎯 Gläser "+W.map(x=>x+1).join(", ")+" gewinnen!":"🎯 Glas "+(t+1)+" gewinnt!"); W.forEach(x=>S.jobs.push({p:x,ml:S.cfg.shotMl,auto:1})); } }; step(); } else { P.rou=1; toast("🎯 Roulette-Runde: Gläser hinstellen, dann „Los“"); } return; }
   if(o.c==="roulEnd"){ S.party.rou=S.rm?1:0; return; }
   if(o.c==="diag"){ clearInterval(S.dgT); if(o.on){ const nz=[.05,.12,.08,.35,.06,.9]; S.dgT=setInterval(()=>{ const f=S.pl.map((p,i)=>+(p.w+(Math.random()-.5)*2*nz[i]*1.7).toFixed(2)); S.dgS=S.dgS||f.slice(); S.dgS=S.dgS.map((v,i)=>v+(f[i]-v)*.05); onMsg({t:"dg",hz:10,f,s:S.dgS.map(v=>+v.toFixed(2)),n:nz,ok:[1,1,1,1,1,1]}); },100); } return; }
   if(o.c==="updList"){onMsg({t:"rels",cur:"1.8.0",list:[{tag:"v1.8.1",d:"2026-10-24",kb:1195},{tag:"v1.8.0",d:"2026-10-20",kb:1193}]});return}

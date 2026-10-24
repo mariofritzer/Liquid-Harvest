@@ -40,7 +40,7 @@ static void clampAll() {
   cfg.cleanRinseS = constrain(cfg.cleanRinseS, (uint16_t)3, (uint16_t)120);
   cfg.cleanDryS  = constrain(cfg.cleanDryS, (uint16_t)3, (uint16_t)120);
   if (cfg.cleanPos > NUM_PLACES) cfg.cleanPos = 0;
-  cfg.beaconCol &= 0xFFFFFF; cfg.beaconLvl = min(cfg.beaconLvl, (uint8_t)100); cfg.beaconSpeed = constrain(cfg.beaconSpeed, (uint16_t)25, (uint16_t)300); cfg.apIndCol &= 0xFFFFFF; cfg.apIndLvl = constrain(cfg.apIndLvl, (uint8_t)1, (uint8_t)100); cfg.staIndCol &= 0xFFFFFF; cfg.staIndLvl = constrain(cfg.staIndLvl, (uint8_t)1, (uint8_t)100);
+  cfg.beaconCol &= 0xFFFFFF; cfg.beaconLvl = min(cfg.beaconLvl, (uint8_t)100); cfg.beaconSpeed = constrain(cfg.beaconSpeed, (uint16_t)25, (uint16_t)300); cfg.apIndCol &= 0xFFFFFF; cfg.apIndLvl = constrain(cfg.apIndLvl, (uint8_t)1, (uint8_t)100); cfg.staIndCol &= 0xFFFFFF; cfg.roulCol &= 0xFFFFFF; cfg.roulLvl = constrain(cfg.roulLvl, (uint8_t)5, (uint8_t)100); cfg.roulSpeed = constrain(cfg.roulSpeed, (uint16_t)25, (uint16_t)300); cfg.staIndLvl = constrain(cfg.staIndLvl, (uint8_t)1, (uint8_t)100);
   cfg.noFlowMs   = constrain(cfg.noFlowMs, (uint32_t)500, (uint32_t)30000);
   cfg.maxPourMs  = constrain(cfg.maxPourMs, (uint32_t)2000, (uint32_t)120000);
   cfg.settleMs   = constrain(cfg.settleMs, (uint32_t)0, (uint32_t)3000);
@@ -160,7 +160,8 @@ void settingsToJson(JsonObject o) {
   { JsonArray bm = o["beaconMap"].to<JsonArray>(); for (int k = 0; k < cfg.beaconN; k++) bm.add(cfg.beaconMap[k]);
     char hex[8]; snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.beaconCol); o["beaconCol"] = hex; o["beaconLvl"] = cfg.beaconLvl; o["beaconFx"] = cfg.beaconFx; o["beaconSpeed"] = cfg.beaconSpeed;
     snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.apIndCol); o["apIndCol"] = hex; o["apInd"] = cfg.apInd; o["apIndLvl"] = cfg.apIndLvl;
-    snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.staIndCol); o["staIndCol"] = hex; o["staInd"] = cfg.staInd; o["staIndLvl"] = cfg.staIndLvl; }
+    snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.staIndCol); o["staIndCol"] = hex; o["staInd"] = cfg.staInd; o["staIndLvl"] = cfg.staIndLvl;
+    snprintf(hex, sizeof(hex), "#%06X", (unsigned)cfg.roulCol); o["roulCol"] = hex; o["roulInd"] = cfg.roulInd; o["roulLvl"] = cfg.roulLvl; o["roulSpeed"] = cfg.roulSpeed; }
   o["noFlowMs"] = cfg.noFlowMs;   o["maxPourMs"] = cfg.maxPourMs;
   o["settleMs"] = cfg.settleMs; o["dripMs"] = cfg.dripMs;   o["parkAfter"] = cfg.parkAfter;
   o["glassMin"] = cfg.glassMin;   o["stableMs"] = cfg.stableMs;
@@ -229,7 +230,9 @@ void settingsFromJson(JsonObjectConst o) {
     rd(o, "beaconLvl", cfg.beaconLvl); rd(o, "beaconFx", cfg.beaconFx); rd(o, "beaconSpeed", cfg.beaconSpeed); rd(o, "apInd", cfg.apInd); rd(o, "apIndLvl", cfg.apIndLvl);
     const char* ah = o["apIndCol"] | ""; if (ah[0] == '#') cfg.apIndCol = strtoul(ah + 1, nullptr, 16);
     rd(o, "staInd", cfg.staInd); rd(o, "staIndLvl", cfg.staIndLvl);
-    const char* sh = o["staIndCol"] | ""; if (sh[0] == '#') cfg.staIndCol = strtoul(sh + 1, nullptr, 16); }
+    const char* sh = o["staIndCol"] | ""; if (sh[0] == '#') cfg.staIndCol = strtoul(sh + 1, nullptr, 16);
+    rd(o, "roulInd", cfg.roulInd); rd(o, "roulLvl", cfg.roulLvl); rd(o, "roulSpeed", cfg.roulSpeed);
+    const char* rh = o["roulCol"] | ""; if (rh[0] == '#') cfg.roulCol = strtoul(rh + 1, nullptr, 16); }
   rd(o, "noFlowMs", cfg.noFlowMs);   rd(o, "maxPourMs", cfg.maxPourMs);
   rd(o, "settleMs", cfg.settleMs); rd(o, "dripMs", cfg.dripMs);   rd(o, "parkAfter", cfg.parkAfter);
   rd(o, "glassMin", cfg.glassMin);   rd(o, "stableMs", cfg.stableMs);

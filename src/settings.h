@@ -100,6 +100,11 @@ struct Settings {
   uint8_t  beaconLvl = 100;
   uint16_t beaconSpeed = 100;
   // Status an der Rundumleuchte im Stillstand (die Fahr-/Pump-Animation hat immer Vorrang)
+  // Roulette-Modus: Lauflicht über die Glas-LEDs, solange eine Runde offen ist
+  bool     roulInd   = true;
+  uint32_t roulCol   = 0xFFB400;
+  uint8_t  roulLvl   = 60;
+  uint16_t roulSpeed = 100;       // %
   bool     staInd    = true;      // Heimnetz verbunden: schwach grün
   uint32_t staIndCol = 0x00FF40;
   uint8_t  staIndLvl = 6;         // Helligkeit in %

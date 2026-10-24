@@ -729,7 +729,7 @@ static void toggleForcedAP();
 // ---------------------------------------------------------------------
 //  Party-Modus + Roulette
 // ---------------------------------------------------------------------
-static struct { uint8_t st = 0; int target = -1; std::vector<int> seq; size_t pos = 0; uint32_t next = 0, armedAt = 0; } roul;
+static struct { uint8_t st = 0; int target = -1; std::vector<int> seq, wins; size_t pos = 0; uint32_t next = 0, armedAt = 0; } roul;
 static bool roulMode = false;   // Roulette-Modus (Encoder-Knopf 3×): jede Runde per Taster, bis er wieder aus ist
 static uint8_t roulState() { return roul.st; }   // 0 aus, 1 Runde offen (Gläser hinstellen), 2 dreht
 static bool roulBusy() { return roul.st == 2; }
@@ -748,12 +748,17 @@ static void partySet(bool on) {
   toast(on ? "🎉 Party-Modus an – Glas hinstellen, wird automatisch gefüllt" : "Party-Modus aus");
 }
 
-static void roulSpin() {
+// count Gläser gewinnen (verschiedene, zufällig); count <= 0 = zufällige Anzahl
+static void roulSpin(int count = 1) {
   std::vector<int> cand;
   for (int i = 0; i < NUM_PLACES; i++) if (places[i].st == P_GLASS && !pourActiveOn(i)) cand.push_back(i);
   if (cand.empty()) { toast("Kein leeres Glas für Roulette"); roul.st = roulMode ? 1 : 0; return; }
   for (int i : cand) places[i].autoDone = true;              // Party: die anderen nicht automatisch füllen
-  roul.target = cand[esp_random() % cand.size()];
+  if (count <= 0) count = 1 + esp_random() % cand.size();
+  count = min(count, (int)cand.size());
+  for (int k = cand.size() - 1; k > 0; k--) std::swap(cand[k], cand[esp_random() % (k + 1)]);   // mischen
+  roul.wins.assign(cand.begin(), cand.begin() + count);
+  roul.target = roul.wins[0];
   // Fahrweg: alle Plätze mit Glas der Reihe nach, zwei Runden hin und her, dann auf das Ziel
   std::vector<int> order;
   for (int i = 0; i < NUM_PLACES; i++) if (places[i].st != P_NONE) order.push_back(i);
@@ -777,7 +782,7 @@ static void roulModeSet(bool on) {
   roul.st = on ? 1 : (roul.st == 2 ? 2 : 0);
   ledFlashColor = on ? strip.Color(255, 180, 0) : strip.Color(255, 0, 0);
   ledFlashUntil = millis() + 900;
-  toast(on ? "🎯 Roulette-Modus: leere Gläser hinstellen, Taster = Los" : "Roulette-Modus aus");
+  toast(on ? "🎯 Roulette-Modus: Taster n× = n Gläser, halten = Zufall" : "Roulette-Modus aus");
 }
 
 static void partyLoop() {
@@ -792,11 +797,14 @@ static void partyLoop() {
       roul.next = now + (left <= 1 ? 600 : left <= 3 ? 350 : 60);
       roul.pos++;
     } else {
-      int t = roul.target;
       roul.st = roulMode ? 1 : 0;   // im Roulette-Modus gleich die nächste Runde
-      event("roulette", t);
-      toast("🎯 Glas " + String(t + 1) + " gewinnt!");
-      if (places[t].st == P_GLASS) enqueue(t, cfg.shotMl, SRC_AUTO);
+      String w;
+      for (int t : roul.wins) {
+        event("roulette", t);
+        w += (w.length() ? ", " : "") + String(t + 1);
+        if (places[t].st == P_GLASS) enqueue(t, cfg.shotMl, SRC_AUTO);
+      }
+      toast(roul.wins.size() > 1 ? "🎯 Gläser " + w + " gewinnen!" : "🎯 Glas " + w + " gewinnt!");
     }
     return;
   }
@@ -842,8 +850,12 @@ static void inputLoop() {
     return;
   }
 
+  // Roulette-Runde offen: Taster n× = n Gläser gewinnen, gedrückt halten = zufällige Anzahl
+  if (roul.st == 1 && !pourBusy()) {
+    if (btn.clickResult) { roulSpin(btn.clickResult); btn.clickResult = 0; }
+    if (btn.longResult) { roulSpin(0); btn.longResult = false; }
+  }
   if (btn.clickResult >= 3 && !pourBusy()) { roulButton(); btn.clickResult = 0; }
-  if (btn.clickResult == 1 && roulState() == 1) { roulButton(); btn.clickResult = 0; }   // Roulette-Runde: Klick = Los
   if (btn.clickResult && !pourBusy()) {
     float ml = btn.clickResult >= 2 ? cfg.doubleMl : cfg.shotMl;
     bool ok = aimIdx == 0 ? autofill(ml) > 0 : enqueue(aimIdx - 1, ml, SRC_BUTTON);
@@ -930,6 +942,20 @@ static void ledsLoop() {
     else if (pl.st == P_FILLED)               c = stateColor(4, now);   // fertig
     else if (cfg.party)                        c = partyIdleColor(i, now); // Party: Farbwelle auf leeren Plätzen
     else                                       c = stateColor(0, now);   // kein Glas
+    // Roulette-Runde offen: Lauflicht über die Plätze (nach Winkel sortiert), mit der Zustandsfarbe gemischt
+    if (cfg.roulInd && roul.st == 1 && !pourBusy() && (cfg.enabledMask & (1 << cfg.scaleMap[i]))) {
+      int rank = 0; for (int j = 0; j < NUM_PLACES; j++) if (cfg.ang[j] < cfg.ang[i] || (cfg.ang[j] == cfg.ang[i] && j < i)) rank++;
+      float per = 1600.0f * 100.0f / cfg.roulSpeed;                  // eine Fahrt hin und zurück
+      float ph = fmodf(now, per) / per * 2 * (NUM_PLACES - 1);
+      float head = ph <= NUM_PLACES - 1 ? ph : 2 * (NUM_PLACES - 1) - ph;
+      float f = max(0.0f, 1.0f - fabsf(head - rank) / 1.3f); f *= f;
+      float k = f * cfg.roulLvl / 100.0f * cfg.ledBright / 100.0f;
+      uint32_t rc = cfg.roulCol;
+      uint8_t r1 = max((uint8_t)((c >> 16) & 255), (uint8_t)(((rc >> 16) & 255) * k));
+      uint8_t g1 = max((uint8_t)((c >> 8) & 255), (uint8_t)(((rc >> 8) & 255) * k));
+      uint8_t b1 = max((uint8_t)(c & 255), (uint8_t)((rc & 255) * k));
+      c = strip.Color(r1, g1, b1);
+    }
     placeCol[i] = c;
   }
   // Jede LED bekommt die Farbe ihres Glases; nicht zugeordnete LEDs bleiben aus
@@ -1306,7 +1332,10 @@ static void handleCmd(const String& msg) {
   } else if (c == "party") {
     partySet(d["on"] | false);
   } else if (c == "roulette") {
-    if (pourBusy()) toast("Erst fertig einschenken"); else roulButton();
+    int n = d["n"] | 1;
+    if (pourBusy()) toast("Erst fertig einschenken");
+    else if (roul.st == 1) roulSpin(n);
+    else roulButton();
   } else if (c == "roulOff") {
     if (roulMode) roulModeSet(false); else if (roul.st == 1) roul.st = 0;
   } else if (c == "roulMode") {
