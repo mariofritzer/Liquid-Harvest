@@ -144,7 +144,7 @@ Exportdatei aus der App als `setup/default-setup.json` ins Repo legen – der Bu
 
 1. Firmware über den Web-Installer flashen, WLAN eintragen.
 2. Oberfläche öffnen → ⚙️ **Waagen**: jede Waage leer *Tara*, dann bekanntes Gewicht auflegen → *Kalibrieren*.
-3. ⚙️ **Servo**: *Bereich einlernen* (Min/Max), dann *Winkel bearbeiten* anhaken, Parkposition und die 6 Glaspositionen mit den Reglern live einstellen → *Winkel speichern*.
+3. ⚙️ **Servo**: *Bereich einlernen* (Min/Max), dann *Winkel bearbeiten* anhaken, Parkposition und die 6 Glaspositionen live einstellen – mit Schieber oder (Haken *Mit −/+ einstellen*) mit −1°/+1° bzw. ±0,1° → *Winkel speichern*. *Ab 0°* fährt zuerst auf 0° und dann zur Position (zeigt die echte Anfahrt). Nicht benutzte Plätze lassen sich per Schalter deaktivieren – sie werden nie angefahren oder befüllt, der Drehknopf überspringt sie (ab 1.15.0).
 
    <img src="docs/images/app-servo.png" width="220" alt="Servo-Einstellungen">
 

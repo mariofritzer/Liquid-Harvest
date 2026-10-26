@@ -150,7 +150,7 @@ void loop() {
 // ---- Öffentliche Funktionen: Index = Glas-Platz, intern wird auf die Waage (HX711) umgesetzt
 static inline int C(int p) { return cfg.scaleMap[constrain(p, 0, NUM_PLACES - 1)]; }
 uint32_t seq()            { return seqNo; }
-bool     ok(int p)        { int i = C(p); return healthy[i] && histN[i] >= 3; }
+bool     ok(int p)        { if (p < 0 || p >= NUM_PLACES || !(cfg.posMask & (1 << p))) return false; int i = C(p); return healthy[i] && histN[i] >= 3; }
 float    g(int p)         { return gFast[C(p)]; }
 float    gs(int p)        { return gSmooth[C(p)]; }
 int32_t  raw(int p)       { return (int32_t)rawSm[C(p)]; }

@@ -62,6 +62,7 @@ struct Pour {
 
 static int   aimIdx = 0;            // 0 = Park, 1..6 = Glas
 static float servoCur = 0, servoTgt = 0;
+static float servoNext = NAN;        // "Anfahren ab 0°": nach Erreichen von 0° hierhin weiterfahren
 static uint8_t pumpPct = 0;
 static uint32_t btnErrUntil = 0;
 static uint32_t btnAckUntil = 0;   // Taster-LED kurz aus = Klick angenommen
@@ -310,10 +311,14 @@ static void servoWrite(float deg) {
   servoPowered = true;
 }
 
+// Platz benutzt (Position aktiv) und seine Waage vorhanden
+static bool placeOn(int i) { return i >= 0 && i < NUM_PLACES && (cfg.posMask & (1 << i)) && (cfg.enabledMask & (1 << cfg.scaleMap[i])); }
+
 static float angleFor(int idx) { return idx <= 0 ? cfg.angPark : cfg.ang[idx - 1]; }
 
 static void aim(int idx) {
   if (teach) return;
+  servoNext = NAN;
   aimIdx = constrain(idx, 0, NUM_PLACES);
   servoTgt = angleFor(aimIdx);
 }
@@ -373,6 +378,7 @@ static void servoLoop() {
   float dt = min(0.1f, (now - last) / 1e6f);
   last = now;
   if (stepperOn() && homeSt != HOME_OK) { vel = 0; return; }
+  if (!isnan(servoNext) && servoArrived()) { servoTgt = servoNext; servoNext = NAN; }   // 0° erreicht -> weiter zum Ziel
   // Rampe mit Beschleunigung: sanft anfahren und rechtzeitig bremsen (schont Getriebe und Rohr)
   float diff = servoTgt - servoCur;
   if (fabsf(diff) < 0.02f) { servoCur = servoTgt; vel = 0; }
@@ -823,7 +829,7 @@ static void partyLoop() {
 // Roulette, Referenzfahrt). Pumpe sofort aus, Warteschlange leer, Rohr bleibt stehen, im Party-Modus
 // werden die gerade stehenden Gläser nicht sofort weitergefüllt.
 static bool somethingRunning() {
-  return pourBusy() || roul.st == 2 || (stepperOn() && (homeSt == HOME_SEEK || homeSt == HOME_BACKOFF));
+  return pourBusy() || roul.st == 2 || !isnan(servoNext) || (stepperOn() && (homeSt == HOME_SEEK || homeSt == HOME_BACKOFF));
 }
 static bool somethingRunningExceptButtonPrime() { return somethingRunning() && !(pour.ph == PH_PRIME && pour.primeByButton); }
 static void emergencyStop(const char* why) {
@@ -831,7 +837,7 @@ static void emergencyStop(const char* why) {
   if (stepperOn() && (homeSt == HOME_SEEK || homeSt == HOME_BACKOFF)) homeSt = HOME_FAIL;
   stopAll(why);
   pumpSet(0);
-  servoTgt = servoCur;
+  servoTgt = servoCur; servoNext = NAN;
   if (stepperOn()) { portENTER_CRITICAL(&stepMux); stepTgt = stepCur; portEXIT_CRITICAL(&stepMux); }
   for (auto& pl : places) if (pl.st == P_GLASS) pl.autoDone = true;
   btnErrUntil = millis() + 1500;
@@ -910,7 +916,10 @@ static void inputLoop() {
     int dir = acc > 0 ? 1 : -1;
     acc -= dir * cfg.encDiv;
     if (cfg.encReverse) dir = -dir;
-    if (!pourBusy()) aim(aimIdx + dir);
+    if (pourBusy()) continue;
+    int n = aimIdx + dir;                                  // deaktivierte Plätze überspringen
+    while (n >= 1 && n <= NUM_PLACES && !(cfg.posMask & (1 << (n - 1)))) n += dir;
+    if (n >= 0 && n <= NUM_PLACES) aim(n);
   }
 }
 
@@ -959,7 +968,7 @@ static void ledsLoop() {
   for (int i = 0; i < NUM_PLACES; i++) {
     const Place& pl = places[i];
     uint32_t c;
-    if (!(cfg.enabledMask & (1 << cfg.scaleMap[i]))) c = 0;
+    if (!placeOn(i)) c = 0;
     else if (now < ledPrevUntil)              c = fxColor(ledPrevCol, ledPrevLvl, ledPrevFx, now);   // Farbvorschau
     else if (now < pl.errUntil)               c = stateColor(5, now);   // Fehler
     else if (!Scales::ok(i))                  c = stateColor(6, now);   // Waage defekt
@@ -970,7 +979,7 @@ static void ledsLoop() {
     else if (cfg.party)                        c = partyIdleColor(i, now); // Party: Farbwelle auf leeren Plätzen
     else                                       c = stateColor(0, now);   // kein Glas
     // Roulette-Runde offen: Lauflicht über die Plätze (nach Winkel sortiert), mit der Zustandsfarbe gemischt
-    if (cfg.roulInd && roul.st == 1 && !pourBusy() && (cfg.enabledMask & (1 << cfg.scaleMap[i]))) {
+    if (cfg.roulInd && roul.st == 1 && !pourBusy() && placeOn(i)) {
       int rank = 0; for (int j = 0; j < NUM_PLACES; j++) if (cfg.ang[j] < cfg.ang[i] || (cfg.ang[j] == cfg.ang[i] && j < i)) rank++;
       float per = 1600.0f * 100.0f / cfg.roulSpeed;                  // eine Fahrt hin und zurück
       float ph = fmodf(now, per) / per * 2 * (NUM_PLACES - 1);
@@ -1275,7 +1284,11 @@ static void handleCmd(const String& msg) {
   } else if (c == "aim") {
     if (!pourBusy()) aim(p);
   } else if (c == "servo") {            // freier Winkel zum Einstellen
-    if (!pourBusy() && !teach) servoTgt = constrain((float)(d["a"] | 90.0f), 0.0f, cfg.angMax);
+    if (!pourBusy() && !teach) {
+      float a = constrain((float)(d["a"] | 90.0f), 0.0f, cfg.angMax);
+      if (d["from0"] | false) { servoTgt = 0; servoNext = a; }   // erst auf 0°, dann von dort zum Winkel
+      else { servoTgt = a; servoNext = NAN; }
+    }
   } else if (c == "teach") {
     bool on = d["on"] | false;
     if (on && !teach) {
@@ -1504,7 +1517,8 @@ static void buildState(String& out) {
     const Place& pl = places[i];
     o["s"] = pl.st;
     o["ok"] = Scales::ok(i);
-    o["en"] = (bool)(cfg.enabledMask & (1 << cfg.scaleMap[i]));
+    o["en"] = placeOn(i);
+    if (!(cfg.posMask & (1 << i))) o["off"] = true;   // Position deaktiviert
     // Anzeige mit Hysterese: letzte Stelle springt nicht bei jedem Rauschen
     static float shown[NUM_PLACES];
     float gsv = Scales::gs(i);

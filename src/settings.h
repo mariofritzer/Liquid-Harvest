@@ -140,6 +140,7 @@ struct Settings {
   int32_t  offset[NUM_PLACES] = {0, 0, 0, 0, 0, 0};
   float    factor[NUM_PLACES] = {420, 420, 420, 420, 420, 420};  // Rohwert pro Gramm
   uint8_t  enabledMask = 0x3F;    // Bit i = Waage i+1 vorhanden
+  uint8_t  posMask = 0x3F;        // Bit p = Glasplatz p+1 benutzt (deaktiviert = wird nie angefahren/befüllt)
 
   // --- WLAN ---
   String   ssid;
